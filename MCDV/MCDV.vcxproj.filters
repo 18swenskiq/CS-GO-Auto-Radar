@@ -1,0 +1,115 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Header Files\valve">
+      <UniqueIdentifier>{7bab7443-7d1a-49fe-b941-c9d9d0dbaf93}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\math">
+      <UniqueIdentifier>{0b54e0e4-2189-4f29-bda8-9189202872e1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\valve\lumps">
+      <UniqueIdentifier>{785843b8-1e06-43fa-a956-e59135ec825c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="OpenGL">
+      <UniqueIdentifier>{35efb423-4a85-4253-8b28-3afbe1d90981}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="OpenGL\Shader Files">
+      <UniqueIdentifier>{4fc6d485-9fd0-4183-b874-e287a3ea1b54}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="OpenGL\stb">
+      <UniqueIdentifier>{8e9551e2-9fc1-4ae6-9979-c9ab83e8cfeb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="OpenGL\engine">
+      <UniqueIdentifier>{ba697338-0a0c-4917-a742-5e182f96f7be}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="interpolation.h">
+      <Filter>Header Files\math</Filter>
+    </ClInclude>
+    <ClInclude Include="util.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="lumps_geometry.hpp">
+      <Filter>Header Files\valve\lumps</Filter>
+    </ClInclude>
+    <ClInclude Include="generic.hpp">
+      <Filter>Header Files\valve\lumps</Filter>
+    </ClInclude>
+    <ClInclude Include="vbsp.hpp">
+      <Filter>Header Files\valve</Filter>
+    </ClInclude>
+    <ClInclude Include="vtx.hpp">
+      <Filter>Header Files\valve</Filter>
+    </ClInclude>
+    <ClInclude Include="vvd.hpp">
+      <Filter>Header Files\valve</Filter>
+    </ClInclude>
+    <ClInclude Include="lumps_visibility.hpp">
+      <Filter>Header Files\valve\lumps</Filter>
+    </ClInclude>
+    <ClInclude Include="tbsp.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="gamelump.hpp">
+      <Filter>Header Files\valve\lumps</Filter>
+    </ClInclude>
+    <ClInclude Include="stb_image.h">
+      <Filter>OpenGL\stb</Filter>
+    </ClInclude>
+    <ClInclude Include="Shader.hpp">
+      <Filter>OpenGL\engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Mesh.hpp">
+      <Filter>OpenGL\engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Texture.hpp">
+      <Filter>OpenGL\engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Camera.hpp">
+      <Filter>OpenGL\engine</Filter>
+    </ClInclude>
+    <ClInclude Include="GameObject.hpp">
+      <Filter>OpenGL\engine</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="glad.c">
+      <Filter>OpenGL</Filter>
+    </ClCompile>
+    <ClCompile Include="GLFWUtil.hpp">
+      <Filter>OpenGL\engine</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="lit.fs">
+      <Filter>OpenGL\Shader Files</Filter>
+    </None>
+    <None Include="lit.vs">
+      <Filter>OpenGL\Shader Files</Filter>
+    </None>
+    <None Include="unlit.fs">
+      <Filter>OpenGL\Shader Files</Filter>
+    </None>
+    <None Include="unlit.vs">
+      <Filter>OpenGL\Shader Files</Filter>
+    </None>
+    <None Include="depth.fs">
+      <Filter>OpenGL\Shader Files</Filter>
+    </None>
+    <None Include="depth.vs">
+      <Filter>OpenGL\Shader Files</Filter>
+    </None>
+  </ItemGroup>
+</Project>
