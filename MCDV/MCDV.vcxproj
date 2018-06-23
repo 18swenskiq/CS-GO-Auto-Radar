@@ -73,6 +73,10 @@
     <IncludePath>$(ProjectDir)../deps/inc;$(IncludePath)</IncludePath>
     <LibraryPath>$(ProjectDir)../deps/lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <IncludePath>$(ProjectDir)../deps/inc;$(IncludePath)</IncludePath>
+    <LibraryPath>$(ProjectDir)../deps/lib;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -101,6 +105,7 @@
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>glfw3.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -125,12 +130,16 @@
     <ClInclude Include="lumps_visibility.hpp" />
     <ClInclude Include="Mesh.hpp" />
     <ClInclude Include="GameObject.hpp" />
+    <ClInclude Include="nav.hpp" />
+    <ClInclude Include="radar.hpp" />
     <ClInclude Include="Shader.hpp" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="tbsp.hpp" />
     <ClInclude Include="Texture.hpp" />
     <ClInclude Include="util.h" />
     <ClInclude Include="vbsp.hpp" />
+    <ClInclude Include="vdf.hpp" />
+    <ClInclude Include="VectorOctTree.hpp" />
     <ClInclude Include="vtx.hpp" />
     <ClInclude Include="vvd.hpp" />
   </ItemGroup>

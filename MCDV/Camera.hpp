@@ -27,14 +27,16 @@ private:
 	//Used for true fps control
 	glm::vec3 travelFront = glm::vec3(0.0f, 0.0f, 1.0f);
 
-	float yaw = 90.0f;
-	float pitch = 0.0f;
+
 
 	util_keyHandler* keyHandler;
 public:
 	glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, 1.0f);
 	glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 	glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, -16.0f);
+
+	float yaw = 90.0f;
+	float pitch = 0.0f;
 
 	float sensitivity = 0.05f;
 	float speed = 2.5f;
@@ -184,11 +186,13 @@ void Camera::mouseUpdate(double xpos, double ypos, bool isClicking)
 
 glm::mat4 Camera::getViewMatrix()
 {
+	//return glm::lookAt(glm::vec3(0, 0, 10), glm::vec3(0, 0, 10) + glm::vec3(0, 0, -1), glm::vec3(1, 0, 0));
 	return glm::lookAt(this->cameraPos, this->cameraPos + this->cameraFront, this->cameraUp);
 }
 
 glm::mat4 Camera::getProjectionMatrix()
 {
+	//return glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, 0.1f, 100.0f);
 	return glm::perspective(glm::radians(fov / 2), (float)window_width / (float)window_height, near_z, far_z);
 }
 

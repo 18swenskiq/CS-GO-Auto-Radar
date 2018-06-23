@@ -80,6 +80,18 @@
     <ClInclude Include="GameObject.hpp">
       <Filter>OpenGL\engine</Filter>
     </ClInclude>
+    <ClInclude Include="nav.hpp">
+      <Filter>Header Files\valve</Filter>
+    </ClInclude>
+    <ClInclude Include="VectorOctTree.hpp">
+      <Filter>OpenGL\engine</Filter>
+    </ClInclude>
+    <ClInclude Include="vdf.hpp">
+      <Filter>Header Files\valve</Filter>
+    </ClInclude>
+    <ClInclude Include="radar.hpp">
+      <Filter>Header Files\valve</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">

@@ -2,9 +2,11 @@
 #include <string>
 #include <fstream>
 #include <iostream>
+#include <limits>
 
 #include "util.h"
 #include "interpolation.h"
+#include "VectorOctTree.hpp"
 
 #include "generic.hpp"
 #include "lumps_geometry.hpp"
@@ -527,66 +529,74 @@ public:
 		for (int i = 0; i < this->faces.size(); i++) {
 			bsp::face face = this->faces[i];
 
-			std::vector<bsp::vertex> vertices;
-			for (int e = face.firstEdge; e < face.firstEdge + face.numEdges; e++) {
-				//edge_indexes.push_back);
-				int index = this->surfEdges[e];
-				if (index >= 0) //Trace forwards
-				{
-					vertices.push_back(this->vertices[this->edges[index].vertex[0]]);
-					vertices.push_back(this->vertices[this->edges[index].vertex[1]]);
+			if (face.dispInfo == -1 || true)
+			{
+				std::vector<bsp::vertex> vertices;
+				for (int e = face.firstEdge; e < face.firstEdge + face.numEdges; e++) {
+					//edge_indexes.push_back);
+					int index = this->surfEdges[e];
+					if (index >= 0) //Trace forwards
+					{
+						vertices.push_back(this->vertices[this->edges[index].vertex[0]]);
+						vertices.push_back(this->vertices[this->edges[index].vertex[1]]);
+					}
+					else
+					{
+						vertices.push_back(this->vertices[this->edges[std::abs(index)].vertex[1]]);
+						vertices.push_back(this->vertices[this->edges[std::abs(index)].vertex[0]]);
+					}
 				}
-				else
-				{
-					vertices.push_back(this->vertices[this->edges[std::abs(index)].vertex[1]]);
-					vertices.push_back(this->vertices[this->edges[std::abs(index)].vertex[0]]);
+
+				//Get face normal
+				glm::vec3 normal = this->planes[face.planeNum].normal;
+				if (face.side != 0)
+					normal = -normal;
+
+				normal = glm::normalize(normal);
+
+				//Write to verts array
+				for (int v = 1; v < vertices.size() - 1; v++) {
+					//Get verts positions
+					bsp::vertex v0 = vertices[0];
+					bsp::vertex v1 = vertices[v];
+					bsp::vertex v2 = vertices[v + 1];
+
+					//Write
+					verts.push_back(v0.position.x* 0.01f);
+					verts.push_back(v0.position.z* 0.01f);
+					verts.push_back(-v0.position.y* 0.01f);
+
+
+					verts.push_back(normal.x);
+					verts.push_back(normal.z);
+					verts.push_back(-normal.y);
+
+
+					verts.push_back(v1.position.x* 0.01f);
+					verts.push_back(v1.position.z* 0.01f);
+					verts.push_back(-v1.position.y* 0.01f);
+
+
+					verts.push_back(normal.x);
+					verts.push_back(normal.z);
+					verts.push_back(-normal.y);
+
+
+					verts.push_back(v2.position.x* 0.01f);
+					verts.push_back(v2.position.z* 0.01f);
+					verts.push_back(-v2.position.y* 0.01f);
+
+
+					verts.push_back(normal.x);
+					verts.push_back(normal.z);
+					verts.push_back(-normal.y);
 				}
 			}
 
-			//Get face normal
-			glm::vec3 normal = this->planes[face.planeNum].normal;
-			if (face.side != 0)
-				normal = -normal;
+			//Deal with displacements
+			else
+			{
 
-			normal = glm::normalize(normal);
-
-			//Write to verts array
-			for (int v = 1; v < vertices.size() -1; v++) {
-				//Get verts positions
-				bsp::vertex v0 = vertices[0];
-				bsp::vertex v1 = vertices[v];
-				bsp::vertex v2 = vertices[v + 1];
-
-				//Write
-				verts.push_back(v0.position.x* 0.01f);
-				verts.push_back(v0.position.z* 0.01f);
-				verts.push_back(v0.position.y* 0.01f);
-				
-
-				verts.push_back(normal.x);
-				verts.push_back(normal.z);
-				verts.push_back(normal.y);
-				
-
-				verts.push_back(v1.position.x* 0.01f);
-				verts.push_back(v1.position.z* 0.01f);
-				verts.push_back(v1.position.y* 0.01f);
-				
-
-				verts.push_back(normal.x);
-				verts.push_back(normal.z);
-				verts.push_back(normal.y);
-				
-
-				verts.push_back(v2.position.x* 0.01f);
-				verts.push_back(v2.position.z* 0.01f);
-				verts.push_back(v2.position.y* 0.01f);
-				
-
-				verts.push_back(normal.x);
-				verts.push_back(normal.z);
-				verts.push_back(normal.y);
-				
 			}
 			
 			if (i > 35000) {
@@ -594,6 +604,64 @@ public:
 				break;
 			}
 		}
+
+		return verts;
+	}
+
+	static std::vector<float> genVertAlpha(std::vector<float> source, std::vector<float> mask) {
+		std::cout << "Generating vertex alpha mask" << std::endl;
+		std::cout << "Vertices to process :: " << source.size() / 6 << std::endl;
+		std::cout << "Mask vertices :: " << mask.size() / 6 << std::endl;
+
+		std::vector<glm::vec3> maskverts;
+		for (int i = 0; i < mask.size() / 6; i++) {
+			maskverts.push_back(glm::vec3(mask[i * 6 + 0], mask[i * 6 + 1], mask[i * 6 + 2]));
+		}
+
+		std::vector<glm::vec3> bspverts;
+		for (int i = 0; i < source.size() / 6; i++) {
+			bspverts.push_back(glm::vec3(source[i * 6 + 0], source[i * 6 + 1], source[i * 6 + 2]));
+		}
+
+		//Generate oct tree for mask vertices
+		octree::Tree cloud(maskverts, 2);
+
+		std::vector<float> verts; //Vertex output
+
+		std::cout << "Processing" << std::endl;
+
+		int _c = 0;
+
+		for (int i = 0; i < bspverts.size(); i++) {
+			glm::vec3 v0 = bspverts[i];
+
+			octree::Node* tNode = cloud.head.getNodeByVec(v0);
+			std::vector<glm::vec3*> points = tNode->getContainedValues();
+
+			//Initialize smallest distance to infinity
+			float mindist = std::numeric_limits<float>::infinity();
+
+			for (int x = 0; x < points.size(); x++) {
+				float d = glm::distance(*points[x], v0);
+				if (d < mindist)
+					mindist = d;
+			}
+
+			verts.push_back(v0.x); verts.push_back(v0.y); verts.push_back(v0.z);
+			verts.push_back(0); verts.push_back(0); verts.push_back(1);
+
+			verts.push_back(mindist * 0.05f);
+
+			_c++;
+
+			if (_c > 1000) {
+				std::cout << "% " << ((float)i / (float)bspverts.size())*100.0f << std::endl;
+				std::cout << "Completed " << i << "verts" << std::endl;
+				_c = 0;
+			}
+		}
+
+		std::cout << "Done!!" << std::endl;
 
 		return verts;
 	}
