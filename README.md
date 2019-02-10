@@ -41,6 +41,7 @@ Look downwards and set YAW to 0
 
 # How to open your map?
 Drag and drop the nav mesh and bsp file onto the exe and it opens them (They should be placed next to the .exe otherwise things break)
+
 ![](https://i.imgur.com/tgTDJm8.png)
 
 # Download:
@@ -52,4 +53,4 @@ Intended for use with [Yanzl](https://github.com/gortnarj)'s radar generator sub
 
 ![](https://i.imgur.com/gQ2TLRC.png)
 
-Submit any issues on this git repository, and send suggestions to hgodden00@gmail.com / Terri#9839 on discord
+Submit any issues on this git repository, and send suggestions to hgodden00@gmail.com / Terri00#9530 on discord
