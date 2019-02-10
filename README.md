@@ -40,12 +40,12 @@ View NAV
 Look downwards and set YAW to 0
 
 # How to open your map?
-Drag and drop the nav mesh and bsp file onto the exe and it opens them
+Drag and drop the nav mesh and bsp file onto the exe and it opens them (They should be placed next to the .exe otherwise things break)
 ![](https://i.imgur.com/tgTDJm8.png)
 
 # Download:
 Keep in mind its the first version and only tested on very few maps
-http://www.harrygodden.com/downloads/RadarTools1.0.0.zip
+http://www.harrygodden.com/downloads/mcdv_with_dll_s_this_time.zip
 
 ## Misc... 
 Intended for use with [Yanzl](https://github.com/gortnarj)'s radar generator substance graph, example:
