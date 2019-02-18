@@ -46,7 +46,9 @@ Drag and drop the nav mesh and bsp file onto the exe and it opens them (They sho
 
 # Download:
 Keep in mind its the first version and only tested on very few maps
-http://www.harrygodden.com/downloads/mcdv_with_dll_s_this_time.zip
+http://www.harrygodden.com/downloads/csgo-heightmap-tools-1.0.1.zip
+
+Thanks to the patient few for testing.
 
 ## Misc... 
 Intended for use with [Yanzl](https://github.com/gortnarj)'s radar generator substance graph, example:
