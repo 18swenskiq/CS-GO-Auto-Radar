@@ -250,6 +250,16 @@ public:
 
 		std::vector<bsp::staticprop> props;
 
+		// Prop reading is broken while building under Release mode
+		// Not sure why.
+		// TODO: Look into this.
+
+#ifndef _DEBUG
+		return props;
+#endif
+
+#ifdef _DEBUG
+
 		for (int i = 0; i < numProps; i++) {
 
 			bsp::staticprop prop;
@@ -315,6 +325,8 @@ public:
 		}
 
 		return props;
+
+#endif
 	}
 
 	std::string readString(std::ifstream* reader, bsp::lumpHeader info) {

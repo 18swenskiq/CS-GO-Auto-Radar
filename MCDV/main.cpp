@@ -38,8 +38,8 @@ float lastFrame = 0.0f;
 
 bool isClicking = false;
 
-double mousex;
-double mousey;
+double mousex = 0.0;
+double mousey = 0.0;
 
 Camera camera;
 
@@ -61,8 +61,8 @@ Radar* _radar;
 float M_ORTHO_SIZE = 20.0f;
 
 int main(int argc, char* argv[]) {
-	std::string _FILE_BSP = "";
-	std::string _FILE_NAV = "";
+	std::string _FILE_BSP = "D:\\Users\\Harry\\Source\\Repos\\MCDV\\Release\\killhouse.bsp";
+	std::string _FILE_NAV = "D:\\Users\\Harry\\Source\\Repos\\MCDV\\Release\\killhouse.nav";
 
 	for (int i = 1; i < argc; ++i) {
 		char* _arg = argv[i];

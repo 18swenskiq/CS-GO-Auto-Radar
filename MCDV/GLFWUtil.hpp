@@ -8,6 +8,8 @@ public:
 	bool getKeyDown(int key) {
 		if (glfwGetKey(this->windowHandle, key) == GLFW_PRESS)
 			return true;
+
+		return false;
 	}
 
 	util_keyHandler(GLFWwindow* window) {
