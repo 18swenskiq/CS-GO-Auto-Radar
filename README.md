@@ -45,6 +45,9 @@ Drag and drop the nav mesh and bsp file onto the exe and it opens them (They sho
 ![](https://i.imgur.com/tgTDJm8.png)
 
 # Download:
+This tool requires Visual C++ 2017 redistributables, you can donwload them here:
+https://aka.ms/vs/15/release/vc_redist.x64.exe
+
 Keep in mind its the first version and only tested on very few maps
 http://www.harrygodden.com/downloads/csgo-heightmap-tools-1.0.1.zip
 
