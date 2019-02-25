@@ -47,6 +47,7 @@ Drag and drop the nav mesh and bsp file onto the exe and it opens them (They sho
 # Download:
 This tool requires Visual C++ 2017 redistributables, you can donwload them here:
 https://aka.ms/vs/15/release/vc_redist.x64.exe (64 bit)
+
 https://aka.ms/vs/15/release/vc_redist.x86.exe (32 bit)
 
 Keep in mind its the first version and only tested on very few maps
