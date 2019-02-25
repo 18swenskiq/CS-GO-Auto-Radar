@@ -27,6 +27,22 @@ namespace util {
 	};
 }
 
+template <class T>
+std::string to_string(T t, std::ios_base & (*f)(std::ios_base&))
+{
+	std::ostringstream oss;
+	oss << f << t;
+	return oss.str();
+}
+
+//Split only on whitespace
+std::vector<std::string> split(std::string const &input) {
+	std::istringstream buffer(input);
+	std::vector<std::string> ret((std::istream_iterator<std::string>(buffer)),
+		std::istream_iterator<std::string>());
+	return ret;
+}
+
 std::vector<std::string> split(std::string string, char delim)
 {
 	std::stringstream cStream(string);

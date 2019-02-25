@@ -116,21 +116,21 @@ void Camera::handleInput(float deltaTime)
 	if (!isNoclip)
 		travelDir = this->travelFront;
 
-	if (keyHandler->getKeyDown(GLFW_KEY_LEFT_SHIFT))
+	if (keyHandler->getKey(GLFW_KEY_LEFT_SHIFT))
 		this->speed = 20.0f;
 	else
 		this->speed = 2.5f;
 
-	if (keyHandler->getKeyDown(GLFW_KEY_W))
+	if (keyHandler->getKey(GLFW_KEY_W))
 		cameraPos += speed * travelDir * deltaTime;
 
-	if (keyHandler->getKeyDown(GLFW_KEY_S))
+	if (keyHandler->getKey(GLFW_KEY_S))
 		cameraPos -= speed * travelDir * deltaTime;
 
-	if (keyHandler->getKeyDown(GLFW_KEY_A))
+	if (keyHandler->getKey(GLFW_KEY_A))
 		cameraPos -= glm::normalize(glm::cross(travelDir, cameraUp)) * speed * deltaTime;
 
-	if (keyHandler->getKeyDown(GLFW_KEY_D))
+	if (keyHandler->getKey(GLFW_KEY_D))
 		cameraPos += glm::normalize(glm::cross(travelDir, cameraUp)) * speed * deltaTime;
 }
 

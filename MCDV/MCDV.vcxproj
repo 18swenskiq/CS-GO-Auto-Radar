@@ -124,6 +124,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Camera.hpp" />
+    <ClInclude Include="Console.hpp" />
+    <ClInclude Include="FrameBuffer.hpp" />
     <ClInclude Include="gamelump.hpp" />
     <ClInclude Include="interpolation.h" />
     <ClInclude Include="generic.hpp" />
@@ -135,7 +137,9 @@
     <ClInclude Include="radar.hpp" />
     <ClInclude Include="Shader.hpp" />
     <ClInclude Include="stb_image.h" />
+    <ClInclude Include="stb_image_write.h" />
     <ClInclude Include="tbsp.hpp" />
+    <ClInclude Include="TextFont.hpp" />
     <ClInclude Include="Texture.hpp" />
     <ClInclude Include="util.h" />
     <ClInclude Include="vbsp.hpp" />
@@ -154,8 +158,13 @@
     <None Include="depth.vs" />
     <None Include="lit.fs" />
     <None Include="lit.vs" />
+    <None Include="textfont.fs" />
+    <None Include="textfont.vs" />
     <None Include="unlit.fs" />
     <None Include="unlit.vs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="dina-r.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
