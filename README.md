@@ -4,45 +4,36 @@ Retrieved height information using the tool:
 
 ![](https://i.imgur.com/gd1OC8g.png)
 
-# View navmesh
-![](https://i.imgur.com/otVYWou.png)
+# How to use
+To get started, drag and drop your nav mesh or bsp file onto the exe and it will open up. 
 
-# BSP
-![](https://i.imgur.com/riwQt1G.png)
+Make sure the BSP / NAV files are in the same folder as the .exe!!!
 
-# Adjust in 3D
-![](https://i.imgur.com/jmLhXap.png)
+From there, everything is operated through a 'console' like interface. Type HELP to get a list of commands and variables you can change.
 
-# Controls:
-The controls for the software consist of the scroll wheel to adjust values back and fourth, and then number keys to select which 'mode' you are adjusting
+![](https://i.imgur.com/vmQ6BDa.gif)
 
-## Modes:
-### 1 
-Edit minimum height
-### 2
-Edit maximum height
-### 9
-Edit orthographic scale
+List of commands:
 
-## Toggles:
-### 5
-View in perspective mode
-### 6
-View in orthographic
+| Commands						   | Info                             |
+|----------------------------------|----------------------------------|
+| QUIT / EXIT                      | Closes (wow!)                    |
+| NAV                              | View nav mesh                    |
+| BSP                              | View bsp file                    |
+| HELP                             | Helps you out                    |
+| PERSPECTIVE / PERSP              | Switches to perspective view     |
+| ORTHOGRAPHIC / ORTHO             | Switches to orthographic view    |
+| OSIZE / SIZE <int>               | Changes the orthographic scale   |
+| LOOKDOWN                         | Sets yaw to 0, pitch to -90      |
+| RENDER                           | Renders the view to render.png   |
+| RENDERMODE <int>                 | Same as nav/bsp switch           |
+| PROJMATRIX <int>                 | Same as persp/ortho              |
+| MIN    <int>                     | Minimum levels of height (units) |
+| MAX    <int>                     | Maximum levels of height (units) |
+| FARZ <int>                       | Far clip plane of the camera     |
+| NEARZ <int>                      | Near clip plane of the camera    |
 
-### 7
-View BSP
-### 8
-View NAV
-
-## Actions:
-### 0
-Look downwards and set YAW to 0
-
-# How to open your map?
-Drag and drop the nav mesh and bsp file onto the exe and it opens them (They should be placed next to the .exe otherwise things break)
-
-![](https://i.imgur.com/tgTDJm8.png)
+& WASD to fly around, Mouse click and drag to look
 
 # Download:
 This tool requires Visual C++ 2017 redistributables, you can donwload them here:
@@ -50,8 +41,7 @@ https://aka.ms/vs/15/release/vc_redist.x64.exe (64 bit)
 
 https://aka.ms/vs/15/release/vc_redist.x86.exe (32 bit)
 
-Keep in mind its the first version and only tested on very few maps
-http://www.harrygodden.com/downloads/csgo-heightmap-tools-1.0.1.zip
+http://www.harrygodden.com/downloads/csgoheightmap.zip
 
 Thanks to the patient few for testing.
 
