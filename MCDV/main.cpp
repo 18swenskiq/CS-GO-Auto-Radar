@@ -4,6 +4,7 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <direct.h>
 
 #include <regex>
 
@@ -26,6 +27,11 @@
 #include <glm\glm.hpp>
 #include <glm\gtc\matrix_transform.hpp>
 #include <glm\gtc\type_ptr.hpp>
+
+#ifdef WIN32
+#include <windows.h>
+#include <Commdlg.h>
+#endif
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window, util_keyHandler keys);
@@ -71,6 +77,9 @@ std::string _filesrc_nav;
 
 Radar* _radar;
 
+Mesh* mesh_map_bsp = NULL;
+Mesh* mesh_map_nav = NULL;
+
 int M_ORTHO_SIZE = 20;
 
 // Runtime UI stuffz
@@ -86,6 +95,81 @@ void _ccmd_perspective() { SV_PERSPECTIVE = 0; }
 void _ccmd_orthographic() { SV_PERSPECTIVE = 1; }
 void _ccmd_render_image() { T_ARM_FOR_FB_RENDER = true; }
 void _ccmd_reset_ang() { camera.pitch = -90; camera.yaw = 0; camera.mouseUpdate(0, 0, true); }
+
+// Some windows stuff
+#ifdef WIN32
+void _ccmd_open_nav_win() {
+	OPENFILENAME ofn;       // common dialog box structure
+	char szFile[260];       // buffer for file name
+							//HWND hwnd;              // owner window
+	HANDLE hf;              // file handle
+							// Initialize OPENFILENAME
+	ZeroMemory(&ofn, sizeof(ofn));
+	ofn.lStructSize = sizeof(ofn);
+	//ofn.hwndOwner = hwnd;
+	ofn.lpstrFile = szFile;
+	// Set lpstrFile[0] to '\0' so that GetOpenFileName does not 
+	// use the contents of szFile to initialize itself.
+	ofn.lpstrFile[0] = '\0';
+	ofn.nMaxFile = sizeof(szFile);
+	ofn.lpstrFilter = "Nav Mesh\0*.NAV\0";
+	ofn.nFilterIndex = 1;
+	ofn.lpstrFileTitle = NULL;
+	ofn.nMaxFileTitle = 0;
+	ofn.lpstrInitialDir = NULL;
+	ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+
+	// Display the Open dialog box. 
+
+	if (GetOpenFileName(&ofn) == TRUE) {
+
+		Nav::Mesh bob(ofn.lpstrFile);
+		//mesh_map_nav->~Mesh(); //Destroy old mesh
+		mesh_map_nav = new Mesh(bob.generateGLMesh());
+		
+	}
+	else {
+		console.FeedBack("Couldn't read file. (getopenfilename)");
+		mesh_map_nav = NULL;
+	}
+}
+
+void _ccmd_open_bsp_win() {
+	OPENFILENAME ofn;       // common dialog box structure
+	char szFile[260];       // buffer for file name
+							//HWND hwnd;              // owner window
+	HANDLE hf;              // file handle
+							// Initialize OPENFILENAME
+	ZeroMemory(&ofn, sizeof(ofn));
+	ofn.lStructSize = sizeof(ofn);
+	//ofn.hwndOwner = hwnd;
+	ofn.lpstrFile = szFile;
+	// Set lpstrFile[0] to '\0' so that GetOpenFileName does not 
+	// use the contents of szFile to initialize itself.
+	ofn.lpstrFile[0] = '\0';
+	ofn.nMaxFile = sizeof(szFile);
+	ofn.lpstrFilter = "BSP file\0*.BSP\0";
+	ofn.nFilterIndex = 1;
+	ofn.lpstrFileTitle = NULL;
+	ofn.nMaxFileTitle = 0;
+	ofn.lpstrInitialDir = NULL;
+	ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+
+	// Display the Open dialog box. 
+
+	if (GetOpenFileName(&ofn) == TRUE) {
+
+		vbsp_level bsp_map(ofn.lpstrFile, true);
+		mesh_map_bsp = new Mesh(bsp_map.generate_bigmesh());
+
+	}
+	else {
+		console.FeedBack("Couldn't read file. (getopenfilename)");
+		mesh_map_bsp = NULL;
+	}
+}
+#endif
+
 void _ccmd_help() {
 	console.FeedBack(R"TERRI00(
 
@@ -122,9 +206,22 @@ Commands:
 )TERRI00", MSG_STATUS::SUCCESS);
 }
 
+void _ccmd_thanks() {
+	console.FeedBack(R"TERRI00(
+
+Thank you:
+   JamDoggie
+   CrTech
+   JimWood)TERRI00", MSG_STATUS::THANKS);
+}
+
 int main(int argc, char* argv[]) {
-	_filesrc_bsp = "D:\\Users\\Harry\\Source\\Repos\\MCDV\\Debug\\killhouse.bsp";
-	_filesrc_nav = "D:\\Users\\Harry\\Source\\Repos\\MCDV\\Debug\\killhouse.nav";
+	_filesrc_bsp = "none";
+	_filesrc_nav = "none";
+
+	_chdir(argv[0]); //Reset working directory
+
+	std::cout << argv[0] << std::endl;
 
 	for (int i = 1; i < argc; ++i) {
 		char* _arg = argv[i];
@@ -189,17 +286,14 @@ int main(int argc, char* argv[]) {
 
 	//Mesh handling -----------------------------------------------------------------------------
 
-	Mesh* t200 = NULL;
-	Mesh* t201 = NULL;
-
-	if (_filesrc_bsp != ""){
+	if (_filesrc_bsp != "none"){
 		vbsp_level bsp_map(_filesrc_bsp, true);
-		t200 = new Mesh(bsp_map.generate_bigmesh());
+		mesh_map_bsp = new Mesh(bsp_map.generate_bigmesh());
 	}
 
-	if (_filesrc_nav != "") {
+	if (_filesrc_nav != "none") {
 		Nav::Mesh bob(_filesrc_nav);
-		t201 = new Mesh(bob.generateGLMesh());
+		mesh_map_nav = new Mesh(bob.generateGLMesh());
 	}
 
 	//Radar rtest("de_overpass.txt");
@@ -216,23 +310,31 @@ int main(int argc, char* argv[]) {
 
 	TextFont::init(); //Setup textfonts before we use it
 
+					  /*
 	ui_text_info = new TextFont("Hello World!");
 	ui_text_info->size = glm::vec2(1.0f / window_width, 1.0f / window_height) * 2.0f;
 	ui_text_info->alpha = 1.0f;
 	ui_text_info->color = glm::vec3(0.75f, 0.75f, 0.75f);
-	ui_text_info->screenPosition = glm::vec2(0, (1.0f / window_height) * 15.0f);
-
+	ui_text_info->screenPosition = glm::vec2(0, (1.0f / window_height) * 15.0f); */
+	
+	
 	ui_text_loaded = new TextFont("Currently Loaded:\n   " + std::string(_filesrc_bsp) + "\n   " + std::string(_filesrc_nav));
 	ui_text_loaded->size = glm::vec2(1.0f / window_width, 1.0f / window_height) * 2.0f;
 	ui_text_loaded->alpha = 1.0f;
-	ui_text_loaded->color = glm::vec3(0.75f, 0.75f, 0.75f);
+	ui_text_loaded->color = glm::vec3(0.88f, 0.75f, 0.1f);
 	ui_text_loaded->screenPosition = glm::vec2(0, 1.0f - ((1.0f / window_height) * 45.0f));
 
-	update_globals_ui_text(ui_text_info); //Update globals
+	//update_globals_ui_text(ui_text_info); //Update globals
 
 	//Generate console
 	console = Console(&keys, &window_width, &window_height);
 	console.RegisterCVar("RENDERMODE", &SV_RENDERMODE);
+
+	//Experimental
+#ifdef WIN32
+	console.RegisterCmd("OPENNAV", &_ccmd_open_nav_win);
+	console.RegisterCmd("OPENBSP", &_ccmd_open_bsp_win);
+#endif
 
 	//Help
 	console.RegisterCmd("HELP", &_ccmd_help);
@@ -267,6 +369,9 @@ int main(int argc, char* argv[]) {
 	console.RegisterCVar("FARZ", &M_CLIP_FAR);
 	console.RegisterCVar("NEARZ", &M_CLIP_NEAR);
 
+	//Thanks
+	console.RegisterCmd("THANKS", &_ccmd_thanks);
+
 	//FrameBuffer t_frame_buffer = FrameBuffer();
 
 	//The main loop
@@ -289,7 +394,7 @@ int main(int argc, char* argv[]) {
 		}
 
 		//Rendering commands
-		glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
+		glClearColor(0.05f, 0.05f, 0.2f, 1.0f);
 
 
 		if(T_ARM_FOR_FB_RENDER) glClearColor(0.0f, 1.0f, 0.00f, 1.0f);
@@ -320,14 +425,14 @@ int main(int argc, char* argv[]) {
 		
 		if (SV_RENDERMODE == 0) {
 			glEnable(GL_CULL_FACE);
-			if (t200 != NULL)
-				t200->Draw();
+			if (mesh_map_bsp != NULL)
+				mesh_map_bsp->Draw();
 		}
 		
 		if (SV_RENDERMODE == 1) {
 			glDisable(GL_CULL_FACE);
-			if (t201 != NULL)
-				t201->Draw();
+			if (mesh_map_nav != NULL)
+				mesh_map_nav->Draw();
 		}
 
 

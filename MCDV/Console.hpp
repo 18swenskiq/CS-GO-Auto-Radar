@@ -10,13 +10,15 @@
 enum MSG_STATUS {
 	INFO = 0,
 	SUCCESS,
-	ERR
+	ERR,
+	THANKS
 };
 
 std::map<MSG_STATUS, glm::vec3> MSG_STATUS_COLOR {
 	{ MSG_STATUS::INFO, glm::vec3(0.75f, 0.75f, 0.75f) },
 	{ MSG_STATUS::SUCCESS, glm::vec3(0.2f, 1.0f, 0.2f) },
-	{ MSG_STATUS::ERR, glm::vec3(1.0f, 0.2f, 0.2f) }
+	{ MSG_STATUS::ERR, glm::vec3(1.0f, 0.2f, 0.2f) },
+	{ MSG_STATUS::THANKS, glm::vec3(0.8f, 0.3f, 0.75f) }
 };
 
 class Console{
@@ -93,8 +95,10 @@ public:
 
 			else if (this->cCmdBook.count(parts[0]) > 0) {
 				this->CallCmd(parts[0]);
-				if(parts[0] != "HELP")
-					this->FeedBack(std::string("Called: *") + parts[0] + std::string( " @ 0x") + to_string<unsigned int>((unsigned int)this->cCmdBook[parts[0]], std::hex));
+				if ((parts[0] == "HELP") || (parts[0] == "THANKS"))
+					return;
+
+				this->FeedBack(std::string("Called: *") + parts[0] + std::string( " @ 0x") + to_string<unsigned int>((unsigned int)this->cCmdBook[parts[0]], std::hex));
 			}
 
 			else {
