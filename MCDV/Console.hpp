@@ -59,12 +59,12 @@ public:
 	void RegisterCVar(std::string name, int* variableAddr) {
 		this->cVarBook.insert({ name, variableAddr });
 
-		std::cout << "Registered CVAR: " << name << " at address: 0x" <<std::hex << variableAddr << std::endl;
+		//std::cout << "Registered CVAR: " << name << " at address: 0x" <<std::hex << variableAddr << std::endl;
 	}
 
 	void RegisterCmd(std::string name, void* addr) {
 		this->cCmdBook.insert({ name, addr });
-		std::cout << "Registered CCMD: " << name << " at address: 0x" << std::hex << addr << std::endl;
+		//std::cout << "Registered CCMD: " << name << " at address: 0x" << std::hex << addr << std::endl;
 	}
 
 	void CallCmd(std::string name) {

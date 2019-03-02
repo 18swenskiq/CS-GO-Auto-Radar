@@ -144,6 +144,15 @@
     <None Include="textfont.fs">
       <Filter>OpenGL\Shader Files</Filter>
     </None>
+    <None Include="shaders\worldgrid.fs">
+      <Filter>OpenGL\Shader Files</Filter>
+    </None>
+    <None Include="shaders\worldgrid.vs">
+      <Filter>OpenGL\Shader Files</Filter>
+    </None>
+    <None Include="main.cpp.backup.temp">
+      <Filter>Source Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="dina-r.png">

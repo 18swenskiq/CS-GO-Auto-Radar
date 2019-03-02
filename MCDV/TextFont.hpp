@@ -101,6 +101,7 @@ public:
 			glDeleteBuffers(1, &this->VBO);
 		}
 
+
 		std::vector<float> verts;
 
 		float current_x = 0;

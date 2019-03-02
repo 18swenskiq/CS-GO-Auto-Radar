@@ -158,6 +158,9 @@
     <None Include="depth.vs" />
     <None Include="lit.fs" />
     <None Include="lit.vs" />
+    <None Include="main.cpp.backup.temp" />
+    <None Include="shaders\worldgrid.fs" />
+    <None Include="shaders\worldgrid.vs" />
     <None Include="textfont.fs" />
     <None Include="textfont.vs" />
     <None Include="unlit.fs" />

@@ -13,6 +13,10 @@
 #include <glm\gtc\matrix_transform.hpp>
 #include <glm\gtc\type_ptr.hpp>
 
+enum MeshMode {
+	POS_XYZ_TEXCOORD_UV
+};
+
 class Mesh {
 	int elementCount;
 
@@ -24,6 +28,33 @@ public:
 	Mesh() {
 		glGenVertexArrays(1, &this->VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, this->VBO);
+	}
+
+	Mesh(std::vector<float> vertices, MeshMode mode) {
+		if (vertices.size() <= 0)
+			return;
+
+		if (mode == MeshMode::POS_XYZ_TEXCOORD_UV) {
+			this->vertices = vertices;
+			this->elementCount = vertices.size() / 5;
+
+			// first, configure the cube's VAO (and VBO)
+			glGenVertexArrays(1, &this->VAO);
+			glGenBuffers(1, &this->VBO);
+
+			glBindBuffer(GL_ARRAY_BUFFER, this->VBO);
+			glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), &vertices[0], GL_STATIC_DRAW);
+
+			glBindVertexArray(this->VAO);
+
+			// position attribute
+			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+			glEnableVertexAttribArray(0);
+
+			//UV Coords
+			glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+			glEnableVertexAttribArray(1);
+		}
 	}
 
 	Mesh(std::vector<float> vertices) {

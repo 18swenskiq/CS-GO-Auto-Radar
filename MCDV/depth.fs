@@ -16,5 +16,5 @@ void main()
 {
 	float height = (Depth - HEIGHT_MIN) / HEIGHT_MAX;
 
-	FragColor = vec4(height, height, height, Alpha);
+	FragColor = vec4(height, height, height, 1.0);
 }
