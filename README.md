@@ -5,19 +5,19 @@ Retrieved height information using the tool:
 ![](https://i.imgur.com/gd1OC8g.png)
 
 # How to use
-To get started, drag and drop your nav mesh or bsp file onto the exe and it will open up. 
+Everything is operated through a 'console' like interface. Type HELP to get a list of commands and variables you can change.
 
-Make sure the BSP / NAV files are in the same folder as the .exe!!!
-
-From there, everything is operated through a 'console' like interface. Type HELP to get a list of commands and variables you can change.
+The primary three you need to know are: OPENBSP, OPENNAV & HELP
 
 ![](https://i.imgur.com/vmQ6BDa.gif)
 
 List of commands:
 
-| Commands						   | Info                             |
+| Commands						             | Info                             |
 |----------------------------------|----------------------------------|
 | QUIT / EXIT                      | Closes (wow!)                    |
+| OPENBSP                          | Opens a BSP file                 |
+| OPENNAV                          | Opens a NAV file                 |
 | NAV                              | View nav mesh                    |
 | BSP                              | View bsp file                    |
 | HELP                             | Helps you out                    |
