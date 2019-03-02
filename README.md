@@ -41,7 +41,7 @@ https://aka.ms/vs/15/release/vc_redist.x64.exe (64 bit)
 
 https://aka.ms/vs/15/release/vc_redist.x86.exe (32 bit)
 
-http://www.harrygodden.com/downloads/csgoheightmap.zip
+http://www.harrygodden.com/downloads/csgoheightmap1.5.2.zip
 
 Thanks to the patient few for testing.
 
