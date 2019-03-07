@@ -543,6 +543,8 @@ public:
 
 			if (face.dispInfo == -1 || true)
 			{
+				std::cout << " ~ " << this->texDataString[this->texinfos[face.texInfo].texdata] << std::endl;
+
 				std::vector<bsp::vertex> vertices;
 				for (int e = face.firstEdge; e < face.firstEdge + face.numEdges; e++) {
 					//edge_indexes.push_back);
