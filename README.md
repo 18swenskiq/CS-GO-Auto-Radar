@@ -18,6 +18,7 @@ List of commands:
 | QUIT / EXIT                      | Closes (wow!)                    |
 | OPENBSP                          | Opens a BSP file                 |
 | OPENNAV                          | Opens a NAV file                 |
+| OPEN                             | Open BSP / NAV (1.5.3+)          |
 | NAV                              | View nav mesh                    |
 | BSP                              | View bsp file                    |
 | HELP                             | Helps you out                    |
