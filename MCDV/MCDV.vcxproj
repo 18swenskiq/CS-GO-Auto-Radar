@@ -125,7 +125,9 @@
   <ItemGroup>
     <ClInclude Include="Camera.hpp" />
     <ClInclude Include="Console.hpp" />
+    <ClInclude Include="convexPolytope.h" />
     <ClInclude Include="FrameBuffer.hpp" />
+    <ClInclude Include="fuzzy_select.h" />
     <ClInclude Include="gamelump.hpp" />
     <ClInclude Include="interpolation.h" />
     <ClInclude Include="generic.hpp" />
@@ -134,6 +136,7 @@
     <ClInclude Include="Mesh.hpp" />
     <ClInclude Include="GameObject.hpp" />
     <ClInclude Include="nav.hpp" />
+    <ClInclude Include="plane.h" />
     <ClInclude Include="radar.hpp" />
     <ClInclude Include="Shader.hpp" />
     <ClInclude Include="stb_image.h" />
@@ -145,6 +148,7 @@
     <ClInclude Include="vbsp.hpp" />
     <ClInclude Include="vdf.hpp" />
     <ClInclude Include="VectorOctTree.hpp" />
+    <ClInclude Include="vmf.hpp" />
     <ClInclude Include="vtx.hpp" />
     <ClInclude Include="vvd.hpp" />
   </ItemGroup>
@@ -154,11 +158,11 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="depth.fs" />
     <None Include="depth.vs" />
     <None Include="lit.fs" />
     <None Include="lit.vs" />
     <None Include="main.cpp.backup.temp" />
+    <None Include="shaders\depth.fs" />
     <None Include="shaders\worldgrid.fs" />
     <None Include="shaders\worldgrid.vs" />
     <None Include="textfont.fs" />

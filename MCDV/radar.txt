@@ -1,0 +1,8 @@
+// TAVR - AUTO RADAR. v 2.0.0
+de_tavr_test
+{
+	"material" "overviews/de_tavr_test"
+	"posx" "-2304.000000"
+	"posy" "3584.000000"
+	"scale" "4.630000"
+}

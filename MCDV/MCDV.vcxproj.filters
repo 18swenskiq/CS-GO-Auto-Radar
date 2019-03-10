@@ -107,6 +107,18 @@
     <ClInclude Include="stb_image_write.h">
       <Filter>OpenGL\stb</Filter>
     </ClInclude>
+    <ClInclude Include="vmf.hpp">
+      <Filter>Header Files\valve</Filter>
+    </ClInclude>
+    <ClInclude Include="plane.h">
+      <Filter>Header Files\math</Filter>
+    </ClInclude>
+    <ClInclude Include="convexPolytope.h">
+      <Filter>Header Files\math</Filter>
+    </ClInclude>
+    <ClInclude Include="fuzzy_select.h">
+      <Filter>Header Files\math</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -132,9 +144,6 @@
     <None Include="unlit.vs">
       <Filter>OpenGL\Shader Files</Filter>
     </None>
-    <None Include="depth.fs">
-      <Filter>OpenGL\Shader Files</Filter>
-    </None>
     <None Include="depth.vs">
       <Filter>OpenGL\Shader Files</Filter>
     </None>
@@ -152,6 +161,9 @@
     </None>
     <None Include="main.cpp.backup.temp">
       <Filter>Source Files</Filter>
+    </None>
+    <None Include="shaders\depth.fs">
+      <Filter>OpenGL\Shader Files</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

@@ -64,11 +64,39 @@ namespace kv
 				}
 
 				if (strings.size() == 2) {
-					this->Values.insert({ strings[0], strings[1] });
+					// Fix for multiply defined key-values (THANKS VALVE APPRECIATE THAT)
+					std::string keyname = strings[0];
+					int i = -1;
+					while (this->Values.count(keyname + std::to_string(++i)));
+
+					this->Values.insert({ i > 0 ? keyname + std::to_string(i) : keyname, strings[1] });
 				}
 
 				prev = line;
 			}
+		}
+
+		void Serialize(std::ofstream& stream, int depth = 0)
+		{
+			//Build indentation levels
+			std::string indenta = "";
+			for (int i = 0; i < depth; i++)
+				indenta += "\t";
+			std::string indentb = indenta + "\t";
+
+			if (depth >= 0)
+				stream << indenta << this->name << std::endl << indenta << "{" << std::endl;
+
+			//Write kvs
+			for (auto const& x : this->Values)
+				stream << indentb << "\"" << x.first << "\" \"" << x.second << "\"" << std::endl;
+
+			//Write subdata recursively
+			for (int i = 0; i < this->SubBlocks.size(); i++) 
+				this->SubBlocks[i].Serialize(stream, depth + 1);
+
+			if (depth >= 0)
+				stream << indenta << "}" << std::endl;
 		}
 
 		//Scan for sub block with name
