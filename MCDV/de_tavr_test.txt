@@ -1,8 +1,10 @@
 // TAVR - AUTO RADAR. v 2.0.0
 de_tavr_test
 {
+	"TSpawn_x" "0.700000"
+	"TSpawn_y" "0.370000"
 	"material" "overviews/de_tavr_test"
-	"pos_x" "-2976.000000"
-	"pos_y" "1728.000000"
-	"scale" "5.560000"
+	"pos_x" "-2432.000000"
+	"pos_y" "3712.000000"
+	"scale" "4.880000"
 }

@@ -21,5 +21,5 @@ void main()
 {
 	float height = pow(remap(FragPos.y, HEIGHT_MIN, HEIGHT_MAX, 0, 1), 2.2);
 
-	FragColor = vec4(0, height, 1, 1.0);
+	FragColor = vec4(0, 1, 1, height);
 }

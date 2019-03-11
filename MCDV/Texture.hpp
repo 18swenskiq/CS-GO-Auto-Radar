@@ -17,6 +17,7 @@ public:
 	Texture(std::string filepath);
 
 	void bind();
+	void bindOnSlot(int slot);
 
 	~Texture();
 };
@@ -80,5 +81,10 @@ Texture::~Texture()
 
 void Texture::bind()
 {
+	glBindTexture(GL_TEXTURE_2D, this->texture_id);
+}
+
+void Texture::bindOnSlot(int slot = 0) {
+	glActiveTexture(GL_TEXTURE0 + slot);
 	glBindTexture(GL_TEXTURE_2D, this->texture_id);
 }

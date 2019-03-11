@@ -8,13 +8,15 @@
 #include "GLFWUtil.hpp"
 
 #include "Shader.hpp"
-//#include "Texture.hpp"
+#include "Texture.hpp"
 //#include "Camera.hpp"
 //#include "Mesh.hpp"
 //#include "GameObject.hpp"
 //#include "TextFont.hpp"
 //#include "Console.hpp"
-//#include "FrameBuffer.hpp"
+#include "FrameBuffer.hpp"
+
+#include "interpolation.h"
 
 #include <glm\glm.hpp>
 #include <glm\gtc\matrix_transform.hpp>
@@ -25,19 +27,19 @@
 #include "stb_image_write.h"
 
 void render_to_png(int x, int y, const char* filepath){
-	void* data = malloc(3 * x * y);
+	void* data = malloc(4 * x * y);
 
-	glReadPixels(0, 0, x, y, GL_RGB, GL_UNSIGNED_BYTE, data);
+	glReadPixels(0, 0, x, y, GL_RGBA, GL_UNSIGNED_BYTE, data);
 
 	if (data != 0) {
 		stbi_flip_vertically_on_write(true);
-		stbi_write_png(filepath, x, y, 3, data, x * 3);
+		stbi_write_png(filepath, x, y, 4, data, x * 4);
 	}
 }
 
 int main(int argc, char* argv[]) {
 	std::cout << "Loading VMF\n";
-	vmf::vmf vmf_main("blimey.vmf");
+	vmf::vmf vmf_main("de_tavr_test.vmf");
 
 	std::cout << "Initializing OpenGL\n";
 
@@ -69,39 +71,27 @@ int main(int argc, char* argv[]) {
 
 	glViewport(0, 0, 1024, 1024);
 
-	glClearColor(0.00f, 0.00f, 0.00f, 1.0f);
+	glClearColor(0.00f, 0.00f, 0.00f, 0.00f);
 
-#pragma endregion
+	std::cout << "Creating render buffers\n";
 
-#pragma region init_framebuffer
+	FrameBuffer fb_tex_playspace = FrameBuffer(1024, 1024);
+	FrameBuffer fb_tex_objectives = FrameBuffer(1024, 1024);
+	FrameBuffer fb_comp = FrameBuffer(1024, 1024);
 
-	unsigned int framebuffer;
-	glGenFramebuffers(1, &framebuffer);
-	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+	// Screenspace quad
+	std::cout << "Creating screenspace mesh\n";
 
-	// generate texture
-	unsigned int texColorBuffer;
-	glGenTextures(1, &texColorBuffer);
-	glBindTexture(GL_TEXTURE_2D, texColorBuffer);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1024, 1024, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glBindTexture(GL_TEXTURE_2D, 0);
+	std::vector<float> __meshData = {
+		-1, -1,
+		-1, 1,
+		1, -1,
+		-1, 1,
+		1, 1,
+		1, -1
+	};
 
-	// attach it to currently bound framebuffer object
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texColorBuffer, 0);
-
-	unsigned int rbo;
-	glGenRenderbuffers(1, &rbo);
-	glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, 1024, 1024);
-	glBindRenderbuffer(GL_RENDERBUFFER, 0);
-
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
-
-	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-		std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
-	//glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	Mesh* mesh_screen_quad = new Mesh(__meshData, MeshMode::SCREEN_SPACE_UV);
 
 #pragma endregion
 
@@ -141,14 +131,29 @@ int main(int argc, char* argv[]) {
 	glm::vec2 view_origin = glm::vec2(x_bounds_min - justify_x, y_bounds_max + justify_y);
 
 	std::cout << "done\n";
-#pragma endregion bounds
+#pragma endregion 
+
+#pragma region shader_compilation
 
 	std::cout << "Compiling Shaders\n";
+
+	// Engine shaders
 	Shader shader_depth("shaders/depth.vs", "shaders/depth.fs");
 	Shader shader_unlit("shaders/unlit.vs", "shaders/unlit.fs");
 
+	// Compositing shaders
+	Shader shader_comp_main("shaders/fullscreenbase.vs", "shaders/ss_test.fs"); // le big one
+
+	std::cout << "Loading textures\n";
+
+	Texture tex_background = Texture("textures/grid.png");
+
+#pragma endregion
+
 #pragma region render_playable_space
 	std::cout << "Rendering playable space...";
+
+	fb_tex_playspace.Bind(); //Bind framebuffer
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glPolygonMode(GL_FRONT, GL_FILL);
@@ -180,10 +185,12 @@ int main(int argc, char* argv[]) {
 	render_to_png(1024, 1024, "playable-space.png");
 
 	std::cout << "done!\n";
-#pragma endregion render_playable_space
+#pragma endregion 
 
-#pragma region render_buyzone_bombsites
+#pragma region render_objectives
 	std::cout << "Rendering bombsites & buyzones space...";
+
+	fb_tex_objectives.Bind();
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glPolygonMode(GL_FRONT, GL_FILL);
@@ -209,7 +216,7 @@ int main(int argc, char* argv[]) {
 	render_to_png(1024, 1024, "buyzone-bombtargets.png");
 
 	std::cout << "done!\n";
-#pragma endregion
+#pragma endregion 
 
 #pragma region generate_radar_txt
 
@@ -221,17 +228,52 @@ int main(int argc, char* argv[]) {
 	node_radar.Values.insert({ "pos_y", std::to_string(view_origin.y) });
 	node_radar.Values.insert({ "scale", std::to_string(render_ortho_scale / 1024.0f) });
 
+	// Try resolve spawn positions
+	glm::vec3* loc_spawnCT = vmf_main.calculateSpawnLocation(vmf::team::counter_terrorist);
+	glm::vec3* loc_spawnT = vmf_main.calculateSpawnLocation(vmf::team::terrorist);
+
+	if (loc_spawnCT != NULL) {
+		node_radar.Values.insert({ "CTSpawn_x", std::to_string(glm::round(remap(loc_spawnCT->x, view_origin.x, view_origin.x + render_ortho_scale, 0.0f, 1.0f) / 0.01f) * 0.01f) });
+		node_radar.Values.insert({ "CTSpawn_y", std::to_string(glm::round(remap(loc_spawnCT->y, view_origin.y, view_origin.y - render_ortho_scale, 0.0f, 1.0f) / 0.01f) * 0.01f) });
+	}
+	if (loc_spawnT != NULL) {
+		node_radar.Values.insert({ "TSpawn_x", std::to_string(glm::round(remap(loc_spawnT->x, view_origin.x, view_origin.x + render_ortho_scale, 0.0f, 1.0f) / 0.01f) * 0.01f) });
+		node_radar.Values.insert({ "TSpawn_y", std::to_string(glm::round(remap(loc_spawnT->y, view_origin.y, view_origin.y - render_ortho_scale, 0.0f, 1.0f) / 0.01f) * 0.01f) });
+	}
+
 	std::ofstream out("de_tavr_test.txt");
 	out << "// TAVR - AUTO RADAR. v 2.0.0\n";
 	node_radar.Serialize(out);
 	out.close();
 	
-#pragma endregion generate_radar_txt
+#pragma endregion 
 
 #pragma region compositing
+	std::cout << "Compositing... \n";
 
+	fb_comp.Bind();
 
-#pragma endregion compositing
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glPolygonMode(GL_FRONT, GL_FILL);
+
+	shader_comp_main.use();
+
+	tex_background.bindOnSlot(0);
+	shader_comp_main.setInt("tex_background", 0);
+
+	fb_tex_playspace.BindRTtoTexSlot(1);
+	shader_comp_main.setInt("tex_playspace", 1);
+
+	fb_tex_objectives.BindRTtoTexSlot(2);
+	shader_comp_main.setInt("tex_objectives", 2);
+
+	mesh_screen_quad->Draw();
+
+	render_to_png(1024, 1024, "1whammy.png");
+
+	std::cout << "Done\n";
+
+#pragma endregion 
 
 #pragma region auto_export_game
 

@@ -15,7 +15,8 @@
 
 enum MeshMode {
 	POS_XYZ_TEXCOORD_UV,
-	POS_XYZ_NORMAL_XYZ
+	POS_XYZ_NORMAL_XYZ,
+	SCREEN_SPACE_UV
 };
 
 class Mesh {
@@ -39,7 +40,6 @@ public:
 			this->vertices = vertices;
 			this->elementCount = vertices.size() / 5;
 
-			// first, configure the cube's VAO (and VBO)
 			glGenVertexArrays(1, &this->VAO);
 			glGenBuffers(1, &this->VBO);
 
@@ -60,7 +60,6 @@ public:
 			this->vertices = vertices;
 			this->elementCount = vertices.size() / 6;
 
-			// first, configure the cube's VAO (and VBO)
 			glGenVertexArrays(1, &this->VAO);
 			glGenBuffers(1, &this->VBO);
 
@@ -76,6 +75,22 @@ public:
 			// Normal vector
 			glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
 			glEnableVertexAttribArray(1);
+		}
+		else if (mode == MeshMode::SCREEN_SPACE_UV) {
+			this->vertices = vertices;
+			this->elementCount = vertices.size() / 2;
+
+			glGenVertexArrays(1, &this->VAO);
+			glGenBuffers(1, &this->VBO);
+
+			glBindBuffer(GL_ARRAY_BUFFER, this->VBO);
+			glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), &vertices[0], GL_STATIC_DRAW);
+
+			glBindVertexArray(this->VAO);
+
+			// position attribute
+			glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+			glEnableVertexAttribArray(0);
 		}
 	}
 

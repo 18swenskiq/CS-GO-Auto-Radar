@@ -15,6 +15,12 @@ namespace kv
 {
 	const std::regex reg_kv("(\"([^=\"]*)\")|([^=\\s]+)");
 
+	template<typename T>
+	T tryGetValue(std::map<std::string, std::string> map, const char* key, T defaultValue) {
+		if (!map.count(key)) return defaultValue;
+		return static_cast<T>(::atof(key));
+	}
+
 	class DataBlock
 	{
 	public:

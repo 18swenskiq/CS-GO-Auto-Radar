@@ -94,6 +94,12 @@ namespace vmf_parse {
 
 
 namespace vmf {
+
+	enum team {
+		terrorist,
+		counter_terrorist
+	};
+
 	struct BoundingBox {
 		glm::vec3 NWU;
 		glm::vec3 SEL;
@@ -293,7 +299,7 @@ namespace vmf {
 				glm::vec3 loc = glm::vec3();
 				if (block.Values.count("origin")) {							//Start with hammer origin
 					vmf_parse::Vector3f(block.Values["origin"], &loc);
-					ent.origin = glm::vec3(-loc.x, loc.z, loc.y);
+					ent.origin = glm::vec3(loc.x, loc.y, loc.z);
 				}
 				else if (block.GetFirstByName("solid") != NULL) {			//Try to process it from solid
 					//Get all solids
@@ -432,6 +438,44 @@ namespace vmf {
 				}
 			}
 			return list;
+		}
+
+		/* Gets a list of entities with matching classname */
+		std::vector<Entity*> findEntitiesByClassName(std::string classname) {
+			std::vector<Entity*> list;
+			for (auto && ent : this->entities) {
+				if (ent.classname == classname) {
+					list.push_back(&ent);
+				}
+			}
+			return list;
+		}
+
+		glm::vec3* calculateSpawnLocation(team _team) {
+
+			std::vector<Entity*> spawns = this->findEntitiesByClassName(_team == team::terrorist ? "info_player_terrorist" : "info_player_counterterrorist");
+
+			if (spawns.size() <= 0) return NULL;
+
+			//Find lowest priority (highest)
+			int lowest = kv::tryGetValue<int>(spawns[0]->keyValues, "priority", 0);
+			for (auto && s : spawns) {
+				int l = kv::tryGetValue<int>(s->keyValues, "priority", 0);
+				lowest = l < lowest ? l : lowest;
+			}
+
+			//Collect all spawns with that priority
+			glm::vec3* location = new glm::vec3();
+			int c = 0;
+			for (auto && s : spawns) {
+				if (kv::tryGetValue<int>(s->keyValues, "priority", 0) == lowest) {
+					*location += s->origin; c++;
+				}
+			}
+
+			//avg
+			*location = *location / (float)c;
+			return location;
 		}
 
 		void ComputeGLMeshes() {

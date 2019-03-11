@@ -163,6 +163,8 @@
     <None Include="lit.vs" />
     <None Include="main.cpp.backup.temp" />
     <None Include="shaders\depth.fs" />
+    <None Include="shaders\fullscreenbase.vs" />
+    <None Include="shaders\ss_test.fs" />
     <None Include="shaders\worldgrid.fs" />
     <None Include="shaders\worldgrid.vs" />
     <None Include="textfont.fs" />
