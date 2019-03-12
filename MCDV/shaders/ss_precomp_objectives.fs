@@ -1,6 +1,4 @@
 #version 330 core
-// Note:: All channels marked with an ** are currently not filled out by the engine.
-
 //                                         OPENGL
 // ____________________________________________________________________________________________
 in vec2 TexCoords;
@@ -13,7 +11,7 @@ uniform sampler2D tex_in;	// Background texture
 
 //                                       SHADER HELPERS
 // ____________________________________________________________________________________________
-//     ( A collection of simple blend modes )
+//     ( Simple sample with offset )
 vec2 pixel_size = 1.0 / vec2(textureSize(tex_in, 0));
 vec4 getSample(vec2 offset)
 {
@@ -28,20 +26,22 @@ void main()
 {
 	vec4 sIn = getSample(vec2(0,0));
 
-	int sampleCount = 32;
+	//Temp
+	int sampleCount = 64;
 	int outlineWidth = 1;
 
 	vec2 sT = vec2(0, 0);
-	vec2 thisHeight = vec2(1, 1)-getSample(vec2(0,0)).rg;
 
+	// Glow sampler ==========================================================
 	for(int x = 0; x <= sampleCount; x++)
 	{
 		for(int y = 0; y <= sampleCount; y++)
 		{
-			sT +=  vec2(1, 1)-getSample(vec2(-16 + x,-16 + y)).rg;
+			sT += (vec2(1, 1)-getSample(vec2(-32 + x,-32 + y)).rg) * (1 - ((abs(-32 +x) * abs(-32 +y)) / 512));
 		}
 	}
 
+	// Outline sampler =======================================================
 	vec2 olT = vec2(0, 0);
 	for(int x = 0; x <= outlineWidth * 2; x++)
 	{
@@ -54,9 +54,7 @@ void main()
 	float global_opacity = 0.25;
 
 	sT /= (sampleCount * sampleCount);
-	sT *= 0.5;
+	sT = vec2(pow(sT.r, 1.5), pow(sT.g, 1.5));
+	sT *= 0.75;
 	FragColor = vec4((sIn.r * olT.r) + (sIn.r * sT.r) + (sIn.r * global_opacity), (sIn.g * olT.g) + (sIn.g * sT.g) + (sIn.g * global_opacity), 0, sIn.r + sIn.g);
-	//r: sIn
-	//g: olT
-	//b: sT
 }

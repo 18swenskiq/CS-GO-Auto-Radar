@@ -1,6 +1,4 @@
 #version 330 core
-// Note:: All channels marked with an ** are currently not filled out by the engine.
-
 //                                         OPENGL
 // ____________________________________________________________________________________________
 in vec2 TexCoords;
@@ -13,7 +11,7 @@ uniform sampler2D tex_in;	// Background texture
 
 //                                       SHADER HELPERS
 // ____________________________________________________________________________________________
-//     ( A collection of simple blend modes )
+//     ( Simple sample with offset )
 vec2 pixel_size = 1.0 / vec2(textureSize(tex_in, 0));
 vec4 getSample(vec2 offset)
 {
@@ -33,12 +31,12 @@ void main()
 	} 
 	else
 	{
+		//Temp
 		int sampleCount = 32;
 		int outlineWidth = 2;
 
+		// Glow sampler ==========================================================
 		float sT = 0;
-		float thisHeight = getSample(vec2(0,0)).g;
-
 		for(int x = 0; x <= sampleCount; x++)
 		{
 			for(int y = 0; y <= sampleCount; y++)
@@ -47,8 +45,11 @@ void main()
 			}
 		}
 
+		//Adjust slightly
 		sT *= 2;
+		sT /= (sampleCount * sampleCount);
 
+		// Outline sampler =======================================================
 		float olT = 0;
 		for(int x = 0; x <= outlineWidth * 2; x++)
 		{
@@ -57,10 +58,7 @@ void main()
 				olT += getSample(vec2(-outlineWidth + x,-outlineWidth + y)).r;
 			}
 		}
-
-		clamp(olT, 0, 1);
-
-		sT /= (sampleCount * sampleCount);
+		
 		FragColor = vec4(sIn.r, sIn.g, sT, olT);
 	}
 }

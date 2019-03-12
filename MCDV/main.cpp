@@ -39,7 +39,7 @@ void render_to_png(int x, int y, const char* filepath){
 
 int main(int argc, char* argv[]) {
 	std::cout << "Loading VMF\n";
-	vmf::vmf vmf_main("map_01.vmf");
+	vmf::vmf vmf_main("de_tavr_test.vmf");
 
 	std::cout << "Initializing OpenGL\n";
 

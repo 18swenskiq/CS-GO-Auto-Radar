@@ -84,6 +84,12 @@ void main()
 	vec4 sPlayspace = vec4(texture(tex_playspace, TexCoords));
 	vec4 sObjectives = vec4(texture(tex_objectives, TexCoords));
 
+	vec4 final = sBackground;
+	final = blend_normal(final, ao_color, sPlayspace.b);
+	final = blend_normal(final, sample_gradient(sPlayspace.g), sPlayspace.r);
+	final = blend_normal(final, outline_color, sPlayspace.a - sPlayspace.r);
+	final = blend_add(final, sObjectives, sObjectives.a);
+
 	// Return the final output color
-	FragColor = blend_add(blend_normal(blend_normal(blend_normal(sBackground, ao_color, sPlayspace.b), sample_gradient(sPlayspace.g), sPlayspace.r), outline_color, sPlayspace.a -sPlayspace.r), sObjectives, sObjectives.a * 0.75);
+	FragColor = final;
 }
