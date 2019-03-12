@@ -75,8 +75,11 @@ vec4 sample_gradient(float height)
 //                                       SHADER PROGRAM
 // ____________________________________________________________________________________________
 //     ( Write all your shader code & functions here )
-vec4 outline_color = vec4(1.0, 1.0, 1.0, 1.0);
+vec4 outline_color = vec4(0.8, 0.8, 0.8, 0.6);
 vec4 ao_color = vec4(0.0, 0.0, 0.0, 1.0);
+
+vec4 buyzone_color = vec4(0.180, 0.828, 0.225, 0.667);
+vec4 objective_color = vec4(0.770, 0.295, 0.171, 1.000);
 
 void main()
 {
@@ -85,11 +88,12 @@ void main()
 	vec4 sObjectives = vec4(texture(tex_objectives, TexCoords));
 
 	vec4 final = sBackground;
-	final = blend_normal(final, ao_color, sPlayspace.b);
-	final = blend_normal(final, sample_gradient(sPlayspace.g), sPlayspace.r);
-	final = blend_normal(final, outline_color, sPlayspace.a - sPlayspace.r);
-	final = blend_add(final, sObjectives, sObjectives.a);
+	final = blend_normal(final, ao_color, sPlayspace.b);						// Drop shadow
+	final = blend_normal(final, sample_gradient(sPlayspace.g), sPlayspace.r);	// Playspace
+	final = blend_normal(final, outline_color, sPlayspace.a - sPlayspace.r);	// Outline
 
+	final = blend_normal(final, objective_color, sObjectives.r * sObjectives.a);					// Objectives
+	final = blend_normal(final, buyzone_color, sObjectives.g * sObjectives.a);						// Buyzones
 	// Return the final output color
 	FragColor = final;
 }

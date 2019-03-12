@@ -95,6 +95,17 @@ namespace vmf_parse {
 
 namespace vmf {
 
+	int current_line = 0;
+	int line_count = 0;
+	void progress_callback() {
+		current_line++;
+
+		if (current_line == line_count - 1)
+			std::cout << "Line " << current_line << "/" << line_count << "\n";
+		if(((current_line % 10000) == 0))
+			std::cout << "Line " << current_line << "/" << line_count << "\r";
+	}
+
 	enum team {
 		terrorist,
 		counter_terrorist
@@ -157,7 +168,6 @@ namespace vmf {
 	};
 
 	class vmf {
-	private:
 	public:
 		kv::FileData internal;
 		std::vector<Mesh> meshes;
@@ -174,9 +184,25 @@ namespace vmf {
 				throw std::exception("File read error");
 			}
 
+			std::cout << "Initializing VMF read\n";
+			std::ifstream _ifs(path);
+
+			// new lines will be skipped unless we stop it from happening:    
+			_ifs.unsetf(std::ios_base::skipws);
+
+			// count the newlines with an algorithm specialized for counting:
+			line_count = std::count(
+				std::istream_iterator<char>(_ifs),
+				std::istream_iterator<char>(),
+				'\n');
+
+			_ifs.close();
+
+			std::cout << "Reading raw VMF\n";
 			std::string str((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
 
-			kv::FileData data(str);
+			std::cout << "Processing VMF data\n";
+			kv::FileData data(str, &progress_callback);
 
 			this->internal = data;
 

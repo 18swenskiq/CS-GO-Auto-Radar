@@ -25,6 +25,7 @@ deps/
 *.vtx
 *.tmdl
 *.vmf
+deps.zip
 
 # Build results
 [Dd]ebug/

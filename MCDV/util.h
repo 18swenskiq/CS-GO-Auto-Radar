@@ -6,9 +6,11 @@
 
 #include <regex>
 
-
 // Attach to a class for verbosity debug message control
 namespace util {
+	template <typename ...ATs>
+	void CastFunctionPtr(void* obj, ATs... ts) { (static_cast<void(*)(ATs...)>(obj))(ts...); }
+
 	class verboseControl {
 	public:
 		bool use_verbose = false;

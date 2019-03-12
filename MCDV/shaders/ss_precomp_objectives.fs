@@ -4,7 +4,6 @@
 in vec2 TexCoords;
 out vec4 FragColor;
 
-
 //                                     SAMPLER UNIFORMS
 // Image Inputs _______________________________________________________________________________
 uniform sampler2D tex_in;	// Background texture
@@ -51,7 +50,7 @@ void main()
 		}
 	}
 
-	float global_opacity = 0.25;
+	float global_opacity = 0.075;
 
 	sT /= (sampleCount * sampleCount);
 	sT = vec2(pow(sT.r, 1.5), pow(sT.g, 1.5));

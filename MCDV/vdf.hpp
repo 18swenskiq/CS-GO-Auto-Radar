@@ -10,6 +10,7 @@
 
 #include "Util.h"
 
+//#define _USE_REGEX
 
 namespace kv
 {
@@ -30,24 +31,26 @@ namespace kv
 
 		DataBlock() {}
 
-		DataBlock(std::istringstream* stream, std::string name = "") {
+		DataBlock(std::istringstream* stream, std::string name = "", void* progress_callback = NULL) {
 			this->name = sutil::trim(name);
 
 			std::string line, prev = "";
 			while (std::getline(*stream, line)) {
+				if(progress_callback != NULL) util::CastFunctionPtr(progress_callback); //Increment line counter
+
 				line = split(line, "//")[0];
 
 				if (line.find("{") != std::string::npos) {
 					std::string pname = prev;
 					prev.erase(std::remove(prev.begin(), prev.end(), '"'), prev.end());
-					this->SubBlocks.push_back(DataBlock(stream, pname));
+					this->SubBlocks.push_back(DataBlock(stream, pname, progress_callback));
 					continue;
 				}
 				if (line.find("}") != std::string::npos) {
 					return;
 				}
 
-#ifdef _DEBUG
+#ifndef _USE_REGEX
 				// Regex is so fucking slow in debug mode its unreal
 				// Rather have it mess up than take 10 hours
 
@@ -60,8 +63,7 @@ namespace kv
 					strings.push_back(s1[3]);
 				}
 #endif 
-
-#ifndef _DEBUG
+#ifdef _USE_REGEX
 				std::vector<std::string> strings = sutil::regexmulti(line, reg_kv);
 #endif
 
@@ -133,13 +135,13 @@ namespace kv
 	public:
 		DataBlock headNode;
 
-		FileData(std::string filestring)
+		FileData(std::string filestring, void* progress_callback = NULL)
 		{
 			std::istringstream sr(filestring);
 
 			auto start = std::chrono::high_resolution_clock::now();
 
-			this->headNode = DataBlock(&sr);
+			this->headNode = DataBlock(&sr, "", progress_callback);
 
 
 			auto elapsed = std::chrono::high_resolution_clock::now() - start;
