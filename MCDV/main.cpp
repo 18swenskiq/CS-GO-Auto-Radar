@@ -39,7 +39,7 @@ void render_to_png(int x, int y, const char* filepath){
 
 int main(int argc, char* argv[]) {
 	std::cout << "Loading VMF\n";
-	vmf::vmf vmf_main("de_tavr_test.vmf");
+	vmf::vmf vmf_main("map_01.vmf");
 
 	std::cout << "Initializing OpenGL\n";
 
@@ -143,18 +143,22 @@ int main(int argc, char* argv[]) {
 
 	// Compositing shaders
 	Shader shader_comp_main("shaders/fullscreenbase.vs", "shaders/ss_test.fs"); // le big one
+	Shader shader_precomp_playspace("shaders/fullscreenbase.vs", "shaders/ss_precomp_playspace.fs"); // computes distance map
+	Shader shader_precomp_objectives("shaders/fullscreenbase.vs", "shaders/ss_precomp_objectives.fs"); // computes distance map
 
 	std::cout << "Loading textures\n";
 
 	Texture tex_background = Texture("textures/grid.png");
+	Texture tex_gradient = Texture("textures/gradients/gradientmap_6.png", true);
 
 #pragma endregion
 
 #pragma region render_playable_space
 	std::cout << "Rendering playable space...";
 
-	fb_tex_playspace.Bind(); //Bind framebuffer
+	fb_comp.Bind(); //Bind framebuffer
 
+	glClearColor(0.00f, 0.00f, 0.00f, 1.00f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glPolygonMode(GL_FRONT, GL_FILL);
 	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -182,6 +186,23 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
+	// Apply diffusion
+	fb_tex_playspace.Bind();
+
+	glClearColor(0.00f, 0.00f, 0.00f, 0.00f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glDisable(GL_DEPTH_TEST);
+	glPolygonMode(GL_FRONT, GL_FILL);
+
+	shader_precomp_playspace.use();
+
+	fb_comp.BindRTtoTexSlot(0);
+	shader_precomp_playspace.setInt("tex_in", 0);
+
+	mesh_screen_quad->Draw();
+
+	glEnable(GL_DEPTH_TEST);
+
 	render_to_png(1024, 1024, "playable-space.png");
 
 	std::cout << "done!\n";
@@ -190,7 +211,7 @@ int main(int argc, char* argv[]) {
 #pragma region render_objectives
 	std::cout << "Rendering bombsites & buyzones space...";
 
-	fb_tex_objectives.Bind();
+	fb_comp.Bind();
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glPolygonMode(GL_FRONT, GL_FILL);
@@ -213,8 +234,24 @@ int main(int argc, char* argv[]) {
 		s_solid->mesh->Draw();
 	}
 
+	// Apply diffusion
+	fb_tex_objectives.Bind();
+
+	glClearColor(0.00f, 0.00f, 0.00f, 0.00f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glDisable(GL_DEPTH_TEST);
+	glPolygonMode(GL_FRONT, GL_FILL);
+
+	shader_precomp_objectives.use();
+
+	fb_comp.BindRTtoTexSlot(0);
+	shader_precomp_objectives.setInt("tex_in", 0);
+
+	mesh_screen_quad->Draw();
+
 	render_to_png(1024, 1024, "buyzone-bombtargets.png");
 
+	glEnable(GL_DEPTH_TEST);
 	std::cout << "done!\n";
 #pragma endregion 
 
@@ -266,6 +303,9 @@ int main(int argc, char* argv[]) {
 
 	fb_tex_objectives.BindRTtoTexSlot(2);
 	shader_comp_main.setInt("tex_objectives", 2);
+
+	tex_gradient.bindOnSlot(4);
+	shader_comp_main.setInt("tex_gradient", 4);
 
 	mesh_screen_quad->Draw();
 

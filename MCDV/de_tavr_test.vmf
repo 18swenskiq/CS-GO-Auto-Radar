@@ -2,7 +2,7 @@ versioninfo
 {
 	"editorversion" "400"
 	"editorbuild" "8075"
-	"mapversion" "26"
+	"mapversion" "27"
 	"formatversion" "100"
 	"prefab" "0"
 }
@@ -32,12 +32,89 @@ viewsettings
 world
 {
 	"id" "1"
-	"mapversion" "26"
+	"mapversion" "27"
 	"classname" "worldspawn"
 	"detailmaterial" "detail/detailsprites"
 	"detailvbsp" "detail.vbsp"
 	"maxpropscreenwidth" "-1"
 	"skyname" "sky_dust"
+	solid
+	{
+		"id" "343"
+		side
+		{
+			"id" "411"
+			"plane" "(-1603.08 -874 16) (-2236.65 -240.432 16) (-1512.57 483.645 16)"
+			"material" "DEV/GRAYGRID"
+			"uaxis" "[0.707107 0.707107 0 350.233] 0.25"
+			"vaxis" "[0.707107 -0.707107 0 14.1422] 0.25"
+			"rotation" "0"
+			"lightmapscale" "16"
+			"smoothing_groups" "0"
+		}
+		side
+		{
+			"id" "410"
+			"plane" "(-2236.65 -240.432 0) (-1603.08 -874 0) (-879 -149.923 0)"
+			"material" "DEV/GRAYGRID"
+			"uaxis" "[0.707107 0.707107 0 350.233] 0.25"
+			"vaxis" "[0.707107 -0.707107 0 14.1422] 0.25"
+			"rotation" "0"
+			"lightmapscale" "16"
+			"smoothing_groups" "0"
+		}
+		side
+		{
+			"id" "409"
+			"plane" "(-1603.08 -874 0) (-2236.65 -240.432 0) (-2236.65 -240.432 16)"
+			"material" "DEV/GRAYGRID"
+			"uaxis" "[-0.707107 0.707107 0 -14.1422] 0.25"
+			"vaxis" "[0 0 -1 0] 0.25"
+			"rotation" "0"
+			"lightmapscale" "16"
+			"smoothing_groups" "0"
+		}
+		side
+		{
+			"id" "408"
+			"plane" "(-1512.57 483.645 0) (-879 -149.923 0) (-879 -149.923 16)"
+			"material" "DEV/GRAYGRID"
+			"uaxis" "[-0.707107 0.707107 0 -14.1422] 0.25"
+			"vaxis" "[0 0 -1 0] 0.25"
+			"rotation" "0"
+			"lightmapscale" "16"
+			"smoothing_groups" "0"
+		}
+		side
+		{
+			"id" "407"
+			"plane" "(-2236.65 -240.432 0) (-1512.57 483.645 0) (-1512.57 483.645 16)"
+			"material" "DEV/GRAYGRID"
+			"uaxis" "[0.707107 0.707107 0 350.233] 0.25"
+			"vaxis" "[0 0 -1 0] 0.25"
+			"rotation" "0"
+			"lightmapscale" "16"
+			"smoothing_groups" "0"
+		}
+		side
+		{
+			"id" "406"
+			"plane" "(-879 -149.923 0) (-1603.08 -874 0) (-1603.08 -874 16)"
+			"material" "DEV/GRAYGRID"
+			"uaxis" "[0.707107 0.707107 0 350.233] 0.25"
+			"vaxis" "[0 0 -1 0] 0.25"
+			"rotation" "0"
+			"lightmapscale" "16"
+			"smoothing_groups" "0"
+		}
+		editor
+		{
+			"color" "0 145 202"
+			"visgroupid" "8"
+			"visgroupshown" "1"
+			"visgroupautoshown" "1"
+		}
+	}
 	solid
 	{
 		"id" "340"

@@ -24,6 +24,7 @@ deps/
 *.nav
 *.vtx
 *.tmdl
+*.vmf
 
 # Build results
 [Dd]ebug/

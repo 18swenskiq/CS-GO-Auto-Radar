@@ -26,8 +26,8 @@ uniform sampler2D tex_background;	// Background texture
 uniform sampler2D tex_playspace;	// Playspace 
 	// R: Playable space (0 or 1), 
 	// G: Height (0-1 normalized)
-	// **B: AO map (mask 0-1)
-	// **A: Outline (mask 0-1))
+	// B: AO map (mask 0-1)
+	// A: Outline (mask 0-1) (need to subtract the playable space from this)
 
 uniform sampler2D tex_objectives;	// Objectives
 	// R: Buzones (0 or 1)
@@ -48,15 +48,42 @@ uniform sampler2D texture0; // Custom Image input 3 (**RGBA)
 uniform sampler2D texture1; // Custom Image input 4 (**RGBA)
 uniform sampler2D texture2; // Custom Image input 5 (**RGBA)
 
+//                                       SHADER HELPERS
+// ____________________________________________________________________________________________
+//     ( A collection of simple blend modes )
+
+vec3 lerp(vec3 a, vec3 b, float w)
+{
+  return a + w*(b-a);
+}
+
+vec4 blend_normal(vec4 a, vec4 b, float s)
+{
+	return vec4(lerp(a.rgb, b.rgb, b.a * s), b.a + (a.a * s));
+}
+
+vec4 blend_add(vec4 a, vec4 b, float s)
+{
+	return vec4(a.rgb + (b.rgb * s), a.a);
+}
+
+vec4 sample_gradient(float height)
+{
+	return vec4(texture(tex_gradient, vec2(height, 0)));
+}
+
 //                                       SHADER PROGRAM
 // ____________________________________________________________________________________________
 //     ( Write all your shader code & functions here )
+vec4 outline_color = vec4(1.0, 1.0, 1.0, 1.0);
+vec4 ao_color = vec4(0.0, 0.0, 0.0, 1.0);
 
 void main()
 {
 	vec4 sBackground = vec4(texture(tex_background, TexCoords));
+	vec4 sPlayspace = vec4(texture(tex_playspace, TexCoords));
 	vec4 sObjectives = vec4(texture(tex_objectives, TexCoords));
 
 	// Return the final output color
-	FragColor = vec4(sBackground.rgb, 1);//-sBackground;
+	FragColor = blend_add(blend_normal(blend_normal(blend_normal(sBackground, ao_color, sPlayspace.b), sample_gradient(sPlayspace.g), sPlayspace.r), outline_color, sPlayspace.a -sPlayspace.r), sObjectives, sObjectives.a * 0.75);
 }

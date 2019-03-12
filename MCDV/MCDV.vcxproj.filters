@@ -171,6 +171,12 @@
     <None Include="shaders\ss_test.fs">
       <Filter>OpenGL\Shader Files</Filter>
     </None>
+    <None Include="shaders\ss_precomp_playspace.fs">
+      <Filter>OpenGL\Shader Files</Filter>
+    </None>
+    <None Include="shaders\ss_precomp_objectives.fs">
+      <Filter>OpenGL\Shader Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="dina-r.png">
