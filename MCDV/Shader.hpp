@@ -13,16 +13,17 @@
 bool USE_DEBUG = false;
 
 //Prototype functions
-unsigned int LoadShader(std::string path, GLint shaderType);
+unsigned int LoadShader(std::string path, GLint shaderType, int* load_success);
 
 class Shader
 {
 public:
 	unsigned int programID;
 
+	bool compileUnsuccessful = false;
+
 	//Constructor
 	Shader(std::string vertexPath, std::string fragmentPath);
-	Shader(std::string shaderName);
 	~Shader();
 
 	//Set active
@@ -45,8 +46,15 @@ public:
 //Constructor
 Shader::Shader(std::string pVertexShader, std::string pFragmentShader)
 {
-	unsigned int vertexShader = LoadShader(pVertexShader, GL_VERTEX_SHADER); //Load the vertex shader
-	unsigned int fragmentShader = LoadShader(pFragmentShader, GL_FRAGMENT_SHADER); //Load the fragment shader
+	int success = 1;
+	unsigned int vertexShader = LoadShader(pVertexShader, GL_VERTEX_SHADER, &success); //Load the vertex shader
+	unsigned int fragmentShader = LoadShader(pFragmentShader, GL_FRAGMENT_SHADER, &success); //Load the fragment shader
+
+	if (success == 0) {
+		std::cout << "ERROR::SHADER::SOURCE_UNAVAILIBLE: " << pVertexShader << " | " << pFragmentShader << "\n";
+		this->compileUnsuccessful = true;
+		return;
+	}
 
 	this->programID = glCreateProgram();
 
@@ -55,12 +63,12 @@ Shader::Shader(std::string pVertexShader, std::string pFragmentShader)
 	glAttachShader(this->programID, fragmentShader);
 	glLinkProgram(this->programID);
 
-	int success;
 	char infoLog[512];
 
 	glGetProgramiv(this->programID, GL_LINK_STATUS, &success);
 	if (!success) {
 		glGetProgramInfoLog(this->programID, 512, NULL, infoLog);
+		this->compileUnsuccessful = true;
 		std::cout << infoLog << std::endl;
 	}
 
@@ -68,35 +76,16 @@ Shader::Shader(std::string pVertexShader, std::string pFragmentShader)
 	glDeleteShader(fragmentShader);
 }
 
-Shader::Shader(std::string name)
-{
-	unsigned int vertexShader = LoadShader(name + ".hvert", GL_VERTEX_SHADER); //Load the vertex shader
-	unsigned int fragmentShader = LoadShader(name + ".hfrag", GL_FRAGMENT_SHADER); //Load the fragment shader
-
-	this->programID = glCreateProgram();
-
-	//Attach the shaders to our program
-	glAttachShader(this->programID, vertexShader);
-	glAttachShader(this->programID, fragmentShader);
-	glLinkProgram(this->programID);
-
-	int success;
-	char infoLog[512];
-
-	glGetProgramiv(this->programID, GL_LINK_STATUS, &success);
-	if (!success) {
-		glGetProgramInfoLog(this->programID, 512, NULL, infoLog);
-		std::cout << infoLog << std::endl;
-	}
-
-	glDeleteShader(vertexShader);
-	glDeleteShader(fragmentShader);
-}
-
-unsigned int LoadShader(std::string path, GLint shaderType)
+unsigned int LoadShader(std::string path, GLint shaderType, int* load_success)
 {
 	//Load the data into an std::string
 	std::ifstream shaderFile(path);
+
+	if (!shaderFile) {
+		*load_success = 0;
+		return 0;
+	}
+
 	std::string shaderString((std::istreambuf_iterator<char>(shaderFile)),
 		std::istreambuf_iterator<char>());
 

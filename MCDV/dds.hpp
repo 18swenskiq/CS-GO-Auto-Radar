@@ -98,6 +98,8 @@ uint8_t* compressImageDXT1(uint8_t* buf_RGB, uint32_t w, uint32_t h, uint32_t* c
 	int blocks_x = w / 4;
 	int blocks_y = h / 4;
 
+	std::cout << "Compressing DXT1 from RGB buffer\n";
+
 	//Fill
 	for (int y = 0; y < blocks_y; y++){
 		for (int x = 0; x < blocks_x; x++){
@@ -109,9 +111,9 @@ uint8_t* compressImageDXT1(uint8_t* buf_RGB, uint32_t w, uint32_t h, uint32_t* c
 			uint8_t* src = new uint8_t[64]; //Create source RGBA buffer
 			for (int _y = 0; _y < 4; _y++) {
 				for (int _x = 0; _x < 4; _x++) {
-					src[(_x + (_y * 4)) * 4 + 0] = buf_RGB[(globalX + _x + ((globalY + _y) * w)) * 3 + 0];
-					src[(_x + (_y * 4)) * 4 + 1] = buf_RGB[(globalX + _x + ((globalY + _y) * w)) * 3 + 1];
-					src[(_x + (_y * 4)) * 4 + 2] = buf_RGB[(globalX + _x + ((globalY + _y) * w)) * 3 + 2];
+					src[(_x + (_y * 4)) * 4 + 0] = buf_RGB[(globalX + _x + ((h - (globalY + _y)) * w)) * 3 + 0];
+					src[(_x + (_y * 4)) * 4 + 1] = buf_RGB[(globalX + _x + ((h - (globalY + _y)) * w)) * 3 + 1];
+					src[(_x + (_y * 4)) * 4 + 2] = buf_RGB[(globalX + _x + ((h - (globalY + _y)) * w)) * 3 + 2];
 					src[(_x + (_y * 4)) * 4 + 3] = 0xFF;
 				}
 			}

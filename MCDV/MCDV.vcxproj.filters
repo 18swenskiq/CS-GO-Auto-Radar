@@ -36,6 +36,9 @@
     <Filter Include="Header Files\direct3d">
       <UniqueIdentifier>{57e9ec73-5c2f-4840-b186-2e1c3287cf65}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\util">
+      <UniqueIdentifier>{d74bb335-8fb5-4eb2-b1c1-4436cdc881cc}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="interpolation.h">
@@ -128,6 +131,9 @@
     <ClInclude Include="stb_dxt.h">
       <Filter>OpenGL\stb</Filter>
     </ClInclude>
+    <ClInclude Include="cxxopts.hpp">
+      <Filter>Header Files\util</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -153,9 +159,6 @@
     <None Include="shaders\fullscreenbase.vs">
       <Filter>OpenGL\Shader Files</Filter>
     </None>
-    <None Include="shaders\ss_test.fs">
-      <Filter>OpenGL\Shader Files</Filter>
-    </None>
     <None Include="shaders\ss_precomp_playspace.fs">
       <Filter>OpenGL\Shader Files</Filter>
     </None>
@@ -175,6 +178,9 @@
       <Filter>OpenGL\Shader Files</Filter>
     </None>
     <None Include="shaders\depth.vs">
+      <Filter>OpenGL\Shader Files</Filter>
+    </None>
+    <None Include="shaders\ss_comp_main.fs">
       <Filter>OpenGL\Shader Files</Filter>
     </None>
   </ItemGroup>
