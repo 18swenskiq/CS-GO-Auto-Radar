@@ -18,7 +18,7 @@ Want to support development? https://www.paypal.me/terri00 :)
 This post covers basic usage of Auto Radar: http://www.harrygodden.com/blog/?article=auto-radar-alpha
 
 # Download:
-This tool requires Visual C++ 2017 redistributables, you can donwload them here:
+This tool requires Visual C++ 2017 redistributables, you can donwload them here (both should be installed if Auto Radar won't start):
 https://aka.ms/vs/15/release/vc_redist.x64.exe (64 bit)
 
 https://aka.ms/vs/15/release/vc_redist.x86.exe (32 bit)
