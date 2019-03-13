@@ -7,10 +7,10 @@ Specify the layout in hammer by adding brushes to a visgroup named 'tavr_layout'
 
 Editable GLSL compositor engine for CS:GO Radars, many features to come.
 
-Notably:
+Notable things up ahead:
 - Prop support
-- Ambient Occlusion
-- Boolean geometry for even better path masking
+- Ambient Occlusion // baked lighting
+- Auto CSG geometry for even better masking
 
 Want to support development? https://www.paypal.me/terri00 :)
 
