@@ -1,3 +1,6 @@
+Looking for the old height map generator?
+https://github.com/Terri00/MCDV/tree/master
+
 # CS:GO Auto Radar (soonTM)
 Automatically make a radar with every compile of a map you do:
 
