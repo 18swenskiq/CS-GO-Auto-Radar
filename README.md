@@ -25,7 +25,7 @@ https://aka.ms/vs/15/release/vc_redist.x86.exe (32 bit)
 
 Download the latest release here: https://github.com/Terri00/MCDV/releases
 
-Submit any issues on this git repository, and send suggestions to hgodden00@gmail.com / Terri00#9530 on discord
+Submit any issues on this git repository, and send suggestions to hgodden00@gmail.com / Terri00#1024 on discord
 
 ### Command line options:
 ```csharp
