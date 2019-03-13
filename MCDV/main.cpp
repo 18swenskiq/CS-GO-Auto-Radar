@@ -25,6 +25,8 @@
 #define STBI_MSC_SECURE_CRT
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
+//#include "stb_image.h"
+#include "dds.hpp"
 
 void render_to_png(int x, int y, const char* filepath){
 	void* data = malloc(4 * x * y);
@@ -38,6 +40,15 @@ void render_to_png(int x, int y, const char* filepath){
 }
 
 int main(int argc, char* argv[]) {
+	int _w, _h, _nrc;
+	unsigned char* data = stbi_load("textures/test.jpg", &_w, &_h, &_nrc, 3);
+	
+	dds_write(data, "output.dds", _w, _h, IMG::MODE_DXT1);
+
+	stbi_image_free(data);
+
+	return 0;
+
 	std::cout << "Initializing OpenGL\n";
 
 #pragma region init_opengl
