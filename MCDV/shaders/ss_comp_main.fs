@@ -24,25 +24,25 @@ uniform vec2 bombsite_b;	// Location of bombsite B	(0-1)
 //    ( Standard generated maps from the engine )
 uniform sampler2D tex_background;	// Background texture
 uniform sampler2D tex_playspace;	// Playspace 
-	// R: Playable space (0 or 1), 
-	// G: Height (0-1 normalized)
-	// B: AO map (mask 0-1)
-	// A: Outline (mask 0-1) (need to subtract the playable space from this)
+	// R: Height (Regular)
+	// G: Height (Reverse rendering order)
+	// **B: Baked Lighting
+	// A: Playable Space (0 or 1)
 
 uniform sampler2D tex_objectives;	// Objectives
 	// R: Buzones (0 or 1)
-	// G: Bombsites (0 or 1)
-	// **B: Glow map (mask 0-1)
-	// **A: Outline (mask 0-1)
+	// G: none
+	// B: none
+	// A: Buyzones & Bombsites (mask 0-1)
 
 uniform sampler2D tex_props;		// Props
-	// **R: Props (0 or 1)
-	// **G: Height (0-1 normalized)
-	// **B: Glow map (mask 0-1)
-	// **A: Outline (mask 0-1)
+	// **R: Height (0-1 normalized)
+	// **G: none
+	// **B: none
+	// **A: Props (0 or 1)
 
 uniform sampler2D tex_gradient;		// Gradient input
-	// **RGBA: 256x1 image defining a gradient
+	// RGBA: 256x1 image defining a gradient
 
 uniform sampler2D texture0; // Custom Image input 3 (**RGBA)
 uniform sampler2D texture1; // Custom Image input 4 (**RGBA)
@@ -59,7 +59,7 @@ vec3 lerp(vec3 a, vec3 b, float w)
 
 vec4 blend_normal(vec4 a, vec4 b, float s)
 {
-	return vec4(lerp(a.rgb, b.rgb, b.a * s), b.a + (a.a * s));
+	return vec4(lerp(a.rgb, b.rgb, b.a * s), a.a + (b.a * s));
 }
 
 vec4 blend_add(vec4 a, vec4 b, float s)
@@ -67,9 +67,59 @@ vec4 blend_add(vec4 a, vec4 b, float s)
 	return vec4(a.rgb + (b.rgb * s), a.a);
 }
 
+// -------------------------------------- sample helpers --------------------------------------
+
 vec4 sample_gradient(float height)
 {
 	return vec4(texture(tex_gradient, vec2(height, 0)));
+}
+
+float get_playspace(vec4 sample_playspace) { return sample_playspace.a; }
+float get_playspace_height(vec4 sample_playspace) { return sample_playspace.a * sample_playspace.r; }
+float get_playspace_inverse_height(vec4 sample_playspace) { return sample_playspace.a * sample_playspace.g; }
+
+float get_height(vec4 sample_playspace) { return sample_playspace.g; }
+float get_baked_light(vec4 sample_playspace) { return sample_playspace.r; }
+
+// -------------------------------------- kernel filters --------------------------------------
+// Given an 0-1 mask, return a 'glow value'
+float kernel_filter_glow(sampler2D sampler, int channelID = 0, int sample_size = 16)
+{
+	vec2 pixel_size = 1.0 / vec2(textureSize(sampler, 0));
+
+	float sT = 0;
+	int sample_double = sample_size * 2;
+
+	// Process kernel
+	for(int x = 0; x <= sample_double; x++){
+		for(int y = 0; y <= sample_double; y++){
+			sT += texture(sampler, TexCoords + vec2((-sample_size + x) * pixel_size.x, (-sample_size + y) * pixel_size.y))[channelID];
+		}
+	}
+
+	sT /= (sample_double * sample_double);
+
+	return sT;
+}
+
+// Given a 0-1 mask, return an outline drawn around that mask
+float kernel_filter_outline(sampler2D sampler, int channelID = 0, int sample_size = 2)
+{
+	vec2 pixel_size = 1.0 / vec2(textureSize(sampler, 0));
+
+	float sT = 0;
+	int sample_double = sample_size * 2;
+	
+	// Process kernel
+	for(int x = 0; x <= sample_double; x++){
+		for(int y = 0; y <= sample_double; y++){
+			sT += //texture(sampler, TexCoords + vec2((-sample_size + x) * pixel_size.x, (-sample_size + y) * pixel_size.y))[channelID];
+			(sample_size - min(length(vec2(-sample_size + x, -sample_size + y)), sample_size)) * 
+			texture(sampler, TexCoords + vec2((-sample_size + x) * pixel_size.x, (-sample_size + y) * pixel_size.y))[channelID];
+		}
+	}
+
+	return max(min(sT, 1) - texture(sampler, TexCoords)[channelID], 0);
 }
 
 //                                       SHADER PROGRAM
@@ -88,12 +138,12 @@ void main()
 	vec4 sObjectives = vec4(texture(tex_objectives, TexCoords));
 
 	vec4 final = sBackground;
-	final = blend_normal(final, ao_color, sPlayspace.b);						// Drop shadow
-	final = blend_normal(final, sample_gradient(sPlayspace.g), sPlayspace.r);	// Playspace
-	final = blend_normal(final, outline_color, sPlayspace.a - sPlayspace.r);	// Outline
+	final = blend_normal(final, ao_color, kernel_filter_glow(tex_playspace, 3, 16));						// Drop shadow
+	final = blend_normal(final, sample_gradient(get_playspace_height(sPlayspace)), get_playspace(sPlayspace));	// Playspace
+	final = blend_normal(final, outline_color, kernel_filter_outline(tex_playspace, 3, 2));	// Outline
 
-	final = blend_normal(final, objective_color, sObjectives.r * sObjectives.a);					// Objectives
-	final = blend_normal(final, buyzone_color, sObjectives.g * sObjectives.a);						// Buyzones
+	//final = blend_normal(final, objective_color, sObjectives.r * sObjectives.a);					// Objectives
+	//final = blend_normal(final, buyzone_color, sObjectives.g * sObjectives.a);						// Buyzones
 	// Return the final output color
 	FragColor = final;
 }

@@ -303,7 +303,7 @@ namespace vmf {
 			std::cout << "\n";
 
 #pragma endregion Solids
-
+#pragma region Entities
 			std::cout << "Processing entites\n";
 
 			//Process entities list
@@ -358,7 +358,7 @@ namespace vmf {
 							solid.faces.push_back(side);
 						}
 
-						kv::DataBlock* editorValues = cBlock.GetFirstByName("editor");
+						kv::DataBlock* editorValues = block.GetFirstByName("editor");
 
 						//Gather up the visgroups
 						int viscount = -1;
@@ -403,6 +403,7 @@ namespace vmf {
 
 				this->entities.push_back(ent);
 			}
+#pragma endregion
 
 			std::cout << "Processing visgroups\n";
 
@@ -452,6 +453,26 @@ namespace vmf {
 			}
 
 			return list;
+		}
+
+		std::vector<Solid*> getAllRenderBrushes() {
+			std::vector<Solid*> list;
+			for (auto && s : this->solids)
+				list.push_back(&s);
+
+			for (auto && ent : this->entities) {
+				if (ent.classname == "func_detail" || ent.classname == "func_brush") {
+					for (auto && s : ent.internal_solids) {
+						list.push_back(&s);
+					}
+				}
+			}
+			
+			return list;
+		}
+
+		std::vector<Solid*> getAllBrushesByClassNameAppend(std::string classname) {
+
 		}
 
 		std::vector<Solid*> getAllBrushesByClassName(std::string classname) {
