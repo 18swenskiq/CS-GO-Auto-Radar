@@ -329,6 +329,20 @@ int app(int argc, const char** argv) {
 		}
 	}
 
+	// Re render subtractive brushes
+	shader_depth.setFloat("write_playable", 0.0f);
+	for (auto && s_solid : tavr_solids_negative) {
+		if (!s_solid->containsDisplacements)
+			s_solid->mesh->Draw();
+		else {
+			for (auto && f : s_solid->faces) {
+				if (f.displacement != NULL) {
+					f.displacement->glMesh->Draw();
+				}
+			}
+		}
+	}
+
 	// ======================================================== REVERSE ORDER ========================================================
 
 	fb_comp_1.Bind();
