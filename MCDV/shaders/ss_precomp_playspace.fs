@@ -17,5 +17,5 @@ void main()
 	vec4 sample_a = vec4(texture(tex_in, TexCoords));
 	vec4 sample_b = vec4(texture(tex_in_1, TexCoords));
 		
-	FragColor = vec4(sample_a.g, sample_b.g, 0, sample_a.r);
+	FragColor = vec4(sample_a.g, sample_b.g, sample_a.b, sample_a.r);
 }

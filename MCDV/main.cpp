@@ -63,8 +63,21 @@ std::string m_mapfile_name;
 std::string m_overviews_folder;
 std::string m_resources_folder;
 
+#ifdef _DEBUG
 bool m_outputMasks = true;
 bool m_onlyOutputMasks;
+
+bool m_comp_shadows_enable = true;
+bool m_comp_ao_enable = true;
+#endif
+
+#ifndef _DEBUG
+bool m_outputMasks;
+bool m_onlyOutputMasks;
+
+bool m_comp_shadows_enable;
+bool m_comp_ao_enable;
+#endif
 
 uint32_t m_renderWidth = 1024;
 uint32_t m_renderHeight = 1024;
@@ -80,6 +93,9 @@ int app(int argc, const char** argv) {
 
 		("d,dumpMasks", "Toggles whether auto radar should output mask images (resources/map_file.resources/)")
 		("o,onlyMasks", "Specift whether auto radar should only output mask images and do nothing else (resources/map_file.resources)")
+
+		("ao", "Turn on AO in the compisotor")
+		("shadows", "Turn on Shadows in the compositor")
 
 		("w,width", "Render width in pixels (experimental)", cxxopts::value<uint32_t>()->default_value("1024"))
 		("h,height", "Render height in pixels (experimental)", cxxopts::value<uint32_t>()->default_value("1024"))
@@ -121,6 +137,9 @@ int app(int argc, const char** argv) {
 	m_renderWidth = result["width"].as<uint32_t>();
 	m_renderHeight = result["height"].as<uint32_t>();
 
+	m_comp_ao_enable = result["ao"].as<bool>();
+	m_comp_shadows_enable = result["shadows"].as<bool>();
+
 #endif
 
 	//Derive the ones
@@ -135,6 +154,9 @@ int app(int argc, const char** argv) {
 	std::cout << "  Output to game?  " << (!m_onlyOutputMasks ? "YES" : "NO") << "\n\n";
 	std::cout << "  Game path:       " << m_game_path << "\n";
 	std::cout << "  Map path:        " << m_mapfile_path << "\n";
+	std::cout << "\n  -------- RENDER SETTINGS -------\n";
+	std::cout << "    AO:              " << (m_comp_ao_enable ? "YES" : "NO") << "\n";
+	std::cout << "    Shadows:         " << (m_comp_shadows_enable ? "YES" : "NO") << "\n";
 
 	std::cout << "Initializing OpenGL\n";
 
@@ -248,9 +270,14 @@ int app(int argc, const char** argv) {
 	std::vector<vmf::Solid*> tavr_solids = vmf_main.getAllBrushesInVisGroup("tavr_layout");
 	std::vector<vmf::Solid*> tavr_solids_negative = vmf_main.getAllBrushesInVisGroup("tavr_negative");
 	std::vector<vmf::Solid*> tavr_entire_brushlist = vmf_main.getAllRenderBrushes();
+	std::vector<vmf::Solid*> tavr_cover = vmf_main.getAllBrushesInVisGroup("tavr_cover"); for (auto && v : tavr_cover) v->temp_mark = true;
+
 	//std::vector<vmf::Solid*> tavr_solids_funcbrush = vmf_main.getAllBrushesByClassName("func_brush");
 	std::vector<vmf::Solid*> tavr_buyzones = vmf_main.getAllBrushesByClassName("func_buyzone");
 	std::vector<vmf::Solid*> tavr_bombtargets = vmf_main.getAllBrushesByClassName("func_bomb_target");
+
+	std::vector<vmf::Entity*> tavr_ent_tavr_height_min = vmf_main.findEntitiesByClassName("tavr_height_min");
+	std::vector<vmf::Entity*> tavr_ent_tavr_height_max = vmf_main.findEntitiesByClassName("tavr_height_max");
 
 	std::cout << "done!\n";
 
@@ -260,6 +287,10 @@ int app(int argc, const char** argv) {
 	vmf::BoundingBox limits = vmf::getSolidListBounds(tavr_solids);
 	float z_render_min = limits.SEL.y;
 	float z_render_max = limits.NWU.y;
+
+	// Overide entity heights
+	if (tavr_ent_tavr_height_min.size()) z_render_min = tavr_ent_tavr_height_min[0]->origin.z;
+	if (tavr_ent_tavr_height_max.size()) z_render_max = tavr_ent_tavr_height_max[0]->origin.z;
 
 	float padding = 128.0f;
 
@@ -312,13 +343,17 @@ int app(int argc, const char** argv) {
 	shader_depth.setFloat("write_playable", 0.0f);
 
 	// Render entire map first
-	for (auto && brush : tavr_entire_brushlist) brush->mesh->Draw();
+	for (auto && brush : tavr_entire_brushlist) {
+		shader_depth.setFloat("write_cover", brush->temp_mark ? 1.0f : 0.0f);
+		brush->mesh->Draw();
+	}
 	glClear(GL_DEPTH_BUFFER_BIT);
 
 	// Render playable area over it
 	shader_depth.setFloat("write_playable", 1.0f);
 	for (auto && s_solid : tavr_solids) {
-		if(!s_solid->containsDisplacements)
+		shader_depth.setFloat("write_cover", s_solid->temp_mark ? 1.0f : 0.0f);
+		if (!s_solid->containsDisplacements)
 			s_solid->mesh->Draw();
 		else {
 			for (auto && f : s_solid->faces) {
@@ -332,6 +367,7 @@ int app(int argc, const char** argv) {
 	// Re render subtractive brushes
 	shader_depth.setFloat("write_playable", 0.0f);
 	for (auto && s_solid : tavr_solids_negative) {
+		shader_depth.setFloat("write_cover", s_solid->temp_mark ? 1.0f : 0.0f);
 		if (!s_solid->containsDisplacements)
 			s_solid->mesh->Draw();
 		else {
@@ -406,7 +442,7 @@ int app(int argc, const char** argv) {
 	glEnable(GL_DEPTH_TEST);
 
 	if(m_outputMasks)
-		render_to_png(1024, 1024, "playable-space.png");
+		render_to_png(1024, 1024, std::string(m_overviews_folder + m_mapfile_name + ".resources.playable_space.png").c_str());
 
 	std::cout << "done!\n";
 #pragma endregion 
@@ -453,7 +489,7 @@ int app(int argc, const char** argv) {
 	mesh_screen_quad->Draw();
 
 	if (m_outputMasks)
-		render_to_png(1024, 1024, "buyzone-bombtargets.png");
+		render_to_png(1024, 1024, std::string(m_overviews_folder + m_mapfile_name + ".resources.buyzone_bombtargets.png").c_str());
 
 	glEnable(GL_DEPTH_TEST);
 	std::cout << "done!\n";
@@ -469,6 +505,26 @@ int app(int argc, const char** argv) {
 
 	shader_comp_main.use();
 
+	/* Fill out shader uniforms */
+	/*
+		vec3 bounds_NWU     	North-West-Upper coordinate of the playspace (worldspace)
+		vec3 bounds_SEL 		South-East-Lower coordinate of the playspace (worldspace)
+		**vec2 bounds_NWU_SS 	North-West coordinate of the playspace (screen space)
+		**vec2 bounds_SEL_SS 	South-East coordinate of the playspace (screen space)
+
+		**vec2 pos_spawn_ct 	Location of the CT Spawn	(0-1)
+		**vec2 pos_spawn_t 		Location of the T Spawn	(0-1)
+		**vec2 bombsite_a 		Location of bomsite A	(0-1)
+		**vec2 bombsite_b  		Location of bombsite B	(0-1)
+	*/
+	shader_comp_main.setVec3("bounds_NWU", glm::vec3(x_bounds_min, y_bounds_max, z_render_max));
+	shader_comp_main.setVec3("bounds_SEL", glm::vec3(x_bounds_max, y_bounds_min, z_render_min));
+
+	/* Render flags */
+	shader_comp_main.setInt("cmdl_shadows_enable", m_comp_shadows_enable ? 1 : 0);
+	shader_comp_main.setInt("cmdl_ao_enable", m_comp_ao_enable ? 1 : 0);
+
+	/* Bind texture samplers */
 	tex_background.bindOnSlot(0);
 	shader_comp_main.setInt("tex_background", 0);
 
@@ -495,7 +551,7 @@ int app(int argc, const char** argv) {
 	}
 
 	if (m_outputMasks)
-		render_to_png(1024, 1024, "test.png");
+		render_to_png(1024, 1024, std::string(m_overviews_folder + m_mapfile_name + ".resources.final_raw.png").c_str());
 
 #pragma region generate_radar_txt
 

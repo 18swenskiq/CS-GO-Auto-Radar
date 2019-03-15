@@ -75,7 +75,7 @@ namespace kv
 					// Fix for multiply defined key-values (THANKS VALVE APPRECIATE THAT)
 					std::string keyname = strings[0];
 					int i = -1;
-					while (this->Values.count(keyname + std::to_string(++i)));
+					while (this->Values.count((++i > 0 ? keyname + std::to_string(i) : keyname)));
 
 					this->Values.insert({ i > 0 ? keyname + std::to_string(i) : keyname, strings[1] });
 				}

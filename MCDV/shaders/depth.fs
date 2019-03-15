@@ -6,6 +6,7 @@ uniform vec3 color;
 uniform float HEIGHT_MIN;
 uniform float HEIGHT_MAX;
 uniform float write_playable;
+uniform float write_cover;
 
 in vec3 FragPos;
 in float Depth;
@@ -20,5 +21,5 @@ void main()
 {
 	float height = pow(remap(FragPos.y, HEIGHT_MIN, HEIGHT_MAX, 0, 1), 2.2);
 
-	FragColor = vec4(write_playable, height, 0, 1);
+	FragColor = vec4(write_playable, height, write_cover, 1);
 }

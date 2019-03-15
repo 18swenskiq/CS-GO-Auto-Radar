@@ -144,6 +144,8 @@ namespace vmf {
 		glm::vec3 origin;
 		bool hidden = false;
 
+		bool temp_mark = false;
+
 		std::vector<unsigned short> visgroupids;
 
 		BoundingBox bounds;
@@ -288,7 +290,7 @@ namespace vmf {
 
 				//Gather up the visgroups
 				int viscount = -1;
-				while (editorValues->Values.count("visgroupid" + (++viscount > 0 ? std::to_string(viscount) : ""))) 
+				while (editorValues->Values.count("visgroupid" + (++viscount > 0 ? std::to_string(viscount) : "")))
 					solid.visgroupids.push_back(std::stoi(editorValues->Values["visgroupid" + (viscount > 0 ? std::to_string(viscount) : "")]));
 
 				glm::vec3 color;

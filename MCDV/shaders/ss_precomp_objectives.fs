@@ -15,5 +15,5 @@ uniform sampler2D tex_in;	// Background texture
 void main()
 {
 	vec4 sample = vec4(texture(tex_in, TexCoords));
-	FragColor = vec4(sample.r, 0, 0, sample.r + sample.g);
+	FragColor = vec4(sample.r, sample.g, 0, sample.r + sample.g);
 }
