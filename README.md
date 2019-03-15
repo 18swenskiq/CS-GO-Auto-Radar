@@ -45,11 +45,14 @@ The following options should be specified on the command line.
 --ao                               // Enables Ambient Occlusion in the radar
 --shadows                          // Enables basic traced shadows in the radar
 ```
-Example setup: `AutoRadar.exe -d --ao --shadows -g %1 %2`.
+Example setup: `AutoRadar.exe -d --ao --shadows -g %1 %2`
 
-Where `%1` is the path to the `/Counter-Strike Global Offensive/csgo/` folder
+Minimum setup: `AutoRadar.exe -g %1 %2` (Basic radar, no shadows or ambient occlusion)
 
-And `%2` is the path to the vmf file you want to compile for.
+###### Where `%1` is the path to the `/Counter-Strike Global Offensive/csgo/` folder
+###### And `%2` is the path to the vmf file you want to compile for.
+
+![None / AO / Shadows](https://i.imgur.com/J1dJkxi.png)
 
 ### Detected Visgroups:
 Brushes and entity brushes which are inside visgroups with these names will change the final radar in different ways. The only one required is `tavr_layout` and should define your maps playable space.
