@@ -15,7 +15,9 @@ Notable things up ahead:
 Want to support development? https://www.paypal.me/terri00 :)
 
 # Usage Guide:
-This guide covers basic usage of Auto Radar: http://www.harrygodden.com/blog/?article=auto-radar-alpha
+This guide covers basic setup and usage of Auto Radar: http://www.harrygodden.com/blog/?article=auto-radar-alpha
+
+(Should be setup the same way vvis.exe or vrad.exe are)
 
 # Download:
 This tool requires Visual C++ 2017 redistributables, you can donwload them here (both should be installed if Auto Radar won't start):
