@@ -64,7 +64,7 @@ Brushes and entity brushes which are inside visgroups with these names will chan
 | tavr_cover    | brushes that should show up as cover in the radar (brushes in this group should also be in tavr_layout)      |
 
 ### Detected Entities:
-Entities with these classnames get picked up by Auto Radar. They are not required, and the values will otherwise be automatically set otherwise.
+Entities with these classnames get picked up by Auto Radar. They are not required, and the values will otherwise be automatically set.
 
 | Entity name     | What it does                                  |
 |-----------------|-----------------------------------------------|
