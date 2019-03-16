@@ -1,0 +1,39 @@
+@PointClass base(Targetname) iconsprite("tar/editor/tar_config.vmt") = tar_config : 
+	"Configuration entity for Terri's Auto Radar"
+[
+	// HB Color
+
+	colorScheme(choices) : "Color Scheme" : 0 =
+	[
+		0: "Dust 2"
+		1: "Mirage"
+		2: "Overpass"
+		3: "Cache"
+		4: "Inferno"
+		5: "Train"
+		6: "Nuke"
+		7: "Custom Scheme"
+	]
+	
+	customCol0(color255) : "Custom low level color" : "39 56 79"
+	customCol1(color255) : "Custom middle level color" : "77 74 72"
+	customCol2(color255) : "Custom high level color" : "178 113 65"
+	
+	// Ambient occlusion
+	
+	enableAO(choices) : "Ambient Occlusion" : 0 =
+	[
+		0: "Enabled"
+		1: "Disabled"
+	]
+	
+	aoSize(float) : "Ambient Occlusion Size" : "16"
+	
+	// Shadows
+	
+	enableAO(choices) : "Shadows" : 1 =
+	[
+		0: "Enabled"
+		1: "Disabled"
+	]
+]

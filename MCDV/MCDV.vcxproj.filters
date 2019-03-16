@@ -134,6 +134,12 @@
     <ClInclude Include="cxxopts.hpp">
       <Filter>Header Files\util</Filter>
     </ClInclude>
+    <ClInclude Include="wc.hpp">
+      <Filter>Header Files\valve</Filter>
+    </ClInclude>
+    <ClInclude Include="globals.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -144,6 +150,9 @@
     </ClCompile>
     <ClCompile Include="GLFWUtil.hpp">
       <Filter>OpenGL\engine</Filter>
+    </ClCompile>
+    <ClCompile Include="main2.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

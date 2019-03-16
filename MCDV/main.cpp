@@ -1,3 +1,5 @@
+#include "globals.h"
+
 // STDLib
 #include <iostream>
 
@@ -600,6 +602,7 @@ int app(int argc, const char** argv) {
 }
 
 /* Entry point */
+#ifndef entry_point_testing
 int main(int argc, const char** argv) {
 	try {
 		return app(argc, argv);
@@ -610,3 +613,4 @@ int main(int argc, const char** argv) {
 
 	return 1;
 }
+#endif

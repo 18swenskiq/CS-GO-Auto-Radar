@@ -132,6 +132,7 @@
     <ClInclude Include="FrameBuffer.hpp" />
     <ClInclude Include="fuzzy_select.h" />
     <ClInclude Include="gamelump.hpp" />
+    <ClInclude Include="globals.h" />
     <ClInclude Include="interpolation.h" />
     <ClInclude Include="generic.hpp" />
     <ClInclude Include="lumps_geometry.hpp" />
@@ -155,11 +156,13 @@
     <ClInclude Include="vmf.hpp" />
     <ClInclude Include="vtx.hpp" />
     <ClInclude Include="vvd.hpp" />
+    <ClInclude Include="wc.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="glad.c" />
     <ClCompile Include="GLFWUtil.hpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="main2.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\depth.fs" />
