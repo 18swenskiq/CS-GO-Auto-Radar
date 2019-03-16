@@ -19,7 +19,12 @@ namespace kv
 	template<typename T>
 	T tryGetValue(std::map<std::string, std::string> map, const char* key, T defaultValue) {
 		if (!map.count(key)) return defaultValue;
-		return static_cast<T>(::atof(key));
+		return static_cast<T>(::atof(map[key].c_str()));
+	}
+
+	std::string tryGetStringValue(std::map<std::string, std::string> map, const char* key, std::string defaultValue = "") {
+		if (!map.count(key)) return defaultValue;
+		return map[key];
 	}
 
 	class DataBlock

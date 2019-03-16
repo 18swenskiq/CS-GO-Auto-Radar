@@ -33,6 +33,7 @@ namespace wc
 	{
 		char name[128];
 		std::vector<Command> commands;
+		bool write_enable = true;
 	};
 
 	struct Header {
@@ -92,11 +93,17 @@ namespace wc
 
 			// Write header
 			Header header = Header();
-			header.seq_count = sequences.size();
+
+			int count = sequences.size();
+			for (auto && seq : this->sequences) if (!seq.write_enable) count--;
+
+			header.seq_count = count;
 			writer.write((char*)&header, sizeof(header));
 
 			// Write Sequences
 			for (auto && sequence : this->sequences){
+
+				if (!sequence.write_enable) continue;
 
 				writer.write((char*)&sequence.name, 128);
 				uint32_t cmdCount = sequence.commands.size();

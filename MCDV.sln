@@ -3,7 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.27004.2006
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MCDV", "MCDV\MCDV.vcxproj", "{3F5631FE-0F0C-4285-B301-66DA219121EC}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AutoRadar", "MCDV\MCDV.vcxproj", "{3F5631FE-0F0C-4285-B301-66DA219121EC}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AutoRadar_installer", "AutoRadar_installer\AutoRadar_installer.vcxproj", "{D73B6BD7-47B5-4426-BC6B-26B69F47CACA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -25,6 +27,16 @@ Global
 		{3F5631FE-0F0C-4285-B301-66DA219121EC}.Release|x64.Build.0 = Release|x64
 		{3F5631FE-0F0C-4285-B301-66DA219121EC}.Release|x86.ActiveCfg = Release|Win32
 		{3F5631FE-0F0C-4285-B301-66DA219121EC}.Release|x86.Build.0 = Release|Win32
+		{D73B6BD7-47B5-4426-BC6B-26B69F47CACA}.Debug|Any CPU.ActiveCfg = Debug|Win32
+		{D73B6BD7-47B5-4426-BC6B-26B69F47CACA}.Debug|x64.ActiveCfg = Debug|x64
+		{D73B6BD7-47B5-4426-BC6B-26B69F47CACA}.Debug|x64.Build.0 = Debug|x64
+		{D73B6BD7-47B5-4426-BC6B-26B69F47CACA}.Debug|x86.ActiveCfg = Debug|Win32
+		{D73B6BD7-47B5-4426-BC6B-26B69F47CACA}.Debug|x86.Build.0 = Debug|Win32
+		{D73B6BD7-47B5-4426-BC6B-26B69F47CACA}.Release|Any CPU.ActiveCfg = Release|Win32
+		{D73B6BD7-47B5-4426-BC6B-26B69F47CACA}.Release|x64.ActiveCfg = Release|x64
+		{D73B6BD7-47B5-4426-BC6B-26B69F47CACA}.Release|x64.Build.0 = Release|x64
+		{D73B6BD7-47B5-4426-BC6B-26B69F47CACA}.Release|x86.ActiveCfg = Release|Win32
+		{D73B6BD7-47B5-4426-BC6B-26B69F47CACA}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

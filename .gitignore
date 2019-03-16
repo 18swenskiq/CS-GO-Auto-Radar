@@ -6,6 +6,7 @@ MCDV_Lib/
 MCDV_Lib_Sharp/
 MCDV_Processor/
 MCDV_Web/
+installer/
 
 # User-specific files
 *.suo
@@ -38,6 +39,7 @@ bld/
 [Bb]in/
 [Oo]bj/
 [Ll]og/
+[Dd]eploy/
 
 # Visual Studio 2015 cache/options directory
 .vs/
