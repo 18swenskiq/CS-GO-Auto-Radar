@@ -3,6 +3,7 @@
 #include "../MCDV/util.h"
 
 #include <windows.h>
+#include <ShlObj_core.h>
 #include <iostream>
 #include <io.h>
 #include <fstream>
@@ -136,16 +137,16 @@ int main(){
 
 			if (_access_s(fDstFolder.c_str(), 0)) {
 				std::cout << "mkdr  " << fs::getDirName(f) << "\n";
-				CreateDirectory(fDstFolder.c_str(), NULL);
+				SHCreateDirectoryExA(NULL, fDstFolder.c_str(), NULL);
 			}
 
 			std::cout <<     "copy  " << f << "\n";
 
 			fs::copyFile(source_folder + f, target_folder + f);
 		}
-	}
 
-	std::cout << "\n";
+		std::cout << "\n";
+	}
 
 	// Install command sequences
 	std::cout << "Installing command sequences\n________________________________________________________\n\n";
@@ -208,8 +209,47 @@ int main(){
 	}
 
 	// Install custom entities
-	
-	cc::success(); std::cout << "Completed setup!\n";
+	std::cout << "\nInstalling custom entity entries\n________________________________________________________\n\n";
+
+	std::ifstream ifs_gameconfig(csgo_sdk_bin_path + "GameConfig.txt");
+	if (!ifs_gameconfig) {
+		cc::error();
+		std::cout << "GameConfig.txt not found. custom entites will not be installed...\n" << std::endl;
+	}
+	else {
+		cc::info();
+		std::cout << "Adding GameConfig.cfg FGD entries\n";
+		fs::copyFile(csgo_sdk_bin_path + "GameConfig.txt", csgo_sdk_bin_path + "GameConfig.txt.bak");
+
+		std::string str_gameconfig((std::istreambuf_iterator<char>(ifs_gameconfig)), std::istreambuf_iterator<char>());
+		kv::FileData gameConfig(str_gameconfig);
+
+		kv::DataBlock* hammerBlock = gameConfig.headNode.SubBlocks[0].GetFirstByName("\"Games\"")->GetFirstByName("\"Counter-Strike: Global Offensive\"")->GetFirstByName("\"Hammer\"");
+		int freeIndex = -1;
+
+		for (auto && newEntry : vinfodata.GetAllByName("HammerVGDRegistry")){
+			// Check if entry exists
+			int i = -1;
+			bool matched = false;
+			while (hammerBlock->Values.count("GameData" + std::to_string(++i))) {
+				if (csgo_sdk_bin_path + newEntry.Values["source"] == hammerBlock->Values["GameData" + std::to_string(i)]) {
+					matched = true;
+					break;
+				}
+			}
+
+			if (matched) continue;
+
+			while (hammerBlock->Values.count("GameData" + std::to_string(++freeIndex)));
+			hammerBlock->Values.insert({ "GameData" + std::to_string(freeIndex), csgo_sdk_bin_path + newEntry.Values["source"]});
+		}
+
+		std::cout << "Saving GameConfig.cfg\n";
+		std::ofstream out(std::string(csgo_sdk_bin_path + "GameConfig.txt").c_str());
+		gameConfig.headNode.SubBlocks[0].Serialize(out);
+	}
+
+	cc::success(); std::cout << "\nCompleted setup!\n";
 	
 	/* Small wait to auto close */
 	for (int i = 10; i > 0; i--) {
