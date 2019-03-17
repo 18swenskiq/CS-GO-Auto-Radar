@@ -111,6 +111,8 @@ int main(){
 
 #pragma endregion
 
+#pragma region copyfiles
+
 	/* Start doing the heavy work */
 	std::cout << "Copying files\n________________________________________________________\n\n";
 	
@@ -147,6 +149,10 @@ int main(){
 
 		std::cout << "\n";
 	}
+
+#pragma endregion
+
+#pragma region CommandSequences
 
 	// Install command sequences
 	std::cout << "Installing command sequences\n________________________________________________________\n\n";
@@ -208,6 +214,10 @@ int main(){
 		WcFile.serialize(target_file);
 	}
 
+#pragma endregion
+
+#pragma region FGDEntries
+
 	// Install custom entities
 	std::cout << "\nInstalling custom entity entries\n________________________________________________________\n\n";
 
@@ -248,6 +258,8 @@ int main(){
 		std::ofstream out(std::string(csgo_sdk_bin_path + "GameConfig.txt").c_str());
 		gameConfig.headNode.SubBlocks[0].Serialize(out);
 	}
+
+#pragma endregion
 
 	cc::success(); std::cout << "\nCompleted setup!\n";
 	
