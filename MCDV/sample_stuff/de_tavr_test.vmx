@@ -2,7 +2,7 @@ versioninfo
 {
 	"editorversion" "400"
 	"editorbuild" "8075"
-	"mapversion" "91"
+	"mapversion" "94"
 	"formatversion" "100"
 	"prefab" "0"
 }
@@ -38,7 +38,7 @@ viewsettings
 world
 {
 	"id" "1"
-	"mapversion" "91"
+	"mapversion" "94"
 	"classname" "worldspawn"
 	"detailmaterial" "detail/detailsprites"
 	"detailvbsp" "detail.vbsp"
@@ -2375,7 +2375,7 @@ entity
 	"id" "484"
 	"classname" "tar_config"
 	"aoSize" "10"
-	"colorScheme" "1"
+	"colorScheme" "-1"
 	"customCol0" "32 68 136"
 	"customCol1" "149 0 0"
 	"customCol2" "179 217 26"

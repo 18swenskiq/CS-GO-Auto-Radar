@@ -295,7 +295,7 @@ int app(int argc, const char** argv) {
 
 		// Color scheme
 		std::string schemeNum = kv::tryGetStringValue(tar_config->keyValues, "colorScheme", "0");
-		if (schemeNum == "7") { // Custom color scheme
+		if (schemeNum == "-1") { // Custom color scheme
 			tar_cfg_gradientMap = new GradientTexture(
 				kv::tryGetStringValue(tar_config->keyValues, "customCol0", "0   0   0   255"),
 				kv::tryGetStringValue(tar_config->keyValues, "customCol1", "128 128 128 255"),

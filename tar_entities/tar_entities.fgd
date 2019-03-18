@@ -12,7 +12,8 @@
 		4: "Inferno"
 		5: "Train"
 		6: "Nuke"
-		7: "Custom Scheme"
+		7: "Vertigo"
+		-1: "Custom Scheme"
 	]
 	
 	customCol0(color255) : "Custom low level color" : "39 56 79" : "What the color of the radar should be at the lowest points of the map"
