@@ -140,6 +140,9 @@
     <ClInclude Include="globals.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="GradientMap.hpp">
+      <Filter>OpenGL\engine</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">

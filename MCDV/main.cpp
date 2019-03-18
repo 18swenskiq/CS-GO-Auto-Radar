@@ -26,6 +26,7 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 #include "dds.hpp"
+#include "GradientMap.hpp"
 
 /* Grabs the currently bound framebuffer and saves it to a .png */
 void render_to_png(int x, int y, const char* filepath){
@@ -81,8 +82,19 @@ bool m_comp_shadows_enable;
 bool m_comp_ao_enable;
 #endif
 
+//tar_config overrides
 uint32_t m_renderWidth = 1024;
 uint32_t m_renderHeight = 1024;
+
+bool tar_cfg_enableAO = true;
+int tar_cfg_aoSzie = 16;
+
+bool tar_cfg_enableShadows = false;
+
+bool tar_cfg_enableOutline = false;
+int tar_cfg_outlineSize = 2;
+
+Texture* tar_cfg_gradientMap;
 
 /* Main program */
 int app(int argc, const char** argv) {
@@ -250,8 +262,10 @@ int app(int argc, const char** argv) {
 	std::cout << "Loading textures... ";
 
 	Texture tex_background = Texture("textures/grid.png");
-	Texture tex_gradient = Texture("textures/gradients/gradientmap_6.png", true);
+	//Texture tex_gradient = Texture("textures/gradients/gradientmap_6.png", true);
 	Texture tex_height_modulate = Texture("textures/modulate.png");
+	
+	//GradientTexture gtex_gradient = GradientTexture(std::string("32 68 136 255"), std::string("149 0 0 255"), std::string("178 113 65"));
 
 	std::cout << "done!\n\n";
 
@@ -267,19 +281,57 @@ int app(int argc, const char** argv) {
 
 	vmf_main.ComputeGLMeshes();
 	vmf_main.ComputeDisplacements();
-	
+
+	// TAR entities
+	std::vector<vmf::Entity*> tavr_ent_tar_config = vmf_main.findEntitiesByClassName("tar_config");
+
+	if (tavr_ent_tar_config.size() > 1) {
+		std::cout << "More than 1 tar config found! Currently unsupported... Using last.\n";
+	}
+
+	vmf::Entity* tar_config = NULL;
+	if (tavr_ent_tar_config.size() > 0) {
+		tar_config = tavr_ent_tar_config.back();
+
+		// Color scheme
+		std::string schemeNum = kv::tryGetStringValue(tar_config->keyValues, "colorScheme", "0");
+		if (schemeNum == "7") { // Custom color scheme
+			tar_cfg_gradientMap = new GradientTexture(
+				kv::tryGetStringValue(tar_config->keyValues, "customCol0", "0   0   0   255"),
+				kv::tryGetStringValue(tar_config->keyValues, "customCol1", "128 128 128 255"),
+				kv::tryGetStringValue(tar_config->keyValues, "customCol2", "255 255 255 255"));
+		} else {
+			tar_cfg_gradientMap = new Texture("textures/gradients/gradientmap_" + schemeNum + ".png", true);
+		}
+
+		// Ambient occlusion
+		tar_cfg_enableAO = (kv::tryGetStringValue(tar_config->keyValues, "enableAO", "1") == "1");
+		tar_cfg_aoSzie = kv::tryGetValue(tar_config->keyValues, "aoSize", 16);
+
+		// Outline
+		tar_cfg_enableOutline = (kv::tryGetStringValue(tar_config->keyValues, "enableOutline", "0") == "1");
+		tar_cfg_outlineSize = kv::tryGetValue(tar_config->keyValues, "outlineWidth", 2);
+
+		// Shadows
+		tar_cfg_enableShadows = (kv::tryGetStringValue(tar_config->keyValues, "enableShadows", "0") == "1");
+	}
+	else {
+		tar_cfg_gradientMap = new Texture("textures/gradients/gradientmap_6.png", true);
+	}
+
 	std::cout << "Collecting Objects... \n";
-	std::vector<vmf::Solid*> tavr_solids = vmf_main.getAllBrushesInVisGroup("tavr_layout");
-	std::vector<vmf::Solid*> tavr_solids_negative = vmf_main.getAllBrushesInVisGroup("tavr_negative");
+	std::vector<vmf::Solid*> tavr_solids = vmf_main.getAllBrushesInVisGroup(tar_config == NULL? "tar_layout" : kv::tryGetStringValue(tar_config->keyValues, "vgroup_layout", "tar_layout"));
+	std::vector<vmf::Solid*> tavr_solids_negative = vmf_main.getAllBrushesInVisGroup(tar_config == NULL? "tar_mask" : kv::tryGetStringValue(tar_config->keyValues, "vgroup_negative", "tar_mask"));
 	std::vector<vmf::Solid*> tavr_entire_brushlist = vmf_main.getAllRenderBrushes();
-	std::vector<vmf::Solid*> tavr_cover = vmf_main.getAllBrushesInVisGroup("tavr_cover"); for (auto && v : tavr_cover) v->temp_mark = true;
+	std::vector<vmf::Solid*> tavr_cover = vmf_main.getAllBrushesInVisGroup(tar_config == NULL ? "tar_cover" : kv::tryGetStringValue(tar_config->keyValues, "vgroup_cover", "tar_cover"));
+	for (auto && v : tavr_cover) { v->temp_mark = true; tavr_solids.push_back(v); }
 
 	//std::vector<vmf::Solid*> tavr_solids_funcbrush = vmf_main.getAllBrushesByClassName("func_brush");
 	std::vector<vmf::Solid*> tavr_buyzones = vmf_main.getAllBrushesByClassName("func_buyzone");
 	std::vector<vmf::Solid*> tavr_bombtargets = vmf_main.getAllBrushesByClassName("func_bomb_target");
 
-	std::vector<vmf::Entity*> tavr_ent_tavr_height_min = vmf_main.findEntitiesByClassName("tavr_height_min");
-	std::vector<vmf::Entity*> tavr_ent_tavr_height_max = vmf_main.findEntitiesByClassName("tavr_height_max");
+	std::vector<vmf::Entity*> tavr_ent_tavr_height_min = vmf_main.findEntitiesByClassName("tar_min");
+	std::vector<vmf::Entity*> tavr_ent_tavr_height_max = vmf_main.findEntitiesByClassName("tar_max");
 
 	std::cout << "done!\n";
 
@@ -523,8 +575,11 @@ int app(int argc, const char** argv) {
 	shader_comp_main.setVec3("bounds_SEL", glm::vec3(x_bounds_max, y_bounds_min, z_render_min));
 
 	/* Render flags */
-	shader_comp_main.setInt("cmdl_shadows_enable", m_comp_shadows_enable ? 1 : 0);
-	shader_comp_main.setInt("cmdl_ao_enable", m_comp_ao_enable ? 1 : 0);
+	shader_comp_main.setInt("cmdl_shadows_enable", tar_cfg_enableShadows ? 1 : 0);
+	shader_comp_main.setInt("cmdl_ao_enable", tar_cfg_enableAO ? 1 : 0);
+	shader_comp_main.setInt("cmdl_ao_size", tar_cfg_aoSzie);
+	shader_comp_main.setInt("cmdl_outline_enable", tar_cfg_enableOutline);
+	shader_comp_main.setInt("cmdl_outline_size", tar_cfg_outlineSize);
 
 	/* Bind texture samplers */
 	tex_background.bindOnSlot(0);
@@ -536,7 +591,7 @@ int app(int argc, const char** argv) {
 	fb_tex_objectives.BindRTtoTexSlot(2);
 	shader_comp_main.setInt("tex_objectives", 2);
 
-	tex_gradient.bindOnSlot(4);
+	tar_cfg_gradientMap->bindOnSlot(4);
 	shader_comp_main.setInt("tex_gradient", 4);
 
 	mesh_screen_quad->Draw();

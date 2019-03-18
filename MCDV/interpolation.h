@@ -8,6 +8,11 @@ static float lerpf(float a, float b, float f) {
 	return (a * (1.0f - f)) + (b * f);
 }
 
+template<typename T>
+static T lerpT(T a, T b, float f) {
+	return (T)((float)a * (1.0f - f)) + ((float)b * f);
+}
+
 static glm::vec3 lerp(glm::vec3 a, glm::vec3 b, float f) {
 	return glm::vec3(lerpf(a.x, b.x, f),
 		lerpf(a.y, b.y, f),

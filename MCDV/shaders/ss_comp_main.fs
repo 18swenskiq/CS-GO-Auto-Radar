@@ -20,7 +20,12 @@ uniform vec2 bombsite_a;	// **Location of bomsite A	    (UV Screenspace)
 uniform vec2 bombsite_b;	// **Location of bombsite B	    (UV Screenspace)
 
 uniform int cmdl_shadows_enable;	// Commandline switch --ao
+
 uniform int cmdl_ao_enable;			// Commandline switch --shadows
+uniform int cmdl_ao_size;
+
+uniform int cmdl_outline_enable;
+uniform int cmdl_outline_size;
 
 //                                     SAMPLER UNIFORMS
 // Image Inputs _______________________________________________________________________________
@@ -228,9 +233,9 @@ void main()
 	final = blend_normal(final, cover_color, sPlayspace.b);														// Cover
 
 	if(cmdl_shadows_enable == 1) final = blend_normal(final, vec4(0,0,0,1), trace_shadow(tex_playspace) * 0.2);		// Shadows
-	if(cmdl_ao_enable == 1) final = blend_normal(final, vec4(0,0,0,1), kernel_ao_basic(tex_playspace, 0, 8) * 0.9);	// AO
+	if(cmdl_ao_enable == 1) final = blend_normal(final, vec4(0,0,0,1), kernel_ao_basic(tex_playspace, 0, cmdl_ao_size) * 0.9);	// AO
 
-	final = blend_normal(final, outline_color, kernel_filter_outline(tex_playspace, 3, 2));						// Outline
+	if(cmdl_outline_enable == 1) final = blend_normal(final, outline_color, kernel_filter_outline(tex_playspace, 3, cmdl_outline_size));						// Outline
 
 	final = blend_normal(final, objective_color,																// Objectives
 		(kernel_filter_glow(tex_objectives, 0, 16, 1) * sObjectives.r) + 

@@ -1,4 +1,4 @@
-@PointClass base(Targetname) iconsprite("tar/editor/tar_config.vmt") = tar_config : 
+@PointClass iconsprite("tar/editor/tar_config.vmt") = tar_config : 
 	"Configuration entity for Terri's Auto Radar"
 [
 	// HB Color
@@ -15,25 +15,52 @@
 		7: "Custom Scheme"
 	]
 	
-	customCol0(color255) : "Custom low level color" : "39 56 79"
-	customCol1(color255) : "Custom middle level color" : "77 74 72"
-	customCol2(color255) : "Custom high level color" : "178 113 65"
+	customCol0(color255) : "Custom low level color" : "39 56 79" : "What the color of the radar should be at the lowest points of the map"
+	customCol1(color255) : "Custom middle level color" : "77 74 72" : "What the color of the radar should be in the middle of the map"
+	customCol2(color255) : "Custom high level color" : "178 113 65" : "What the color of the radar should be at the heighest points of the map"
 	
 	// Ambient occlusion
 	
-	enableAO(choices) : "Ambient Occlusion" : 0 =
+	enableAO(choices) : "Ambient Occlusion" : 1 =
 	[
-		0: "Enabled"
-		1: "Disabled"
+		0: "Disabled"
+		1: "Enabled"
 	]
 	
-	aoSize(float) : "Ambient Occlusion Size" : "16"
+	aoSize(float) : "Ambient Occlusion Size" : "8" : "How far should ambient occlusion sample (use values between 2 and 128)"
 	
 	// Shadows
 	
-	enableAO(choices) : "Shadows" : 1 =
+	enableShadows(choices) : "Shadows" : 0 =
 	[
-		0: "Enabled"
-		1: "Disabled"
+		0: "Disabled"
+		1: "Enabled"
 	]
+	
+	// Outline
+	
+	enableOutline(choices) : "Outline" : 0 = 
+	[
+		0: "Disabled"
+		1: "Enabled"
+	]
+	
+	outlineWidth(float) : "Outline width" : "2" : "How big should the outline be"
+	
+	// Visgroup specifiers
+	vgroup_layout(string) : "Visgroup: Layout" : "tar_layout" : "Name of the visgroup that specifies the layout of the map"
+	vgroup_negative(string) : "Visgroup: Mask" : "tar_mask" : "Name of the visgroup that specifies subtractive brushes of the maps layout (use on walls)"
+	vgroup_cover(string) : "Visgroup: Cover" : "tar_cover" : "Name of the visgroup that specifies the cover of the map. Chuck all yr crates in here"
+]
+
+@PointClass iconsprite("tar/editor/tar_min.vmt") = tar_min : 
+	"Overrides the minimum height of the map"
+[
+
+]
+
+@PointClass iconsprite("tar/editor/tar_max.vmt") = tar_max : 
+	"Overrides the maximum height of the map"
+[
+
 ]

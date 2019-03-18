@@ -15,6 +15,7 @@ class Texture
 public:
 	unsigned int texture_id;
 	Texture(std::string filepath, bool clamp = false);
+	Texture() {};
 
 	void bind();
 	void bindOnSlot(int slot);
