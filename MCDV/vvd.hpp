@@ -85,5 +85,31 @@ public:
 
 		reader.close();
 	}
+
+	vvd_data(std::ifstream* stream, unsigned int offset, bool verbost = false) {
+		this->use_verbose = verbost;
+
+		stream->seekg(offset);
+		stream->read((char*)&this->header, sizeof(this->header));
+		this->debug("VVD Version:", this->header.version);
+
+		//Read vertex data
+		stream->seekg(offset + header.vertexDataStart);
+
+		//Read LOD0
+		for (int i = 0; i < header.numLodVertexes[0]; i++)
+		{
+			VVD::Vertex vert;
+			stream->read((char*)&vert, sizeof(vert));
+
+			// Do the sorce->opengl flipperoo
+			glm::vec3 temp = vert.m_vecPosition;
+			vert.m_vecPosition = glm::vec3(-temp.x, temp.z, temp.y);
+
+			this->verticesLOD0.push_back(vert);
+		}
+
+		this->debug("Data length: ", this->verticesLOD0.size());
+	}
 	~vvd_data() {};
 };

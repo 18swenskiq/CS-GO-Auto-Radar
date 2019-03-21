@@ -73,6 +73,15 @@ std::vector<std::string> split(std::string s, std::string delimiter)
 
 namespace sutil
 {
+	std::string pad0(std::string in, int count) {
+		int zerosNeeded = count - in.size();
+		std::string out = "";
+		for (int i = 0; i < zerosNeeded; i++)
+			out += "0";
+		out += in;
+		return out;
+	}
+
 	std::string ReplaceAll(std::string str, const std::string& from, const std::string& to) {
 		size_t start_pos = 0;
 		while ((start_pos = str.find(from, start_pos)) != std::string::npos) {

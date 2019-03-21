@@ -333,6 +333,11 @@ int app(int argc, const char** argv) {
 	std::vector<vmf::Entity*> tavr_ent_tavr_height_min = vmf_main.findEntitiesByClassName("tar_min");
 	std::vector<vmf::Entity*> tavr_ent_tavr_height_max = vmf_main.findEntitiesByClassName("tar_max");
 
+	//Collect models
+	std::cout << "Collecting models... \n";
+	vmf_main.populateModelDict(m_game_path + "/");
+	vmf_main.populatePropList(tar_config == NULL ? "tar_cover" : kv::tryGetStringValue(tar_config->keyValues, "vgroup_cover", "tar_cover"));
+
 	std::cout << "done!\n";
 
 #pragma region bounds
@@ -417,6 +422,23 @@ int app(int argc, const char** argv) {
 			}
 		}
 	}
+
+	// Render props
+	std::cout << "Rendering props\n";
+	shader_depth.setFloat("write_cover", 1.0f);
+	for (auto && s_prop : vmf_main.props) {
+		model = glm::mat4();
+		model = glm::translate(model, s_prop.origin);
+		model = glm::rotate(model, glm::radians(s_prop.rotation.y), glm::vec3(0, 1, 0)); // Yaw 
+		model = glm::rotate(model, glm::radians(s_prop.rotation.x), glm::vec3(0, 0, 1)); // ROOOOOLLLLL
+		model = glm::rotate(model, -glm::radians(s_prop.rotation.z), glm::vec3(1, 0, 0)); // Pitch 
+
+		shader_depth.setMatrix("model", model);
+		vmf_main.modelCache[s_prop.modelID]->Draw();
+	}
+
+	model = glm::mat4();
+	shader_depth.setMatrix("model", model);
 
 	// Re render subtractive brushes
 	shader_depth.setFloat("write_playable", 0.0f);

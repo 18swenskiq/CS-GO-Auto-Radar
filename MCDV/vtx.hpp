@@ -307,14 +307,165 @@ public:
 							total_verts += SGROUP.numVerts;
 						}
 					}
-
 				}
 			}
-
 		}
 
 		//Dispose stream
 		reader.close();
+	}
+
+	vtx_mesh(std::ifstream* stream, unsigned int offset, bool verbost = false){
+		this->use_verbose = verbost;
+		stream->seekg(offset);
+
+		//Read header
+		stream->read((char*)&this->header, sizeof(this->header));
+		this->debug("VTX version:", this->header.version);
+		this->debug("Num LODS:", this->header.numLODs);
+
+		/* Read bulk of .VTX file */
+
+		/* Body part array */
+		stream->seekg(offset + header.bodyPartOffset);
+		int abs_body_base_offset = stream->tellg();
+
+		for (int body = 0; body < header.numBodyParts; body++){
+			//Move to current body part array item
+			stream->seekg(abs_body_base_offset);
+			stream->seekg(body * sizeof(vtx::BodyPartHeader), std::ios::cur);
+
+			//Read the body part
+			vtx::BodyPartHeader BODY;
+			stream->read((char*)&BODY, sizeof(BODY));
+
+			/* Model array */
+			stream->seekg(BODY.modelOffset - sizeof(vtx::BodyPartHeader), std::ios::cur);
+			int abs_model_base_offset = stream->tellg();
+
+			int total_verts = 0;
+			//NOTE: Total verts may need to be initialized outside the body array
+
+			for (int model = 0; model < BODY.numModels; model++){
+				//Move to current model array item
+				stream->seekg(abs_model_base_offset);
+				stream->seekg(model * sizeof(vtx::ModelHeader), std::ios::cur);
+
+				//Read the Model
+				vtx::ModelHeader MODEL;
+				stream->read((char*)&MODEL, sizeof(MODEL));
+
+				/* LOD array */
+				stream->seekg(MODEL.lodOffset - sizeof(vtx::ModelHeader), std::ios::cur);
+				int abs_lod_base_offset = stream->tellg();
+
+				for (int lod = 0; lod < MODEL.numLODs; lod++){
+					if (lod > 0) goto IL_EXIT; // Skip all the other lods for now
+
+					//Move to the current LOD header array item
+					stream->seekg(abs_lod_base_offset);
+					stream->seekg(lod * sizeof(vtx::ModelLODHeader), std::ios::cur);
+
+					//Read the LOD header
+					vtx::ModelLODHeader LOD;
+					stream->read((char*)&LOD, sizeof(LOD));
+
+					/* Mesh array */
+					stream->seekg(LOD.meshOffset - sizeof(vtx::ModelLODHeader), std::ios::cur);
+					int abs_mesh_base_offset = stream->tellg();
+
+					for (int mesh = 0; mesh < LOD.numMeshes; mesh++){
+						//Move to the current mesh array item
+						stream->seekg(abs_mesh_base_offset);
+						stream->seekg(mesh * sizeof(vtx::MeshHeader), std::ios::cur);
+
+						//Read the Mesh header
+						vtx::MeshHeader MESH;
+						stream->read((char*)&MESH, sizeof(MESH));
+
+						/* Strip Group array */
+						stream->seekg(MESH.stripGroupHeaderOffset - sizeof(vtx::MeshHeader), std::ios::cur);
+						int abs_strip_group_base_offset = stream->tellg();
+
+						for (int sgroup = 0; sgroup < MESH.numStripGroups; sgroup++){
+							//Move to the current stripgroup array item
+							stream->seekg(abs_strip_group_base_offset);
+							stream->seekg(sgroup * sizeof(vtx::StripGroupHeader), std::ios::cur);
+
+							//Read the strip group header
+							vtx::StripGroupHeader SGROUP;
+							stream->read((char*)&SGROUP, sizeof(SGROUP));
+
+							int base_location = (int)stream->tellg() - sizeof(vtx::StripGroupHeader);
+							int location_vertex_array = base_location + SGROUP.vertOffset;
+							int location_indices_array = base_location + SGROUP.indexOffset;
+
+							//Read vertex table
+							std::vector<vtx::Vertex> vertexTable;
+							stream->seekg(location_vertex_array);
+							for (int i = 0; i < SGROUP.numVerts; i++)
+							{
+								vtx::Vertex vert;
+								stream->read((char*)&vert, sizeof(vert));
+								vertexTable.push_back(vert);
+							}
+
+							//Read indices set
+							std::vector<unsigned short> indicesTable;
+							stream->seekg(location_indices_array);
+							for (int i = 0; i < SGROUP.numIndices; i++)
+							{
+								unsigned short index;
+								stream->read((char*)&index, sizeof(index));
+								indicesTable.push_back(index);
+							}
+
+							/* Strips array */
+							stream->seekg(base_location);
+							stream->seekg(SGROUP.stripOffset, std::ios::cur);
+							int abs_strip_base_offset = stream->tellg();
+
+							for (int strip = 0; strip < SGROUP.numStrips; strip++)
+							{
+								//Move to current strip array item
+								stream->seekg(abs_strip_base_offset);
+								stream->seekg(strip * sizeof(vtx::StripHeader), std::ios::cur);
+
+								//Read the strip
+								vtx::StripHeader STRIP;
+								stream->read((char*)&STRIP, sizeof(STRIP));
+
+								//Virtual vertices pool
+								std::vector<vtx::Vertex> v_verts;
+								for (int i = 0; i < STRIP.numVerts; i++)
+									if ((STRIP.vertOffset + i) >= vertexTable.size())
+										throw std::exception("VTX::DECOMPILE::VERT_TABLE OUT OF RANGE");
+									else
+										v_verts.push_back(vertexTable[STRIP.vertOffset + i]);
+
+								//Virtual indices pool
+								std::vector<unsigned short> v_indices;
+								for (int i = 0; i < STRIP.numIndices; i++)
+									if ((STRIP.indexOffset + i) >= indicesTable.size())
+										throw std::exception("VTX::DECOMPILE::INDEX_TABLE OUT OF RANGE");
+									else
+										v_indices.push_back(indicesTable[STRIP.indexOffset + i]);
+
+								for (int i = 0; i < v_indices.size(); i++)
+								{
+									this->vertexSequence.push_back(v_verts[v_indices[i]].origMeshVertID + total_verts);
+								}
+							}
+
+							total_verts += SGROUP.numVerts;
+						}
+					}
+				}
+			}
+
+		
+		}
+		IL_EXIT: __noop;
 	}
 
 	virtual ~vtx_mesh() {}

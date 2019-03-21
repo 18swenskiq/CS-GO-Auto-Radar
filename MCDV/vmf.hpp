@@ -17,6 +17,10 @@
 #include "convexPolytope.h"
 #include "fuzzy_select.h"
 #include "interpolation.h"
+#include "vpk.hpp"
+
+#include "vtx.hpp"
+#include "vvd.hpp"
 
 #include <algorithm>
 
@@ -166,7 +170,16 @@ namespace vmf {
 		std::map<std::string, std::string> keyValues;
 		std::vector<Solid> internal_solids;
 
+		std::vector<unsigned short> visgroupids;
+
 		bool hidden = false;
+	};
+
+	struct DrawableProp {
+		unsigned int modelID;
+		glm::vec3 origin;
+		glm::vec3 rotation;
+		float unifromScale;
 	};
 
 	class vmf {
@@ -177,6 +190,11 @@ namespace vmf {
 		std::vector<Entity> entities;
 
 		std::map<unsigned short, std::string> visgroups;
+
+		std::map<std::string, unsigned int> modelDict; //key from model filename to an index into the model cache.
+		std::vector<Mesh*> modelCache;
+
+		std::vector<DrawableProp> props;
 
 		vmf(std::string path)
 		{
@@ -364,8 +382,10 @@ namespace vmf {
 
 						//Gather up the visgroups
 						int viscount = -1;
-						while (editorValues->Values.count("visgroupid" + (++viscount > 0 ? std::to_string(viscount) : "")))
+						while (editorValues->Values.count("visgroupid" + (++viscount > 0 ? std::to_string(viscount) : ""))) {
 							solid.visgroupids.push_back(std::stoi(editorValues->Values["visgroupid" + (viscount > 0 ? std::to_string(viscount) : "")]));
+							ent.visgroupids.push_back(std::stoi(editorValues->Values["visgroupid" + (viscount > 0 ? std::to_string(viscount) : "")]));
+						}
 
 						glm::vec3 color;
 						if (vmf_parse::Vector3f(editorValues->Values["color"], &color))
@@ -455,6 +475,17 @@ namespace vmf {
 			}
 
 			return list;
+		}
+
+		bool testIfInVisgroup(Entity* ent, std::string visgroup)
+		{
+			for (auto && esvid : ent->visgroupids) {
+				if (this->visgroups[esvid] == visgroup) {
+					return true;
+				}
+			}
+
+			return false;
 		}
 
 		std::vector<Solid*> getAllRenderBrushes() {
@@ -564,6 +595,81 @@ namespace vmf {
 			long long milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
 
 			std::cout << "GL mesh computation: " << milliseconds << "ms" << std::endl;
+		}
+
+		/* Collect all references to model strings, and build their models */
+		void populateModelDict(std::string pakDir) {
+			vpk::index pakIndex(pakDir + "pak01_dir.vpk"); // Open index
+
+			unsigned int mIndex = 0;
+			for (auto && ent : this->findEntitiesByClassName("prop_static")) {
+				std::string modelName = kv::tryGetStringValue(ent->keyValues, "model", "error.mdl");
+				std::string baseName = split(modelName, ".")[0];
+				if (this->modelDict.count(modelName)) continue; // Skip already defined models
+
+				std::cout << "Processing model: " << modelName << "\n";
+
+				this->modelDict.insert({ modelName, mIndex++ }); // Add to our list
+
+				// Generate our model data and wham it into the model cache
+				vpk::vEntry* vEntry = pakIndex.find(modelName);
+				if (vEntry != NULL) {
+					std::cout << "Found model in pakfile: " << modelName << "\n";
+
+					vpk::vEntry* vtx_entry = pakIndex.find(baseName + ".dx90.vtx");
+					vpk::vEntry* vvd_entry = pakIndex.find(baseName + ".vvd");
+
+					if (vtx_entry == NULL || vvd_entry == NULL) {
+						std::cout << "Couldn't find vtx/vvd model data\n";
+						continue;
+					}
+
+					// Read vtx
+					std::string vtxPakDir = pakDir + "pak01_" + sutil::pad0(std::to_string(vtx_entry->entryInfo.ArchiveIndex), 3) + ".vpk";
+					std::ifstream vtxPakfile(vtxPakDir, std::ios::in | std::ios::binary);
+					vtx_mesh vtx(&vtxPakfile, vtx_entry->entryInfo.EntryOffset, false);
+					vtxPakfile.close();
+					
+					// Read vvd
+					std::string vvdPakDir = pakDir + "pak01_" + sutil::pad0(std::to_string(vvd_entry->entryInfo.ArchiveIndex), 3) + ".vpk";
+					std::ifstream vvdPakFile(vvdPakDir, std::ios::in | std::ios::binary);
+					vvd_data vvd(&vvdPakFile, vvd_entry->entryInfo.EntryOffset, true);
+					vvdPakFile.close();
+
+					// GENERATE MESH TING
+					std::vector<float> meshData;
+					for (auto && vert : vtx.vertexSequence) {
+						meshData.push_back(vvd.verticesLOD0[vert].m_vecPosition.x);
+						meshData.push_back(vvd.verticesLOD0[vert].m_vecPosition.y);
+						meshData.push_back(vvd.verticesLOD0[vert].m_vecPosition.z);
+						meshData.push_back(0);
+						meshData.push_back(0);
+						meshData.push_back(1);
+					}
+
+					Mesh* m = new Mesh(meshData, MeshMode::POS_XYZ_NORMAL_XYZ);
+					this->modelCache.push_back(m);
+				}
+				else {
+					std::cout << "Searching for model in gamedir...\n";
+				}
+			}
+		}
+
+		void populatePropList(std::string visgroupfilter = "") {
+			for (auto && prop : this->findEntitiesByClassName("prop_static")) {
+				//if (!this->testIfInVisgroup(prop, visgroupfilter)) continue;
+
+				std::string modelName = kv::tryGetStringValue(prop->keyValues, "model", "error.mdl");
+
+				DrawableProp p;
+				p.modelID = this->modelDict[modelName];
+				p.origin = glm::vec3(-prop->origin.x, prop->origin.z, prop->origin.y);
+				vmf_parse::Vector3f(kv::tryGetStringValue(prop->keyValues, "angles", "0 0 0"), &p.rotation);
+				p.unifromScale = ::atof(kv::tryGetStringValue(prop->keyValues, "uniformscale", "1").c_str());
+
+				this->props.push_back(p);
+			}
 		}
 
 		void ComputeDisplacements() {

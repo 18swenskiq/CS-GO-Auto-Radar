@@ -155,6 +155,7 @@
     <ClInclude Include="vdf.hpp" />
     <ClInclude Include="VectorOctTree.hpp" />
     <ClInclude Include="vmf.hpp" />
+    <ClInclude Include="vpk.hpp" />
     <ClInclude Include="vtx.hpp" />
     <ClInclude Include="vvd.hpp" />
     <ClInclude Include="wc.hpp" />

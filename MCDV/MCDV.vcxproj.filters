@@ -143,6 +143,9 @@
     <ClInclude Include="GradientMap.hpp">
       <Filter>OpenGL\engine</Filter>
     </ClInclude>
+    <ClInclude Include="vpk.hpp">
+      <Filter>Header Files\valve</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
