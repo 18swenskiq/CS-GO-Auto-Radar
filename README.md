@@ -3,7 +3,7 @@ Automatically make a radar with every compile of a map you do:
 
 Specify the layout in hammer by adding brushes to a visgroup named 'tar_layout', and Auto Radar will do the rest.
 
-![](https://i.imgur.com/thAfDqx.png)
+![](https://i.imgur.com/jNWULV0.png)
 
 Editable GLSL compositor engine for CS:GO Radars, many features to come.
 
@@ -40,7 +40,7 @@ Add a tar_config entity to your map. This defines your radars settings. It is no
 ### Detected Visgroups:
 ![Visgroup example](https://i.imgur.com/fXozJkj.png)
 
-Brushes and entity brushes which are inside visgroups with these names will change the final radar in different ways. The only one required is `tar_layout` and should define your maps playable space.
+Brushes, displacements, entity brushes and prop_statics which are inside visgroups with these names will change the final radar in different ways. The only one required is `tar_layout` and should define your maps playable space.
 
 | Visgroup name | What it does                                            |
 |---------------|---------------------------------------------------------|
