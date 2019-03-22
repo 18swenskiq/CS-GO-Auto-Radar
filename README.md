@@ -23,7 +23,7 @@ This tool requires Visual C++ 2017 redistributables, you can donwload them here 
 
 Download the latest release of AutoRadar here: https://github.com/Terri00/MCDV/releases
 
-Run the AutoRadar_installer.exe to copy all the necessary files into the correct locations.
+Run the AutoRadar_installer.exe to copy all the necessary files into the correct locations. (Make sure hammer is closed)
 
 Submit any issues on this git repository, and send suggestions to hgodden00@gmail.com / Terri00#1024 on discord
 
