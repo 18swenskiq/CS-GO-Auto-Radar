@@ -63,6 +63,9 @@ Entities with these classnames get picked up by Auto Radar. They are not require
 
 The AutoRadar installer set up a new compile profile in the 'expert' mode. Enter the compile mode, and select [TAR] Generate Radar from the list. The hit Go!
 
+### Using this software with Yanzl's Radar graph:
+https://github.com/Terri00/CS-GO-Auto-Radar/blob/tavr/radar-graph.md
+
 ### Free software used:
 - Headers from the amazing STB collection: https://github.com/nothings/stb
 - cxxopts: https://github.com/jarro2783/cxxopts
