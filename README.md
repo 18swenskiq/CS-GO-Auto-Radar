@@ -8,7 +8,8 @@ Specify the layout in hammer by adding brushes to a visgroup named 'tar_layout',
 Editable GLSL compositor engine for CS:GO Radars, many features to come.
 
 Notable things up ahead:
-- Prop support
+- ~~Prop support~~ Done!
+- func_instances
 - baked lighting & even better AO
 - Auto CSG geometry for even better masking
 
