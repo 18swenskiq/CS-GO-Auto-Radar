@@ -118,7 +118,7 @@ float get_height(vec4 sample_playspace) { return sample_playspace.r; }
 
 // ---------------------------------- kernel / trace filters ----------------------------------
 // Given an 0-1 mask, return a 'glow value'
-float kernel_filter_glow(sampler2D sampler, int channelID = 0, int sample_size = 16, int inverse = 0)
+float kernel_filter_glow(sampler2D sampler, int channelID, int sample_size, int inverse)
 {
 	vec2 pixel_size = 1.0 / vec2(textureSize(sampler, 0));
 
@@ -140,7 +140,7 @@ float kernel_filter_glow(sampler2D sampler, int channelID = 0, int sample_size =
 }
 
 // Given a 0-1 mask, return an outline drawn around that mask
-float kernel_filter_outline(sampler2D sampler, int channelID = 0, int sample_size = 2)
+float kernel_filter_outline(sampler2D sampler, int channelID, int sample_size)
 {
 	vec2 pixel_size = 1.0 / vec2(textureSize(sampler, 0));
 
@@ -160,7 +160,7 @@ float kernel_filter_outline(sampler2D sampler, int channelID = 0, int sample_siz
 }
 
 // Given a height map, return a shadow map for this sample
-float trace_shadow(sampler2D heightSampler, int channelID = 0)
+float trace_shadow(sampler2D heightSampler, int channelID)
 {
 	int traceCount = 1024;
 
@@ -188,7 +188,7 @@ float trace_shadow(sampler2D heightSampler, int channelID = 0)
 
 // Given a height map, return an ambient occlusion term for this sample
 // This is a wip, expect kinda shitty results :)
-float kernel_ao_basic(sampler2D sampler, int channelID = 0, int sample_size = 8)
+float kernel_ao_basic(sampler2D sampler, int channelID, int sample_size)
 {
 	vec2 pixel_size = 1.0 / vec2(textureSize(sampler, 0));
 
@@ -228,11 +228,11 @@ void main()
 	vec4 sObjectives = vec4(texture(tex_objectives, TexCoords));
 
 	vec4 final = sBackground;
-	final = blend_normal(final, ao_color, kernel_filter_glow(tex_playspace, 3, 16));							// Drop shadow
+	final = blend_normal(final, ao_color, kernel_filter_glow(tex_playspace, 3, 16, 0));							// Drop shadow
 	final = blend_normal(final, sample_gradient(get_playspace_height(sPlayspace)), get_playspace(sPlayspace));	// Playspace
 	final = blend_normal(final, cover_color, sPlayspace.b);														// Cover
 
-	if(cmdl_shadows_enable == 1) final = blend_normal(final, vec4(0,0,0,1), trace_shadow(tex_playspace) * 0.2);		// Shadows
+	if(cmdl_shadows_enable == 1) final = blend_normal(final, vec4(0,0,0,1), trace_shadow(tex_playspace, 0) * 0.2);		// Shadows
 	if(cmdl_ao_enable == 1) final = blend_normal(final, vec4(0,0,0,1), kernel_ao_basic(tex_playspace, 0, cmdl_ao_size) * 0.9);	// AO
 
 	if(cmdl_outline_enable == 1) final = blend_normal(final, outline_color, kernel_filter_outline(tex_playspace, 3, cmdl_outline_size));						// Outline

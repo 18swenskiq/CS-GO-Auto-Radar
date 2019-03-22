@@ -2,7 +2,7 @@ versioninfo
 {
 	"editorversion" "400"
 	"editorbuild" "8075"
-	"mapversion" "145"
+	"mapversion" "153"
 	"formatversion" "100"
 	"prefab" "0"
 }
@@ -50,13 +50,13 @@ viewsettings
 	"bSnapToGrid" "1"
 	"bShowGrid" "1"
 	"bShowLogicalGrid" "0"
-	"nGridSpacing" "16"
+	"nGridSpacing" "64"
 	"bShow3DGrid" "0"
 }
 world
 {
 	"id" "1"
-	"mapversion" "145"
+	"mapversion" "153"
 	"classname" "worldspawn"
 	"detailmaterial" "detail/detailsprites"
 	"detailvbsp" "detail.vbsp"
@@ -2784,13 +2784,13 @@ entity
 	"angles" "0 0 0"
 	"fademindist" "-1"
 	"fadescale" "1"
-	"model" "models/props_castle/stonestair.mdl"
+	"model" "models/props/de_nuke/this_mdl_doesnt_exist.mdl"
 	"renderamt" "255"
 	"rendercolor" "255 255 255"
 	"skin" "0"
 	"solid" "6"
 	"uniformscale" "1"
-	"origin" "-560 704 16"
+	"origin" "-320 256 16"
 	editor
 	{
 		"color" "255 255 0"
@@ -2838,7 +2838,7 @@ entity
 	"skin" "0"
 	"solid" "6"
 	"uniformscale" "1"
-	"origin" "-336 768 16"
+	"origin" "-320 768 16"
 	editor
 	{
 		"color" "255 255 0"
@@ -2854,7 +2854,7 @@ entity
 {
 	"id" "949"
 	"classname" "prop_static"
-	"angles" "0 135 0"
+	"angles" "0 180 0"
 	"fademindist" "-1"
 	"fadescale" "1"
 	"model" "models/props/de_tides/truck.mdl"
@@ -2863,7 +2863,7 @@ entity
 	"skin" "0"
 	"solid" "6"
 	"uniformscale" "2"
-	"origin" "-208 240 16"
+	"origin" "-512 1024 16"
 	editor
 	{
 		"color" "255 255 0"
@@ -2900,7 +2900,7 @@ entity
 {
 	"id" "1015"
 	"classname" "prop_static"
-	"angles" "0 0 0"
+	"angles" "0 330 0"
 	"fademindist" "-1"
 	"fadescale" "1"
 	"model" "models/terri/monaco/vehicles/f1.mdl"
@@ -2909,7 +2909,7 @@ entity
 	"skin" "0"
 	"solid" "6"
 	"uniformscale" "1"
-	"origin" "-624 560 16"
+	"origin" "-576 640 16"
 	editor
 	{
 		"color" "255 255 0"
@@ -2927,9 +2927,9 @@ entity
 	"classname" "tar_config"
 	"aoSize" "10"
 	"colorScheme" "-1"
-	"customCol0" "32 68 136"
-	"customCol1" "149 0 0"
-	"customCol2" "179 217 26"
+	"customCol0" "62 39 129"
+	"customCol1" "94 162 202"
+	"customCol2" "207 136 213"
 	"enableAO" "1"
 	"enableOutline" "1"
 	"enableShadows" "1"

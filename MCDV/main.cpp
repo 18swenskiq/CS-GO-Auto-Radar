@@ -85,6 +85,7 @@ bool m_comp_ao_enable;
 //tar_config overrides
 uint32_t m_renderWidth = 1024;
 uint32_t m_renderHeight = 1024;
+bool m_enable_maskgen_supersample = true;
 
 bool tar_cfg_enableAO = true;
 int tar_cfg_aoSzie = 16;
@@ -200,16 +201,16 @@ int app(int argc, const char** argv) {
 
 	glEnable(GL_DEPTH_TEST);
 
-	glViewport(0, 0, 1024, 1024);
+	glViewport(0, 0, m_renderWidth, m_renderHeight);
 
 	glClearColor(0.00f, 0.00f, 0.00f, 0.00f);
 
 	std::cout << "Creating render buffers\n";
 
-	FrameBuffer fb_tex_playspace = FrameBuffer(1024, 1024);
-	FrameBuffer fb_tex_objectives = FrameBuffer(1024, 1024);
-	FrameBuffer fb_comp = FrameBuffer(1024, 1024);
-	FrameBuffer fb_comp_1 = FrameBuffer(1024, 1024); //Reverse ordered frame buffer
+	FrameBuffer fb_tex_playspace = FrameBuffer(m_renderWidth, m_renderHeight);
+	FrameBuffer fb_tex_objectives = FrameBuffer(m_renderWidth, m_renderHeight);
+	FrameBuffer fb_comp = FrameBuffer(m_renderWidth, m_renderHeight);
+	FrameBuffer fb_comp_1 = FrameBuffer(m_renderWidth, m_renderHeight); //Reverse ordered frame buffer
 
 	// Screenspace quad
 	std::cout << "Creating screenspace mesh\n";
@@ -521,7 +522,7 @@ int app(int argc, const char** argv) {
 	glEnable(GL_DEPTH_TEST);
 
 	if(m_outputMasks)
-		render_to_png(1024, 1024, std::string(m_overviews_folder + m_mapfile_name + ".resources.playable_space.png").c_str());
+		render_to_png(m_renderWidth, m_renderHeight, std::string(m_overviews_folder + m_mapfile_name + ".resources.playable_space.png").c_str());
 
 	std::cout << "done!\n";
 #pragma endregion 
@@ -568,7 +569,7 @@ int app(int argc, const char** argv) {
 	mesh_screen_quad->Draw();
 
 	if (m_outputMasks)
-		render_to_png(1024, 1024, std::string(m_overviews_folder + m_mapfile_name + ".resources.buyzone_bombtargets.png").c_str());
+		render_to_png(m_renderWidth, m_renderHeight, std::string(m_overviews_folder + m_mapfile_name + ".resources.buyzone_bombtargets.png").c_str());
 
 	glEnable(GL_DEPTH_TEST);
 	std::cout << "done!\n";
@@ -629,11 +630,11 @@ int app(int argc, const char** argv) {
 
 #pragma region auto_export_game
 	if (!m_onlyOutputMasks) {
-		save_to_dds(1024, 1024, std::string(m_overviews_folder + m_mapfile_name + "_radar.dds").c_str());
+		save_to_dds(m_renderWidth, m_renderHeight, std::string(m_overviews_folder + m_mapfile_name + "_radar.dds").c_str());
 	}
 
 	if (m_outputMasks)
-		render_to_png(1024, 1024, std::string(m_overviews_folder + m_mapfile_name + ".resources.final_raw.png").c_str());
+		render_to_png(m_renderWidth, m_renderHeight, std::string(m_overviews_folder + m_mapfile_name + ".resources.final_raw.png").c_str());
 
 #pragma region generate_radar_txt
 

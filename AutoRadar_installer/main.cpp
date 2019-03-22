@@ -21,7 +21,7 @@ int exit() {
 	return -1;
 }
 
-int main(){
+int main(int argc, const char** argv) {
 	cc::setup();
 
 	/* Load install configuration */
@@ -40,80 +40,88 @@ int main(){
 
 	cc::fancy(); std::cout << "Installing version: " << vinfodata.Values["version"] << "\n";
 
+	// Overide install
+	if (argc > 1) {
+		csgo_sdk_bin_path = std::string(argv[1]) + "\\";
+		goto IL_COPYFILES;
+	}
+
 #pragma region sdk_detect
 	/* Get steam installation path */
+	{
+		cc::info(); std::cout << "Getting steam installation path from windows registry\n";
 
-	cc::info(); std::cout << "Getting steam installation path from windows registry\n";
+		HKEY hKey = NULL;
+		char buffer[1024];
 
-	HKEY hKey = NULL;
-	char buffer[1024];
+		bool regReadSuccess = true;
 
-	bool regReadSuccess = true;
-
-	if (RegOpenKeyEx(HKEY_CURRENT_USER, "Software\\Valve\\Steam", NULL, KEY_QUERY_VALUE, &hKey) == ERROR_SUCCESS){
-		DWORD size;
-		if (RegQueryValueEx(hKey, "SteamPath", NULL, NULL, (LPBYTE)buffer, &size) == ERROR_SUCCESS){
-			steam_install_path = buffer;
-			steam_install_path += "\\";
+		if (RegOpenKeyEx(HKEY_CURRENT_USER, "Software\\Valve\\Steam", NULL, KEY_QUERY_VALUE, &hKey) == ERROR_SUCCESS) {
+			DWORD size;
+			if (RegQueryValueEx(hKey, "SteamPath", NULL, NULL, (LPBYTE)buffer, &size) == ERROR_SUCCESS) {
+				steam_install_path = buffer;
+				steam_install_path += "\\";
+			}
+			else regReadSuccess = false;
 		}
 		else regReadSuccess = false;
-	}
-	else regReadSuccess = false;
 
-	RegCloseKey(hKey);
+		RegCloseKey(hKey);
 
-	if (!regReadSuccess) {
-		cc::warning();
-		std::cout << "Failed to read registry key: 'Software\\Valve\\Steam\\SteamPath'\nDefaulting to C:\\Program Files (x86)\\Steam\\ installation...\n";
-	}
+		if (!regReadSuccess) {
+			cc::warning();
+			std::cout << "Failed to read registry key: 'Software\\Valve\\Steam\\SteamPath'\nDefaulting to C:\\Program Files (x86)\\Steam\\ installation...\n";
+		}
 
-	cc::info();
-	std::cout << "Reading steam library folders\n";
+		cc::info();
+		std::cout << "Reading steam library folders\n";
 
-	/* Read library folders file */
+		/* Read library folders file */
 
-	std::vector<std::string> libraryFolders;
-	libraryFolders.push_back(steam_install_path + "steammapps\\common\\");
+		std::vector<std::string> libraryFolders;
+		libraryFolders.push_back(steam_install_path + "steammapps\\common\\");
+		libraryFolders.push_back("C:\\Program Files (x86)\\Steam\\steammapps\\common\\");
 
-	std::ifstream ifs(steam_install_path + "steamapps\\libraryfolders.vdf");
-	if (!ifs) {
-		std::cout << "Libraryfolders.vdf not found. Skipping search...\n" << std::endl;
-	}
-	else {
-		std::string str((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
-		kv::FileData libFolders(str);
+		std::ifstream ifs(steam_install_path + "steamapps\\libraryfolders.vdf");
+		if (!ifs) {
+			std::cout << "Libraryfolders.vdf not found. Skipping search...\n" << std::endl;
+		}
+		else {
+			std::string str((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+			kv::FileData libFolders(str);
 
-		kv::DataBlock* libFoldersDB = libFolders.headNode.GetFirstByName("\"LibraryFolders\"");
+			kv::DataBlock* libFoldersDB = libFolders.headNode.GetFirstByName("\"LibraryFolders\"");
 
-		if (libFoldersDB != NULL) {
-			int index = 0;
-			while (libFoldersDB->Values.count(std::to_string(++index))) libraryFolders.push_back(libFoldersDB->Values[std::to_string(index)] + "\\steamapps\\common\\");
+			if (libFoldersDB != NULL) {
+				int index = 0;
+				while (libFoldersDB->Values.count(std::to_string(++index))) libraryFolders.push_back(libFoldersDB->Values[std::to_string(index)] + "\\steamapps\\common\\");
+			}
+		}
+
+		if (libraryFolders.size() == 0) std::cout << "No library folders found, defaulting to steamapps common folder...\n";
+
+		/* Scan for csgo sdk installations */
+
+		std::cout << "Scanning for SDK installation\n";
+
+		for (auto && folder : libraryFolders) {
+			if (_access_s((folder + "Counter-Strike Global Offensive\\bin\\gameinfo.txt").c_str(), 0) == 0) {
+				csgo_sdk_bin_path = folder + "Counter-Strike Global Offensive\\bin\\";
+			}
+		}
+
+		if (csgo_sdk_bin_path == "") {
+			cc::error();
+			std::cout << "Failed to find CS:GO SDK bin.\nFollow manual_install.txt";
+			return exit();
 		}
 	}
-
-	if (libraryFolders.size() == 0) std::cout << "No library folders found, defaulting to steamapps common folder...\n";
-
-	/* Scan for csgo sdk installations */
-
-	std::cout << "Scanning for SDK installation\n";
-
-	for (auto && folder : libraryFolders) {
-		if (_access_s((folder + "Counter-Strike Global Offensive\\bin\\SDKLauncher.exe").c_str(), 0) == 0) {
-			csgo_sdk_bin_path = folder + "Counter-Strike Global Offensive\\bin\\";
-		}
-	}
-
-	if (csgo_sdk_bin_path == "") {
-		cc::error();
-		std::cout << "Failed to find CS:GO SDK bin.\n";
-		return exit();
-	}
-
 #pragma endregion
 
 #pragma region copyfiles
 
 	/* Start doing the heavy work */
+IL_COPYFILES: 
 	std::cout << "Copying files\n________________________________________________________\n\n";
 	
 	// Copy folders

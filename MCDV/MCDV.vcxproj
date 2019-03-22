@@ -147,7 +147,6 @@
     <ClInclude Include="stb_dxt.h" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="stb_image_write.h" />
-    <ClInclude Include="studiomdl.hpp" />
     <ClInclude Include="tbsp.hpp" />
     <ClInclude Include="TextFont.hpp" />
     <ClInclude Include="Texture.hpp" />
