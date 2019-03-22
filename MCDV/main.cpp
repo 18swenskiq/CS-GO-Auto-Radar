@@ -427,11 +427,14 @@ int app(int argc, const char** argv) {
 	std::cout << "Rendering props\n";
 	shader_depth.setFloat("write_cover", 1.0f);
 	for (auto && s_prop : vmf_main.props) {
+		if (vmf_main.modelCache[s_prop.modelID] == NULL) continue; // Skip uncanched / errored models. This shouldn't happen if the vmf references everything normally and all files exist.
+
 		model = glm::mat4();
-		model = glm::translate(model, s_prop.origin);
+		model = glm::translate(model, s_prop.origin); // Position
 		model = glm::rotate(model, glm::radians(s_prop.rotation.y), glm::vec3(0, 1, 0)); // Yaw 
 		model = glm::rotate(model, glm::radians(s_prop.rotation.x), glm::vec3(0, 0, 1)); // ROOOOOLLLLL
 		model = glm::rotate(model, -glm::radians(s_prop.rotation.z), glm::vec3(1, 0, 0)); // Pitch 
+		model = glm::scale(model, glm::vec3(s_prop.unifromScale)); // Scale
 
 		shader_depth.setMatrix("model", model);
 		vmf_main.modelCache[s_prop.modelID]->Draw();

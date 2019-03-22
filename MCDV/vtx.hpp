@@ -205,8 +205,9 @@ public:
 				reader.seekg(MODEL.lodOffset - sizeof(vtx::ModelHeader), std::ios::cur);
 				int abs_lod_base_offset = reader.tellg();
 
-				for (int lod = 0; lod < MODEL.numLODs; lod++)
-				{
+				for (int lod = 0; lod < MODEL.numLODs; lod++){
+					if (lod > 0) goto IL_EXIT; // Skip all the other lods for now
+
 					//Move to the current LOD header array item
 					reader.seekg(abs_lod_base_offset);
 					reader.seekg(lod * sizeof(vtx::ModelLODHeader), std::ios::cur);
@@ -311,6 +312,7 @@ public:
 			}
 		}
 
+		IL_EXIT: __noop;
 		//Dispose stream
 		reader.close();
 	}
@@ -462,8 +464,6 @@ public:
 					}
 				}
 			}
-
-		
 		}
 		IL_EXIT: __noop;
 	}

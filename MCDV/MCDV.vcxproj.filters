@@ -146,6 +146,9 @@
     <ClInclude Include="vpk.hpp">
       <Filter>Header Files\valve</Filter>
     </ClInclude>
+    <ClInclude Include="studiomdl.hpp">
+      <Filter>Header Files\valve</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">

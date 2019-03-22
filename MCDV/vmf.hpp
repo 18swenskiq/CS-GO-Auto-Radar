@@ -26,6 +26,8 @@
 
 #include <chrono>
 
+#include <io.h>
+
 namespace vmf_parse {
 	//Pass Vector3
 	bool Vector3f(std::string str, glm::vec3* vec)
@@ -329,9 +331,6 @@ namespace vmf {
 			//Process entities list
 			std::vector<kv::DataBlock> EntitiesList = data.headNode.GetAllByName("entity");
 			for (auto && block : EntitiesList) {
-
-				//if (block.Values["classname"] != "prop_static") continue; //Skip anything else than prop static for now
-
 				//Check wether origin can be resolved for entity
 				if ((block.GetFirstByName("solid") == NULL) && (block.Values.count("origin") == 0)) {
 					std::cout << "Origin could not be resolved for entity with ID " << block.Values["id"]; continue;
@@ -341,6 +340,13 @@ namespace vmf {
 				ent.classname = block.Values["classname"];
 				ent.ID = (int)::atof(block.Values["id"].c_str());
 				ent.keyValues = block.Values;
+
+				//Gather up the visgroups
+				kv::DataBlock* editorValues = block.GetFirstByName("editor");
+				int viscount = -1;
+				while (editorValues->Values.count("visgroupid" + (++viscount > 0 ? std::to_string(viscount) : ""))) {
+					ent.visgroupids.push_back(std::stoi(editorValues->Values["visgroupid" + (viscount > 0 ? std::to_string(viscount) : "")]));
+				}
 
 				glm::vec3 loc = glm::vec3();
 				if (block.Values.count("origin")) {							//Start with hammer origin
@@ -378,9 +384,9 @@ namespace vmf {
 							solid.faces.push_back(side);
 						}
 
-						kv::DataBlock* editorValues = block.GetFirstByName("editor");
-
 						//Gather up the visgroups
+						//TODO: move this dupe code away from solid processing
+						// add reference to source entity, to provide link to visgroups.
 						int viscount = -1;
 						while (editorValues->Values.count("visgroupid" + (++viscount > 0 ? std::to_string(viscount) : ""))) {
 							solid.visgroupids.push_back(std::stoi(editorValues->Values["visgroupid" + (viscount > 0 ? std::to_string(viscount) : "")]));
@@ -477,8 +483,7 @@ namespace vmf {
 			return list;
 		}
 
-		bool testIfInVisgroup(Entity* ent, std::string visgroup)
-		{
+		bool testIfInVisgroup(Entity* ent, std::string visgroup){
 			for (auto && esvid : ent->visgroupids) {
 				if (this->visgroups[esvid] == visgroup) {
 					return true;
@@ -601,26 +606,25 @@ namespace vmf {
 		void populateModelDict(std::string pakDir) {
 			vpk::index pakIndex(pakDir + "pak01_dir.vpk"); // Open index
 
+			std::cout << "Populating model dictionary & caching model data...\n";
+
 			unsigned int mIndex = 0;
 			for (auto && ent : this->findEntitiesByClassName("prop_static")) {
 				std::string modelName = kv::tryGetStringValue(ent->keyValues, "model", "error.mdl");
 				std::string baseName = split(modelName, ".")[0];
 				if (this->modelDict.count(modelName)) continue; // Skip already defined models
 
-				std::cout << "Processing model: " << modelName << "\n";
-
 				this->modelDict.insert({ modelName, mIndex++ }); // Add to our list
 
 				// Generate our model data and wham it into the model cache
 				vpk::vEntry* vEntry = pakIndex.find(modelName);
 				if (vEntry != NULL) {
-					std::cout << "Found model in pakfile: " << modelName << "\n";
-
 					vpk::vEntry* vtx_entry = pakIndex.find(baseName + ".dx90.vtx");
 					vpk::vEntry* vvd_entry = pakIndex.find(baseName + ".vvd");
 
 					if (vtx_entry == NULL || vvd_entry == NULL) {
 						std::cout << "Couldn't find vtx/vvd model data\n";
+						this->modelCache.push_back(NULL);
 						continue;
 					}
 
@@ -633,7 +637,7 @@ namespace vmf {
 					// Read vvd
 					std::string vvdPakDir = pakDir + "pak01_" + sutil::pad0(std::to_string(vvd_entry->entryInfo.ArchiveIndex), 3) + ".vpk";
 					std::ifstream vvdPakFile(vvdPakDir, std::ios::in | std::ios::binary);
-					vvd_data vvd(&vvdPakFile, vvd_entry->entryInfo.EntryOffset, true);
+					vvd_data vvd(&vvdPakFile, vvd_entry->entryInfo.EntryOffset, false);
 					vvdPakFile.close();
 
 					// GENERATE MESH TING
@@ -651,14 +655,42 @@ namespace vmf {
 					this->modelCache.push_back(m);
 				}
 				else {
-					std::cout << "Searching for model in gamedir...\n";
+					std::string vtxFile = pakDir + baseName + ".dx90.vtx";
+					std::string vvdFile = pakDir + baseName + ".vvd";
+
+					// Check that custom model data actually exists
+					if (_access_s(vtxFile.c_str(), 0) != 0 || _access_s(vvdFile.c_str(), 0) != 0) {
+						std::cout << "Couldn't find vtx/vvd model data\n";
+						this->modelCache.push_back(NULL);
+						continue;
+					}
+
+					// Read vtx
+					vtx_mesh vtx(vtxFile);
+
+					// Read vvd
+					vvd_data vvd(vvdFile);
+
+					// GENERATE MESH TING
+					std::vector<float> meshData;
+					for (auto && vert : vtx.vertexSequence) {
+						meshData.push_back(vvd.verticesLOD0[vert].m_vecPosition.x);
+						meshData.push_back(vvd.verticesLOD0[vert].m_vecPosition.y);
+						meshData.push_back(vvd.verticesLOD0[vert].m_vecPosition.z);
+						meshData.push_back(0);
+						meshData.push_back(0);
+						meshData.push_back(1);
+					}
+
+					Mesh* m = new Mesh(meshData, MeshMode::POS_XYZ_NORMAL_XYZ);
+					this->modelCache.push_back(m);
 				}
 			}
 		}
 
 		void populatePropList(std::string visgroupfilter = "") {
 			for (auto && prop : this->findEntitiesByClassName("prop_static")) {
-				//if (!this->testIfInVisgroup(prop, visgroupfilter)) continue;
+				if (!this->testIfInVisgroup(prop, visgroupfilter)) continue;
 
 				std::string modelName = kv::tryGetStringValue(prop->keyValues, "model", "error.mdl");
 

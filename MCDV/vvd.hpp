@@ -80,6 +80,14 @@ public:
 			VVD::Vertex vert;
 			reader.read((char*)&vert, sizeof(vert));
 
+			// THIS HURTS
+			// REAL BAD
+			// forgot to copy this... spent 9 hours trying to learning studiomdl.
+			// note to self: dont dupe your code.
+			// Do the sorce->opengl flipperoo
+			glm::vec3 temp = vert.m_vecPosition;
+			vert.m_vecPosition = glm::vec3(-temp.x, temp.z, temp.y);
+
 			this->verticesLOD0.push_back(vert);
 		}
 
