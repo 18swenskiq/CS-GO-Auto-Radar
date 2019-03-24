@@ -238,6 +238,10 @@ namespace vmf {
 			for (int i = 0; i < SolidList.size(); i++){
 				std::cout << "Solid " << i + 1 << "/" << total << "\r";
 
+				if (i >= SolidList.size() - 1)
+				{
+					std::cout << "last\n";
+				}
 				kv::DataBlock cBlock = SolidList[i];
 
 				Solid solid;
@@ -308,16 +312,21 @@ namespace vmf {
 
 				kv::DataBlock* editorValues = cBlock.GetFirstByName("editor");
 
-				//Gather up the visgroups
-				int viscount = -1;
-				while (editorValues->Values.count("visgroupid" + (++viscount > 0 ? std::to_string(viscount) : "")))
-					solid.visgroupids.push_back(std::stoi(editorValues->Values["visgroupid" + (viscount > 0 ? std::to_string(viscount) : "")]));
+				if (editorValues != NULL) {
+					//Gather up the visgroups
+					int viscount = -1;
+					while (editorValues->Values.count("visgroupid" + (++viscount > 0 ? std::to_string(viscount) : "")))
+						solid.visgroupids.push_back(std::stoi(editorValues->Values["visgroupid" + (viscount > 0 ? std::to_string(viscount) : "")]));
 
-				glm::vec3 color;
-				if (vmf_parse::Vector3f(editorValues->Values["color"], &color))
-					solid.color = glm::vec3(color.x / 255.0f, color.y / 255.0f, color.z / 255.0f);
-				else
+					glm::vec3 color;
+					if (vmf_parse::Vector3f(editorValues->Values["color"], &color))
+						solid.color = glm::vec3(color.x / 255.0f, color.y / 255.0f, color.z / 255.0f);
+					else
 					solid.color = glm::vec3(1, 0, 0);
+				}
+				else {
+					std::cout << "Editor values was null!\n";
+				}
 
 				this->solids.push_back(solid);
 			}

@@ -51,13 +51,30 @@ void save_to_dds(int x, int y, const char* filepath) {
 	free(data);
 }
 
+/* Renders opengl in opaque mode (normal) */
+void opengl_render_opaque() {
+	glDisable(GL_BLEND);
+	glEnable(GL_DEPTH_TEST);
+	glDepthMask(GL_TRUE);
+}
+
+/* Renders opengl in addative mode */
+void opengl_render_additive() {
+	glDepthMask(GL_TRUE);
+	glEnable(GL_BLEND);
+
+	// I still do not fully understand OPENGL blend modes. However these equations looks nice for the grid floor.
+	glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+	glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ZERO, GL_ONE);
+}
+
 /* Command line variables */
 #ifndef _DEBUG
 std::string m_mapfile_path;
 std::string m_game_path;
 #endif
 #ifdef _DEBUG
-std::string m_mapfile_path = "sample_stuff/de_tavr_test";
+std::string m_mapfile_path = "sample_stuff/de_crimson_v16";
 std::string m_game_path = "D:/SteamLibrary/steamapps/common/Counter-Strike Global Offensive/csgo";
 #endif
 
@@ -129,14 +146,14 @@ int app(int argc, const char** argv) {
 	auto result = options.parse(argc, argv);
 
 	/* Check required parameters */
-	if (result.count("game")) m_game_path = result["game"].as<std::string>();
+	if (result.count("game")) m_game_path = sutil::ReplaceAll(result["game"].as<std::string>(), "\n", "");
 	else throw cxxopts::option_required_exception("game");
 	
 	if(result.count("mapfile")) m_mapfile_path = result["mapfile"].as<std::string>();
 	else if (result.count("positional")) {
 		auto& positional = result["positional"].as<std::vector<std::string>>();
 		
-		m_mapfile_path = positional[0];
+		m_mapfile_path = sutil::ReplaceAll(positional[0], "\n", "");
 	}
 	else throw cxxopts::option_required_exception("mapfile"); // We need a map file
 
@@ -547,6 +564,9 @@ int app(int argc, const char** argv) {
 		s_solid->mesh->Draw();
 	}
 
+	fb_comp_1.Bind();
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
 	shader_unlit.setVec3("color", 1.0f, 0.0f, 0.0f);
 
 	for (auto && s_solid : tavr_bombtargets) {
@@ -565,6 +585,9 @@ int app(int argc, const char** argv) {
 
 	fb_comp.BindRTtoTexSlot(0);
 	shader_precomp_objectives.setInt("tex_in", 0);
+
+	fb_comp_1.BindRTtoTexSlot(1);
+	shader_precomp_objectives.setInt("tex_in_1", 1);
 
 	mesh_screen_quad->Draw();
 

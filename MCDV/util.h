@@ -73,6 +73,17 @@ std::vector<std::string> split(std::string s, std::string delimiter)
 
 namespace sutil
 {
+	std::string get_unquoted_material(std::string in) {
+		std::vector<std::string> sgts = split(in, '\"');
+		std::string u = "";
+		int i = 0;
+		for (auto && s : sgts) {
+			if (i++ % 2 != 0) continue;
+			u += s;
+		}
+		return u;
+	}
+
 	std::string pad0(std::string in, int count) {
 		int zerosNeeded = count - in.size();
 		std::string out = "";

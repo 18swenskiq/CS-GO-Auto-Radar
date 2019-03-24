@@ -45,13 +45,13 @@ namespace kv
 
 				line = split(line, "//")[0];
 
-				if (line.find("{") != std::string::npos) {
+				if (sutil::get_unquoted_material(line).find("{") != std::string::npos) {
 					std::string pname = prev;
 					prev.erase(std::remove(prev.begin(), prev.end(), '"'), prev.end());
 					this->SubBlocks.push_back(DataBlock(stream, pname, progress_callback));
 					continue;
 				}
-				if (line.find("}") != std::string::npos) {
+				if (sutil::get_unquoted_material(line).find("}") != std::string::npos) {
 					return;
 				}
 
