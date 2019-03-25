@@ -73,6 +73,12 @@ std::vector<std::string> split(std::string s, std::string delimiter)
 
 namespace sutil
 {
+	std::string to_lower(std::string in) {
+		std::string o = in;
+		std::transform(o.begin(), o.end(), o.begin(), ::tolower);
+		return o;
+	}
+
 	std::string get_unquoted_material(std::string in) {
 		std::vector<std::string> sgts = split(in, '\"');
 		std::string u = "";

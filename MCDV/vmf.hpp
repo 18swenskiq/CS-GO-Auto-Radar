@@ -200,6 +200,8 @@ namespace vmf {
 
 		vmf(std::string path)
 		{
+			std::cout << "Opening: " << path << "\n";
+
 			std::ifstream ifs(path);
 			if (!ifs) {
 				std::cout << "Could not open file... " << path << std::endl;
@@ -626,13 +628,14 @@ namespace vmf {
 				this->modelDict.insert({ modelName, mIndex++ }); // Add to our list
 
 				// Generate our model data and wham it into the model cache
+				// TODO: Clean up code duplication here.
 				vpk::vEntry* vEntry = pakIndex.find(modelName);
 				if (vEntry != NULL) {
 					vpk::vEntry* vtx_entry = pakIndex.find(baseName + ".dx90.vtx");
 					vpk::vEntry* vvd_entry = pakIndex.find(baseName + ".vvd");
 
 					if (vtx_entry == NULL || vvd_entry == NULL) {
-						std::cout << "Couldn't find vtx/vvd model data\n";
+						std::cout << "[pak] Couldn't find vtx/vvd model data\n";
 						this->modelCache.push_back(NULL);
 						continue;
 					}
@@ -669,13 +672,21 @@ namespace vmf {
 
 					// Check that custom model data actually exists
 					if (_access_s(vtxFile.c_str(), 0) != 0 || _access_s(vvdFile.c_str(), 0) != 0) {
-						std::cout << "Couldn't find vtx/vvd model data\n";
+						std::cout << "[custom] Couldn't find vtx/vvd model data\n";
+						std::cout << "Skipping: " << baseName << "\n";
 						this->modelCache.push_back(NULL);
 						continue;
 					}
 
 					// Read vtx
 					vtx_mesh vtx(vtxFile);
+
+					// VTX issues only exist for custom content. Everying in pakfiles are v7
+					if (!vtx.read_success) {
+						std::cout << "Skipping: " << baseName << "\n";
+						this->modelCache.push_back(NULL);
+						continue;
+					}
 
 					// Read vvd
 					vvd_data vvd(vvdFile);

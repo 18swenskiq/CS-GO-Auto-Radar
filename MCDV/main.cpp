@@ -126,11 +126,11 @@ int app(int argc, const char** argv) {
 		("d,dumpMasks", "Toggles whether auto radar should output mask images (resources/map_file.resources/)")
 		("o,onlyMasks", "Specift whether auto radar should only output mask images and do nothing else (resources/map_file.resources)")
 
-		("ao", "Turn on AO in the compisotor")
-		("shadows", "Turn on Shadows in the compositor")
+		("ao", "[OBSOLETE] Turn on AO in the compisotor")
+		("shadows", "[OBSOLETE] Turn on Shadows in the compositor")
 
-		("w,width", "Render width in pixels (experimental)", cxxopts::value<uint32_t>()->default_value("1024"))
-		("h,height", "Render height in pixels (experimental)", cxxopts::value<uint32_t>()->default_value("1024"))
+		("w,width", "[OBSOLETE] Render width in pixels (experimental)", cxxopts::value<uint32_t>()->default_value("1024"))
+		("h,height", "[OBSOLETE] Render height in pixels (experimental)", cxxopts::value<uint32_t>()->default_value("1024"))
 
 		// Experimental
 		("autoModulate", "Enables automatic height modulation between two levels")
@@ -215,6 +215,9 @@ int app(int argc, const char** argv) {
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)){
 		std::cout << "Failed to initialize GLAD" << std::endl; return -1;
 	}
+
+	const unsigned char* glver = glGetString(GL_VERSION);
+	std::cout << "(required: min core 3.3.0) opengl version: " << glver << "\n";
 
 	glEnable(GL_DEPTH_TEST);
 

@@ -151,6 +151,7 @@ class vtx_mesh : public util::verboseControl
 public:
 	std::vector<unsigned short> vertexSequence;
 	vtx::FileHeader header;
+	bool read_success = true;
 
 	vtx_mesh(std::string filepath, bool verbose = false)
 	{
@@ -167,6 +168,13 @@ public:
 		reader.read((char*)&this->header, sizeof(this->header));
 		this->debug("VTX version:", this->header.version);
 		this->debug("Num LODS:", this->header.numLODs);
+
+		// We only support version 7
+		if (this->header.version != 7) {
+			this->read_success = false;
+			std::cout << "VTX version " << this->header.version << " unsupported. Expected v7.\n";
+			return;
+		}
 
 		/* Read bulk of .VTX file */
 

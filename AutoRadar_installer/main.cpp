@@ -15,10 +15,125 @@
 std::string steam_install_path = "C:\\Program Files (x86)\\Steam\\";
 std::string csgo_sdk_bin_path = "";
 
+/*
+
+// Find steam installation ___________________________________________________________________________
+
+if argc > 0:																							// overridden input
+	RETURN SDK_BIN
+
+if CheckExist ([DRIVE]:/program files (x86)/steam/) 'steam.exe':										// normal drive letter installs
+	steam_path = ^
+else: if CheckExist (<reg='Software\Valve\Steam\SteamPath'>/) 'steam.exe':								// check from registry if not found
+	steam_path = ^
+else: RETURN FAIL																						// can't find steam installation.
+
+CheckExist (steam_path steamapps/common/Counter-Strike Global Offensive/bin/) 'hammer.exe':				// check steam install's regular /common/ folder
+	RETURN SDK_BIN
+
+CheckExist '__ steamapps/libraryfolders.vdf'															// check if steam library folder vdf exists
+	FOREACH lib_folder :: libraryfolders.vdf:															// iterate the library folders
+		CheckExist (lib_folder steamapps/common/Counter-Strike Global Offensive/bin/) 'hammer.exe':		// check for hammer
+			RETURN SDK_BIN
+
+RETURN FAIL
+*/
+
 int exit() {
 	cc::reset();
 	system("PAUSE");
 	return -1;
+}
+
+inline bool checkFileExist(const char* path) {
+	return (_access_s(path, 0) == 0);
+}
+
+bool get_steam_install_from_winreg(std::string* s) {
+	HKEY hKey = NULL;
+	char buffer[1024];
+
+	bool regReadSuccess = true;
+
+	if (RegOpenKeyEx(HKEY_CURRENT_USER, "Software\\Valve\\Steam", NULL, KEY_QUERY_VALUE, &hKey) == ERROR_SUCCESS) {
+		DWORD size;
+		if (RegQueryValueEx(hKey, "SteamPath", NULL, NULL, (LPBYTE)buffer, &size) == ERROR_SUCCESS) {
+			steam_install_path = buffer;
+			steam_install_path += "\\";
+		}
+		else regReadSuccess = false;
+	}
+	else regReadSuccess = false;
+
+	RegCloseKey(hKey);
+
+	if (regReadSuccess)
+		*s = buffer;
+
+	return regReadSuccess;
+}
+
+std::vector<std::string> get_library_folders_from_vdf(std::string vdf) {
+	std::vector<std::string> libraryFolders;
+
+	std::ifstream ifs(vdf);
+	if (!ifs) return libraryFolders; //ifs failed to open.
+
+	else {
+		std::string str((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+		kv::FileData libFolders(str);
+
+		kv::DataBlock* libFoldersDB = libFolders.headNode.GetFirstByName("\"LibraryFolders\"");
+
+		if (libFoldersDB != NULL) {
+			int index = 0;
+			while (libFoldersDB->Values.count(std::to_string(++index))) libraryFolders.push_back(libFoldersDB->Values[std::to_string(index)] + "/steamapps/common/");
+		}
+	}
+
+	return libraryFolders;
+}
+
+/* Work through all possible locations of steam / csgo. */
+std::string detect_csgo_bin(std::string steam_drive_letter = "c") {
+	std::string steam_path = "";
+
+	try {
+		if (checkFileExist((steam_drive_letter + ":/program files (x86)/steam/steam.exe").c_str()))
+			steam_path = steam_drive_letter + ":/program files (x86)/steam/";
+
+		else if (get_steam_install_from_winreg(&steam_path))
+			if (checkFileExist((steam_path + "/steam.exe").c_str()))
+				steam_path = steam_path + "/";
+			else throw std::exception((	"1) [" + steam_drive_letter + ":/program files (x86)/steam/steam.exe] not found\n2) Steam registry key pointed to wrong location.").c_str());
+		else throw std::exception((		"1) [" + steam_drive_letter + ":/program files (x86)/steam/steam.exe] not found\n2) Failed to open registry for steam path.").c_str());
+
+		// steam_path assumed to be correct from here.
+
+		// check steam apps folder
+		if (checkFileExist((steam_path + "steamapps/common/Counter-Strike Global Offensive/bin/hammer.exe").c_str()))
+			return steam_path + "steamapps/common/Counter-Strike Global Offensive/bin/";
+
+		// check if library folder thingy exists
+		if (checkFileExist((steam_path + "steamapps/libraryfolders.vdf").c_str())) {
+			for (auto && folder : get_library_folders_from_vdf(steam_path + "steamapps/libraryfolders.vdf"))
+				if (checkFileExist((folder + "Counter-Strike Global Offensive/bin/hammer.exe").c_str()))
+					return sutil::ReplaceAll(folder, "\\\\", "/") + "Counter-Strike Global Offensive/bin/";
+
+			throw std::exception(("1) [" + steam_path + "steamapps/common/Counter-Strike Global Offensive/bin/hammer.exe] not found\n2) libraryfolders.vdf search failed.").c_str());
+		}
+
+		// unable to find hammer using any methods.
+		throw std::exception(("1) [" + steam_path + "steamapps/common/Counter-Strike Global Offensive/bin/hammer.exe] not found\n2) libraryfolders.vdf not found.").c_str());
+	}
+	catch (std::exception e) {
+		cc::error(); std::cout << "\nFailed to automatically detect /bin/ folder...\n\n";
+		cc::info();  std::cout << "Reasons:\n====================================================================\n";
+		cc::reset(); std::cout << e.what();
+		cc::info();  std::cout << "\n====================================================================\n\n";
+	}
+
+	return "";
 }
 
 int main(int argc, const char** argv) {
@@ -39,89 +154,40 @@ int main(int argc, const char** argv) {
 	kv::DataBlock vinfodata = vinfo.headNode.SubBlocks[0];
 
 	cc::fancy(); std::cout << "Installing version: " << vinfodata.Values["version"] << "\n";
+	cc::reset();
 
 	// Overide install
 	if (argc > 1) {
 		csgo_sdk_bin_path = std::string(argv[1]) + "\\";
-		goto IL_COPYFILES;
+		goto IL_PRE_INSTALL;
+	}
+	else {
+		csgo_sdk_bin_path = detect_csgo_bin();
 	}
 
-#pragma region sdk_detect
-	/* Get steam installation path */
-	{
-		cc::info(); std::cout << "Getting steam installation path from windows registry\n";
+	if (csgo_sdk_bin_path == "") {
+		cc::reset(); std::cout << "Having issues?\nRun this installer from command prompt with the first argument being the path to your Counter Strike bin folder\n(the same folder as where hammer.exe is located)\n";
+		cc::reset(); std::cout << " > ";
+		cc::info();  std::cout << "AutoRadar_installer.exe ";
+		cc::reset(); std::cout << "\"";
+		cc::info();  std::cout << "..."; 
+		cc::reset(); std::cout << "Counter-Strike Global Offensive/bin/\"\n";
+		exit();
+	};
 
-		HKEY hKey = NULL;
-		char buffer[1024];
+	std::cout << "Evaluated bin_path to: " << csgo_sdk_bin_path << "\n";
 
-		bool regReadSuccess = true;
+IL_PRE_INSTALL:
 
-		if (RegOpenKeyEx(HKEY_CURRENT_USER, "Software\\Valve\\Steam", NULL, KEY_QUERY_VALUE, &hKey) == ERROR_SUCCESS) {
-			DWORD size;
-			if (RegQueryValueEx(hKey, "SteamPath", NULL, NULL, (LPBYTE)buffer, &size) == ERROR_SUCCESS) {
-				steam_install_path = buffer;
-				steam_install_path += "\\";
-			}
-			else regReadSuccess = false;
-		}
-		else regReadSuccess = false;
-
-		RegCloseKey(hKey);
-
-		if (!regReadSuccess) {
-			cc::warning();
-			std::cout << "Failed to read registry key: 'Software\\Valve\\Steam\\SteamPath'\nDefaulting to C:\\Program Files (x86)\\Steam\\ installation...\n";
-		}
-
-		cc::info();
-		std::cout << "Reading steam library folders\n";
-
-		/* Read library folders file */
-
-		std::vector<std::string> libraryFolders;
-		libraryFolders.push_back(steam_install_path + "steammapps\\common\\");
-		libraryFolders.push_back("C:\\Program Files (x86)\\Steam\\steammapps\\common\\");
-
-		std::ifstream ifs(steam_install_path + "steamapps\\libraryfolders.vdf");
-		if (!ifs) {
-			std::cout << "Libraryfolders.vdf not found. Skipping search...\n" << std::endl;
-		}
-		else {
-			std::string str((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
-			kv::FileData libFolders(str);
-
-			kv::DataBlock* libFoldersDB = libFolders.headNode.GetFirstByName("\"LibraryFolders\"");
-
-			if (libFoldersDB != NULL) {
-				int index = 0;
-				while (libFoldersDB->Values.count(std::to_string(++index))) libraryFolders.push_back(libFoldersDB->Values[std::to_string(index)] + "\\steamapps\\common\\");
-			}
-		}
-
-		if (libraryFolders.size() == 0) std::cout << "No library folders found, defaulting to steamapps common folder...\n";
-
-		/* Scan for csgo sdk installations */
-
-		std::cout << "Scanning for SDK installation\n";
-
-		for (auto && folder : libraryFolders) {
-			if (_access_s((folder + "Counter-Strike Global Offensive\\bin\\gameinfo.txt").c_str(), 0) == 0) {
-				csgo_sdk_bin_path = folder + "Counter-Strike Global Offensive\\bin\\";
-			}
-		}
-
-		if (csgo_sdk_bin_path == "") {
-			cc::error();
-			std::cout << "Failed to find CS:GO SDK bin.\nFollow manual_install.txt";
-			return exit();
-		}
+	/* Check files that are required for install exist */
+	if (!checkFileExist((csgo_sdk_bin_path + "GameConfig.txt").c_str())){
+		cc::error(); std::cout << "Required file missing: \'" << csgo_sdk_bin_path + "GameConfig.txt\'\n";
+		exit();
 	}
-#pragma endregion
 
 #pragma region copyfiles
 
 	/* Start doing the heavy work */
-IL_COPYFILES: 
 	std::cout << "Copying files\n________________________________________________________\n\n";
 	
 	// Copy folders
@@ -177,6 +243,11 @@ IL_COPYFILES:
 
 		target_file = csgo_sdk_bin_path + target_file;
 
+		if (!checkFileExist(target_file.c_str())) {
+			cc::warning(); std::cout << "CmdSeq.wc missing, command sequences won't be installed!\nCheck manual_install.txt (# Command Sequences)\n"; cc::info();
+			continue;
+		}
+
 		fs::copyFile(target_file, target_file + ".bak");
 
 		wc::filedata WcFile(target_file);
@@ -196,8 +267,7 @@ IL_COPYFILES:
 			wc::Sequence seq_new = wc::Sequence();
 			strcpy_s(seq_new.name, name.c_str());
 
-			for (auto && cmd : seqS.GetAllByName("Command"))
-			{
+			for (auto && cmd : seqS.GetAllByName("Command")){
 				wc::Command command_build = wc::Command();
 				command_build.is_enabled = kv::tryGetValue(cmd.Values, "is_enabled", 0);
 				command_build.special = kv::tryGetValue(cmd.Values, "special", 0);
@@ -270,15 +340,6 @@ IL_COPYFILES:
 #pragma endregion
 
 	cc::success(); std::cout << "\nCompleted setup!\n";
-	
-	/* Small wait to auto close */
-	for (int i = 10; i > 0; i--) {
-		cc::info();
-		std::cout << "Closing in " << i << " seconds...\r";
-		Sleep(1000);
-	}
-
-	cc::reset();
-	std::cout << "\n";
+	exit();
 	return 0;
 }

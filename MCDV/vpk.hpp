@@ -85,6 +85,9 @@ namespace vpk
 			std::cout << "Version: " << this->header.Version << "\n";
 			std::cout << "TreeSize: " << this->header.TreeSize << "\n";
 
+			std::ofstream f;
+			f.open("vpk.txt");
+
 			while (true) {
 				std::string extension = get_sz(&reader);
 				std::cout << "   *." << extension << "\n";
@@ -111,6 +114,7 @@ namespace vpk
 						}
 
 						entry.entryString = folder + "/" + filename + "." + extension;
+						f << folder + "/" + filename + "." + extension << "\n";
 
 						this->entries.push_back(entry);
 					}
@@ -119,6 +123,8 @@ namespace vpk
 
 		IL_EXIT:
 
+			f.close();
+
 			std::cout << "Done reading\n";
 			std::cout << this->entries.size() << " entries read\n";
 
@@ -126,8 +132,10 @@ namespace vpk
 		}
 
 		vEntry* find(std::string name) {
+			// All files in vpk are stored in lowercase.
+			std::string search = sutil::to_lower(name);
 			for (auto && v : this->entries) {
-				if (v.entryString == name) {
+				if (v.entryString == search) {
 					return &v;
 				}
 			}
