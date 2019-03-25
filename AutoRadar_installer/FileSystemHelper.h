@@ -1,9 +1,22 @@
 #include <Windows.h>
 #include <vector>
 #include <string>
+#include <io.h>
+#include <ShlObj_core.h>
 
 namespace fs
 {
+	inline bool checkFileExist(const char* path) {
+		return (_access_s(path, 0) == 0);
+	}
+
+	void mkdr(const char* dir) {
+		if (_access_s(dir, 0)) {
+			std::cout << "mkdr  " << dir << "\n";
+			SHCreateDirectoryExA(NULL, dir, NULL);
+		}
+	}
+
 	std::vector<std::string> getFilesInDirectory(std::string folder) {
 		std::vector<std::string> names;
 		std::string search_path = folder + "/*.*";
@@ -69,6 +82,7 @@ namespace fs
 		return false;    // this is not a directory!
 	}
 
+	/* get directory name from filepath */
 	std::string getDirName(std::string f) {
 		return f.substr(0, f.size() - split(sutil::ReplaceAll(f, "/", "\\"), '\\').back().size());
 	}

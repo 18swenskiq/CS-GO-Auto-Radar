@@ -11,6 +11,7 @@
 #include <regex>
 
 #include "Util.h"
+#include "vfilesys.hpp"
 #include "vdf.hpp"
 #include "plane.h"
 #include "Mesh.hpp"
@@ -614,9 +615,7 @@ namespace vmf {
 		}
 
 		/* Collect all references to model strings, and build their models */
-		void populateModelDict(std::string pakDir) {
-			vpk::index pakIndex(pakDir + "pak01_dir.vpk"); // Open index
-
+		void populateModelDict(vfilesys* filesystem) {
 			std::cout << "Populating model dictionary & caching model data...\n";
 
 			unsigned int mIndex = 0;
@@ -627,84 +626,28 @@ namespace vmf {
 
 				this->modelDict.insert({ modelName, mIndex++ }); // Add to our list
 
-				// Generate our model data and wham it into the model cache
-				// TODO: Clean up code duplication here.
-				vpk::vEntry* vEntry = pakIndex.find(modelName);
-				if (vEntry != NULL) {
-					vpk::vEntry* vtx_entry = pakIndex.find(baseName + ".dx90.vtx");
-					vpk::vEntry* vvd_entry = pakIndex.find(baseName + ".vvd");
+				vtx_mesh* vtx = filesystem->get_resource_handle<vtx_mesh>(baseName + ".dx90.vtx");
+				vvd_data* vvd = filesystem->get_resource_handle<vvd_data>(baseName + ".vvd");
 
-					if (vtx_entry == NULL || vvd_entry == NULL) {
-						std::cout << "[pak] Couldn't find vtx/vvd model data\n";
-						this->modelCache.push_back(NULL);
-						continue;
-					}
-
-					// Read vtx
-					std::string vtxPakDir = pakDir + "pak01_" + sutil::pad0(std::to_string(vtx_entry->entryInfo.ArchiveIndex), 3) + ".vpk";
-					std::ifstream vtxPakfile(vtxPakDir, std::ios::in | std::ios::binary);
-					vtx_mesh vtx(&vtxPakfile, vtx_entry->entryInfo.EntryOffset, false);
-					vtxPakfile.close();
-					
-					// Read vvd
-					std::string vvdPakDir = pakDir + "pak01_" + sutil::pad0(std::to_string(vvd_entry->entryInfo.ArchiveIndex), 3) + ".vpk";
-					std::ifstream vvdPakFile(vvdPakDir, std::ios::in | std::ios::binary);
-					vvd_data vvd(&vvdPakFile, vvd_entry->entryInfo.EntryOffset, false);
-					vvdPakFile.close();
-
-					// GENERATE MESH TING
-					std::vector<float> meshData;
-					for (auto && vert : vtx.vertexSequence) {
-						meshData.push_back(vvd.verticesLOD0[vert].m_vecPosition.x);
-						meshData.push_back(vvd.verticesLOD0[vert].m_vecPosition.y);
-						meshData.push_back(vvd.verticesLOD0[vert].m_vecPosition.z);
-						meshData.push_back(0);
-						meshData.push_back(0);
-						meshData.push_back(1);
-					}
-
-					Mesh* m = new Mesh(meshData, MeshMode::POS_XYZ_NORMAL_XYZ);
-					this->modelCache.push_back(m);
+				if (vvd == NULL || vtx == NULL) {
+					this->modelCache.push_back(NULL);
+					std::cout << "Failed to load resource: " << baseName << "\n";
+					continue;
 				}
-				else {
-					std::string vtxFile = pakDir + baseName + ".dx90.vtx";
-					std::string vvdFile = pakDir + baseName + ".vvd";
 
-					// Check that custom model data actually exists
-					if (_access_s(vtxFile.c_str(), 0) != 0 || _access_s(vvdFile.c_str(), 0) != 0) {
-						std::cout << "[custom] Couldn't find vtx/vvd model data\n";
-						std::cout << "Skipping: " << baseName << "\n";
-						this->modelCache.push_back(NULL);
-						continue;
-					}
-
-					// Read vtx
-					vtx_mesh vtx(vtxFile);
-
-					// VTX issues only exist for custom content. Everying in pakfiles are v7
-					if (!vtx.read_success) {
-						std::cout << "Skipping: " << baseName << "\n";
-						this->modelCache.push_back(NULL);
-						continue;
-					}
-
-					// Read vvd
-					vvd_data vvd(vvdFile);
-
-					// GENERATE MESH TING
-					std::vector<float> meshData;
-					for (auto && vert : vtx.vertexSequence) {
-						meshData.push_back(vvd.verticesLOD0[vert].m_vecPosition.x);
-						meshData.push_back(vvd.verticesLOD0[vert].m_vecPosition.y);
-						meshData.push_back(vvd.verticesLOD0[vert].m_vecPosition.z);
-						meshData.push_back(0);
-						meshData.push_back(0);
-						meshData.push_back(1);
-					}
-
-					Mesh* m = new Mesh(meshData, MeshMode::POS_XYZ_NORMAL_XYZ);
-					this->modelCache.push_back(m);
+				// GENERATE MESH TING
+				std::vector<float> meshData;
+				for (auto && vert : vtx->vertexSequence) {
+					meshData.push_back(vvd->verticesLOD0[vert].m_vecPosition.x);
+					meshData.push_back(vvd->verticesLOD0[vert].m_vecPosition.y);
+					meshData.push_back(vvd->verticesLOD0[vert].m_vecPosition.z);
+					meshData.push_back(0);
+					meshData.push_back(0);
+					meshData.push_back(1);
 				}
+
+				Mesh* m = new Mesh(meshData, MeshMode::POS_XYZ_NORMAL_XYZ);
+				this->modelCache.push_back(m);
 			}
 		}
 

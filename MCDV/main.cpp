@@ -20,6 +20,7 @@
 // Util
 #include "cxxopts.hpp"
 #include "interpolation.h"
+#include "vfilesys.hpp"
 
 // Image stuff
 #define STBI_MSC_SECURE_CRT
@@ -74,8 +75,8 @@ std::string m_mapfile_path;
 std::string m_game_path;
 #endif
 #ifdef _DEBUG
-std::string m_mapfile_path = "sample_stuff/de_crimson_v16";
-std::string m_game_path = "D:/SteamLibrary/steamapps/common/Counter-Strike Global Offensive/csgo";
+std::string m_mapfile_path = "sample_stuff/de_tavr_test";
+std::string m_game_path = "D:/SteamLibrary/steamapps/common/Counter-Strike Global Offensive/csgo_dev";
 #endif
 
 //derived strings
@@ -179,6 +180,7 @@ int app(int argc, const char** argv) {
 	m_overviews_folder = m_game_path + "/resource/overviews/";
 	m_resources_folder = m_overviews_folder + m_mapfile_name + ".resources/";
 
+	/*
 	std::cout << "Launching with options:\n";
 	std::cout << "  Render width:    " << m_renderWidth << "\n";
 	std::cout << "  Render height:   " << m_renderHeight << "\n";
@@ -189,6 +191,19 @@ int app(int argc, const char** argv) {
 	std::cout << "\n  -------- RENDER SETTINGS -------\n";
 	std::cout << "    AO:              " << (m_comp_ao_enable ? "YES" : "NO") << "\n";
 	std::cout << "    Shadows:         " << (m_comp_shadows_enable ? "YES" : "NO") << "\n";
+	*/
+	vfilesys* filesys = NULL;
+	try {
+		filesys = new vfilesys(m_game_path + "/gameinfo.txt");
+	}
+	catch (std::exception e) {
+		std::cout << "Error creating vfilesys:\n";
+		std::cout << e.what() << "\n";
+		system("PAUSE");
+		return 0;
+	}
+
+	filesys->debug();
 
 	std::cout << "Initializing OpenGL\n";
 
@@ -356,7 +371,7 @@ int app(int argc, const char** argv) {
 
 	//Collect models
 	std::cout << "Collecting models... \n";
-	vmf_main.populateModelDict(m_game_path + "/");
+	vmf_main.populateModelDict(filesys);
 	vmf_main.populatePropList(tar_config == NULL ? "tar_cover" : kv::tryGetStringValue(tar_config->keyValues, "vgroup_cover", "tar_cover"));
 
 	std::cout << "done!\n";

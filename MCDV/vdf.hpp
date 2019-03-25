@@ -10,11 +10,12 @@
 
 #include "Util.h"
 
-//#define _USE_REGEX
+#define _USE_REGEX
 
 namespace kv
 {
-	const std::regex reg_kv("(\"([^=\"]*)\")|([^=\\s]+)");
+	//const std::regex reg_kv("(\"([^=\"]*)\")|([^=\\s]+)");
+	const std::regex reg_kv(R"vv("(.*?)"|([^\s]+))vv");
 
 	template<typename T>
 	T tryGetValue(std::map<std::string, std::string> map, const char* key, T defaultValue) {
@@ -25,6 +26,16 @@ namespace kv
 	std::string tryGetStringValue(std::map<std::string, std::string> map, const char* key, std::string defaultValue = "") {
 		if (!map.count(key)) return defaultValue;
 		return map[key];
+	}
+
+	/* Create list from map and key */
+	std::vector<std::string> getList(std::map<std::string, std::string> map, const char* key) {
+		std::vector<std::string> list;
+
+		int vc = -1;
+		while (map.count(key + (++vc > 0 ? std::to_string(vc) : ""))) list.push_back(map[key + (vc > 0 ? std::to_string(vc) : "")]);
+
+		return list;
 	}
 
 	class DataBlock

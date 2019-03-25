@@ -57,47 +57,11 @@ public:
 
 	std::vector<VVD::Vertex> verticesLOD0;
 
-	vvd_data(std::string filepath, bool verbose = false)
-	{
-		this->use_verbose = verbose;
-
-		//Create file handle
-		std::ifstream reader(filepath, std::ios::in | std::ios::binary);
-
-		if (!reader) {
-			throw std::exception("VVD::OPEN FAILED"); return;
-		}
-
-		reader.read((char*)&this->header, sizeof(this->header));
-		this->debug("VVD Version:", this->header.version);
-
-		//Read vertex data
-		reader.seekg(header.vertexDataStart);
-
-		//Read LOD0
-		for (int i = 0; i < header.numLodVertexes[0]; i++)
-		{
-			VVD::Vertex vert;
-			reader.read((char*)&vert, sizeof(vert));
-
-			// THIS HURTS
-			// REAL BAD
-			// forgot to copy this... spent 9 hours trying to learning studiomdl.
-			// note to self: dont dupe your code.
-			// Do the sorce->opengl flipperoo
-			glm::vec3 temp = vert.m_vecPosition;
-			vert.m_vecPosition = glm::vec3(-temp.x, temp.z, temp.y);
-
-			this->verticesLOD0.push_back(vert);
-		}
-
-		reader.close();
-	}
-
-	vvd_data(std::ifstream* stream, unsigned int offset, bool verbost = false) {
+	vvd_data(std::ifstream* stream, bool verbost = false) {
 		this->use_verbose = verbost;
 
-		stream->seekg(offset);
+		unsigned int offset = stream->tellg();
+
 		stream->read((char*)&this->header, sizeof(this->header));
 		this->debug("VVD Version:", this->header.version);
 
@@ -118,6 +82,8 @@ public:
 		}
 
 		this->debug("Data length: ", this->verticesLOD0.size());
+		stream->close();
 	}
+
 	~vvd_data() {};
 };
