@@ -2,7 +2,7 @@ versioninfo
 {
 	"editorversion" "400"
 	"editorbuild" "8075"
-	"mapversion" "153"
+	"mapversion" "155"
 	"formatversion" "100"
 	"prefab" "0"
 }
@@ -56,7 +56,7 @@ viewsettings
 world
 {
 	"id" "1"
-	"mapversion" "153"
+	"mapversion" "155"
 	"classname" "worldspawn"
 	"detailmaterial" "detail/detailsprites"
 	"detailvbsp" "detail.vbsp"
@@ -2784,7 +2784,7 @@ entity
 	"angles" "0 0 0"
 	"fademindist" "-1"
 	"fadescale" "1"
-	"model" "models/props/de_nuke/this_mdl_doesnt_exist.mdl"
+	"model" "models/props/de_nuke/car_nuke.mdl"
 	"renderamt" "255"
 	"rendercolor" "255 255 255"
 	"skin" "0"
@@ -3182,10 +3182,10 @@ entity
 		side
 		{
 			"id" "315"
-			"plane" "(-273 -367 160) (-273 17 160) (207 17 160)"
+			"plane" "(-64 -576 160) (-64 -192 160) (416 -192 160)"
 			"material" "TERRI/TOOLS/TOOLS_TRIGGER"
-			"uaxis" "[1 0 0 72.8] 3.75"
-			"vaxis" "[0 -1 0 5.66667] 3"
+			"uaxis" "[1 0 0 17.0667] 3.75"
+			"vaxis" "[0 -1 0 -64] 3"
 			"rotation" "0"
 			"lightmapscale" "16"
 			"smoothing_groups" "0"
@@ -3193,10 +3193,10 @@ entity
 		side
 		{
 			"id" "314"
-			"plane" "(-273 17 16) (-273 -367 16) (207 -367 16)"
+			"plane" "(-64 -192 16) (-64 -576 16) (416 -576 16)"
 			"material" "TERRI/TOOLS/TOOLS_TRIGGER"
-			"uaxis" "[1 0 0 72.8] 3.75"
-			"vaxis" "[0 -1 0 5.66667] 3"
+			"uaxis" "[1 0 0 17.0667] 3.75"
+			"vaxis" "[0 -1 0 -64] 3"
 			"rotation" "0"
 			"lightmapscale" "16"
 			"smoothing_groups" "0"
@@ -3204,9 +3204,9 @@ entity
 		side
 		{
 			"id" "313"
-			"plane" "(-273 -367 16) (-273 17 16) (-273 17 160)"
+			"plane" "(-64 -576 16) (-64 -192 16) (-64 -192 160)"
 			"material" "TERRI/TOOLS/TOOLS_TRIGGER"
-			"uaxis" "[0 1 0 -5.66667] 3"
+			"uaxis" "[0 1 0 64] 3"
 			"vaxis" "[0 0 -1 14.2222] 1.125"
 			"rotation" "0"
 			"lightmapscale" "16"
@@ -3215,9 +3215,9 @@ entity
 		side
 		{
 			"id" "312"
-			"plane" "(207 17 16) (207 -367 16) (207 -367 160)"
+			"plane" "(416 -192 16) (416 -576 16) (416 -576 160)"
 			"material" "TERRI/TOOLS/TOOLS_TRIGGER"
-			"uaxis" "[0 1 0 -5.66667] 3"
+			"uaxis" "[0 1 0 64] 3"
 			"vaxis" "[0 0 -1 14.2222] 1.125"
 			"rotation" "0"
 			"lightmapscale" "16"
@@ -3226,9 +3226,9 @@ entity
 		side
 		{
 			"id" "311"
-			"plane" "(-273 17 16) (207 17 16) (207 17 160)"
+			"plane" "(-64 -192 16) (416 -192 16) (416 -192 160)"
 			"material" "TERRI/TOOLS/TOOLS_TRIGGER"
-			"uaxis" "[1 0 0 72.8] 3.75"
+			"uaxis" "[1 0 0 17.0667] 3.75"
 			"vaxis" "[0 0 -1 14.2222] 1.125"
 			"rotation" "0"
 			"lightmapscale" "16"
@@ -3237,9 +3237,9 @@ entity
 		side
 		{
 			"id" "310"
-			"plane" "(207 -367 16) (-273 -367 16) (-273 -367 160)"
+			"plane" "(416 -576 16) (-64 -576 16) (-64 -576 160)"
 			"material" "TERRI/TOOLS/TOOLS_TRIGGER"
-			"uaxis" "[1 0 0 72.8] 3.75"
+			"uaxis" "[1 0 0 17.0667] 3.75"
 			"vaxis" "[0 0 -1 14.2222] 1.125"
 			"rotation" "0"
 			"lightmapscale" "16"

@@ -84,6 +84,8 @@ std::string m_mapfile_name;
 std::string m_overviews_folder;
 std::string m_resources_folder;
 
+vfilesys* filesys = NULL;
+
 #ifdef _DEBUG
 bool m_outputMasks = true;
 bool m_onlyOutputMasks;
@@ -192,7 +194,7 @@ int app(int argc, const char** argv) {
 	std::cout << "    AO:              " << (m_comp_ao_enable ? "YES" : "NO") << "\n";
 	std::cout << "    Shadows:         " << (m_comp_shadows_enable ? "YES" : "NO") << "\n";
 	*/
-	vfilesys* filesys = NULL;
+
 	try {
 		filesys = new vfilesys(m_game_path + "/gameinfo.txt");
 	}
@@ -203,7 +205,7 @@ int app(int argc, const char** argv) {
 		return 0;
 	}
 
-	filesys->debug();
+	filesys->debug_info();
 
 	std::cout << "Initializing OpenGL\n";
 
@@ -556,8 +558,7 @@ int app(int argc, const char** argv) {
 
 	glEnable(GL_DEPTH_TEST);
 
-	if(m_outputMasks)
-		render_to_png(m_renderWidth, m_renderHeight, std::string(m_overviews_folder + m_mapfile_name + ".resources.playable_space.png").c_str());
+	if(m_outputMasks) render_to_png(m_renderWidth, m_renderHeight, filesys->create_output_filepath("resource/overviews/" + m_mapfile_name + ".resources/playspace.png", true).c_str());
 
 	std::cout << "done!\n";
 #pragma endregion 
@@ -607,10 +608,12 @@ int app(int argc, const char** argv) {
 	fb_comp_1.BindRTtoTexSlot(1);
 	shader_precomp_objectives.setInt("tex_in_1", 1);
 
+	fb_tex_playspace.BindRTtoTexSlot(2);
+	shader_precomp_objectives.setInt("tex_in_2", 2);
+
 	mesh_screen_quad->Draw();
 
-	if (m_outputMasks)
-		render_to_png(m_renderWidth, m_renderHeight, std::string(m_overviews_folder + m_mapfile_name + ".resources.buyzone_bombtargets.png").c_str());
+	if (m_outputMasks) render_to_png(m_renderWidth, m_renderHeight, filesys->create_output_filepath("resource/overviews/" + m_mapfile_name + ".resources/buyzones_bombtargets.png", true).c_str());
 
 	glEnable(GL_DEPTH_TEST);
 	std::cout << "done!\n";
@@ -670,12 +673,9 @@ int app(int argc, const char** argv) {
 #pragma endregion
 
 #pragma region auto_export_game
-	if (!m_onlyOutputMasks) {
-		save_to_dds(m_renderWidth, m_renderHeight, std::string(m_overviews_folder + m_mapfile_name + "_radar.dds").c_str());
-	}
 
-	if (m_outputMasks)
-		render_to_png(m_renderWidth, m_renderHeight, std::string(m_overviews_folder + m_mapfile_name + ".resources.final_raw.png").c_str());
+	if (!m_onlyOutputMasks) save_to_dds(m_renderWidth, m_renderHeight, filesys->create_output_filepath("resource/overviews/" + m_mapfile_name + "_radar.dds", true).c_str());
+	if (m_outputMasks) render_to_png(m_renderWidth, m_renderHeight, filesys->create_output_filepath("resource/overviews/" + m_mapfile_name + ".resources/raw.png", true).c_str());
 
 #pragma region generate_radar_txt
 
@@ -694,15 +694,15 @@ int app(int argc, const char** argv) {
 	glm::vec3* loc_spawnT = vmf_main.calculateSpawnLocation(vmf::team::terrorist);
 
 	if (loc_spawnCT != NULL) {
-		node_radar.Values.insert({ "CTSpawn_x", std::to_string(glm::round(remap(loc_spawnCT->x, view_origin.x, view_origin.x + render_ortho_scale, 0.0f, 1.0f) / 0.01f) * 0.01f) });
-		node_radar.Values.insert({ "CTSpawn_y", std::to_string(glm::round(remap(loc_spawnCT->y, view_origin.y, view_origin.y - render_ortho_scale, 0.0f, 1.0f) / 0.01f) * 0.01f) });
+		node_radar.Values.insert({ "CTSpawn_x", std::to_string(util::roundf(remap(loc_spawnCT->x, view_origin.x, view_origin.x + render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
+		node_radar.Values.insert({ "CTSpawn_y", std::to_string(util::roundf(remap(loc_spawnCT->y, view_origin.y, view_origin.y - render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
 	}
 	if (loc_spawnT != NULL) {
-		node_radar.Values.insert({ "TSpawn_x", std::to_string(glm::round(remap(loc_spawnT->x, view_origin.x, view_origin.x + render_ortho_scale, 0.0f, 1.0f) / 0.01f) * 0.01f) });
-		node_radar.Values.insert({ "TSpawn_y", std::to_string(glm::round(remap(loc_spawnT->y, view_origin.y, view_origin.y - render_ortho_scale, 0.0f, 1.0f) / 0.01f) * 0.01f) });
+		node_radar.Values.insert({ "TSpawn_x", std::to_string(util::roundf(remap(loc_spawnT->x, view_origin.x, view_origin.x + render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
+		node_radar.Values.insert({ "TSpawn_y", std::to_string(util::roundf(remap(loc_spawnT->y, view_origin.y, view_origin.y - render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
 	}
 
-	std::ofstream out(std::string(m_overviews_folder + m_mapfile_name + ".txt").c_str());
+	std::ofstream out(filesys->create_output_filepath("resource/overviews/" + m_mapfile_name + ".txt", true).c_str());
 	out << "// TAVR - AUTO RADAR. v 2.0.0\n";
 	node_radar.Serialize(out);
 	out.close();

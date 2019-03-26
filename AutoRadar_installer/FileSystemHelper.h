@@ -12,7 +12,6 @@ namespace fs
 
 	void mkdr(const char* dir) {
 		if (_access_s(dir, 0)) {
-			std::cout << "mkdr  " << dir << "\n";
 			SHCreateDirectoryExA(NULL, dir, NULL);
 		}
 	}

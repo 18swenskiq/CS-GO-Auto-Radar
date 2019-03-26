@@ -6,7 +6,7 @@
 #include "vtx.hpp"
 #include "../AutoRadar_installer/FileSystemHelper.h"
 
-class vfilesys {
+class vfilesys : public util::verboseControl {
 public:
 	// Cached items
 	vpk::index* vpkIndex;
@@ -63,6 +63,8 @@ public:
 			if (fs::checkFileExist(_path.c_str())) this->searchPaths.push_back(_path);
 		}
 
+		this->searchPaths.push_back(this->dir_gamedir);
+
 		// Look for pak01_dir.vpk in all search paths
 		for (auto && sp : this->searchPaths) {
 			if (fs::checkFileExist((sp + "pak01_dir.vpk").c_str())) {
@@ -78,7 +80,7 @@ public:
 	}
 
 	/* Dump out what this filesystem has in memory */
-	void debug() {
+	void debug_info() {
 		std::cout << "Directories:\n";
 		std::cout << "  dir_game: " << dir_gamedir << "\n";
 		std::cout << "  dir_exe:  " << dir_exedir << "\n";
@@ -125,10 +127,15 @@ public:
 	}
 
 	/* Generate a path to a file inside the gamedir. Optionally automatically create new directories (shell). */
-	std::string create_output_filepath(std::string relpath, bool mkdr = false) {
+	std::string create_output_filepath(std::string relpath, bool mkdr = false, bool verbose = true) {
+		this->use_verbose = verbose;
+
 		std::string fullpath = this->dir_gamedir + relpath;
 
-		if(mkdr) fs::mkdr(fullpath.c_str());
+		if (mkdr) {
+			if (!fs::checkFileExist(fs::getDirName(fullpath).c_str())) this->debug("MKDIR: ", fs::getDirName(fullpath));
+			fs::mkdr(fs::getDirName(fullpath).c_str());
+		}
 
 		return fullpath;
 	}
