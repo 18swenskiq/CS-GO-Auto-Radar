@@ -27,6 +27,13 @@ uniform int cmdl_ao_size;
 uniform int cmdl_outline_enable;
 uniform int cmdl_outline_size;
 
+uniform vec4 outline_color;// = vec4(0.8, 0.8, 0.8, 0.6);
+uniform vec4 ao_color;// = vec4(0.0, 0.0, 0.0, 1.0);
+
+uniform vec4 buyzone_color;// = vec4(0.180, 0.828, 0.225, 0.667);
+uniform vec4 objective_color;// = vec4(0.770, 0.295, 0.171, 1.000);
+uniform vec4 cover_color;// = vec4(0.700, 0.700, 0.700, 1.000);
+
 //                                     SAMPLER UNIFORMS
 // Image Inputs _______________________________________________________________________________
 //    ( Standard generated maps from the engine )
@@ -214,12 +221,6 @@ float kernel_ao_basic(sampler2D sampler, int channelID, int sample_size)
 //                                       SHADER PROGRAM
 // ____________________________________________________________________________________________
 //     ( Write all your shader code & functions here )
-vec4 outline_color = vec4(0.8, 0.8, 0.8, 0.6);
-vec4 ao_color = vec4(0.0, 0.0, 0.0, 1.0);
-
-vec4 buyzone_color = vec4(0.180, 0.828, 0.225, 0.667);
-vec4 objective_color = vec4(0.770, 0.295, 0.171, 1.000);
-vec4 cover_color = vec4(0.700, 0.700, 0.700, 1.000);
 
 void main()
 {
@@ -228,12 +229,12 @@ void main()
 	vec4 sObjectives = vec4(texture(tex_objectives, TexCoords));
 
 	vec4 final = sBackground;
-	final = blend_normal(final, ao_color, kernel_filter_glow(tex_playspace, 3, 16, 0));							// Drop shadow
+	final = blend_normal(final, vec4(0,0,0,1), kernel_filter_glow(tex_playspace, 3, 16, 0));							// Drop shadow
 	final = blend_normal(final, sample_gradient(get_playspace_height(sPlayspace)), get_playspace(sPlayspace));	// Playspace
 	final = blend_normal(final, cover_color, sPlayspace.b);														// Cover
 
 	if(cmdl_shadows_enable == 1) final = blend_normal(final, vec4(0,0,0,1), trace_shadow(tex_playspace, 0) * 0.2);		// Shadows
-	if(cmdl_ao_enable == 1) final = blend_normal(final, vec4(0,0,0,1), kernel_ao_basic(tex_playspace, 0, cmdl_ao_size) * 0.9);	// AO
+	if(cmdl_ao_enable == 1) final = blend_normal(final, ao_color, kernel_ao_basic(tex_playspace, 0, cmdl_ao_size) * 0.9 * sPlayspace.a);	// AO
 
 	if(cmdl_outline_enable == 1) final = blend_normal(final, outline_color, kernel_filter_outline(tex_playspace, 3, cmdl_outline_size));						// Outline
 

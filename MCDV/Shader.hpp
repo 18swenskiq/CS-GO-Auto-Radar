@@ -37,6 +37,8 @@ public:
 	void setVec3(const std::string &name, glm::vec3 vector) const;
 
 	void setVec3(const std::string &name, float v1, float v2, float v3) const;
+	void setVec4(const std::string &name, float v1, float v2, float v3, float v4) const;
+	void setVec4(const std::string &name, glm::vec4 vector) const;
 
 	unsigned int getUniformLocation(const std::string &name) const;
 };
@@ -165,4 +167,16 @@ void Shader::setVec3(const std::string &name, glm::vec3 vector) const
 void Shader::setVec3(const std::string &name, float v1, float v2, float v3) const
 {
 	glUniform3f(glGetUniformLocation(this->programID, name.c_str()), v1, v2, v3);
+}
+
+void Shader::setVec4(const std::string &name, float v1, float v2, float v3, float v4) const
+{
+	glUniform4f(glGetUniformLocation(this->programID, name.c_str()), v1, v2, v3, v4);
+}
+
+void Shader::setVec4(const std::string &name, glm::vec4 vector) const
+{
+	glUniform4fv(glGetUniformLocation(this->programID, name.c_str()),
+		1,
+		glm::value_ptr(vector));
 }

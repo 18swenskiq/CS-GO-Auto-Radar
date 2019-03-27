@@ -29,6 +29,9 @@
 #include "dds.hpp"
 #include "GradientMap.hpp"
 
+// Experimental
+//#define TAR_EXPERIMENTAL
+
 /* Grabs the currently bound framebuffer and saves it to a .png */
 void render_to_png(int x, int y, const char* filepath){
 	void* data = malloc(4 * x * y);
@@ -42,12 +45,12 @@ void render_to_png(int x, int y, const char* filepath){
 }
 
 /* Grabs the currently bound framebuffer and saves it to a .dds */
-void save_to_dds(int x, int y, const char* filepath) {
+void save_to_dds(int x, int y, const char* filepath, IMG imgmode = IMG::MODE_DXT1) {
 	void* data = malloc(4 * x * y);
 
 	glReadPixels(0, 0, x, y, GL_RGB, GL_UNSIGNED_BYTE, data);
 
-	dds_write((uint8_t*)data, filepath, x, y, IMG::MODE_DXT1);
+	dds_write((uint8_t*)data, filepath, x, y, imgmode);
 
 	free(data);
 }
@@ -315,8 +318,10 @@ int app(int argc, const char** argv) {
 	std::cout << "Loading map file...\n";
 
 	vmf::vmf vmf_main(m_mapfile_path + ".vmf");
+	//vmf_main.setup_main();
+	//vmf_main.genVMFReferences(); // Load all our func_instances
 
-	std::cout << "Generating Meshes...\n";
+	//std::cout << "Generating Meshes...\n";
 
 	vmf_main.ComputeGLMeshes();
 	vmf_main.ComputeDisplacements();
@@ -463,6 +468,36 @@ int app(int argc, const char** argv) {
 			}
 		}
 	}
+
+#ifdef TAR_EXPERIMENTAL
+	// Render instances (experimental)
+	for (auto && sub_vmf : vmf_main.findEntitiesByClassName("func_instance")) {
+		std::string mapname = kv::tryGetStringValue(sub_vmf->keyValues, "file", "");
+
+		if (mapname == "") continue; //Something went wrong...
+
+		model = glm::mat4();
+
+		// do transforms
+		model = glm::translate(model, glm::vec3(-sub_vmf->origin.x, sub_vmf->origin.z, sub_vmf->origin.y));
+
+		// upload
+		shader_depth.setMatrix("model", model);
+
+		for (auto && solid : vmf_main.subvmf_references[mapname]->getAllBrushesInVisGroup("tar_cover")) {
+			shader_depth.setFloat("write_cover", solid->temp_mark ? 1.0f : 1.0f);
+			if (!solid->containsDisplacements)
+				solid->mesh->Draw();
+			else {
+				for (auto && f : solid->faces) {
+					if (f.displacement != NULL) {
+						f.displacement->glMesh->Draw();
+					}
+				}
+			}
+		}
+	}
+#endif // TAR_EXPERIMENTAL
 
 	// Render props
 	std::cout << "Rendering props\n";
@@ -660,6 +695,13 @@ int app(int argc, const char** argv) {
 	shader_comp_main.setInt("cmdl_outline_enable", tar_cfg_enableOutline);
 	shader_comp_main.setInt("cmdl_outline_size", tar_cfg_outlineSize);
 
+	shader_comp_main.setVec4("outline_color", parseVec4(kv::tryGetStringValue(tar_config->keyValues, "zColOutline", "255 255 255 255")));
+	shader_comp_main.setVec4("ao_color", parseVec4(kv::tryGetStringValue(tar_config->keyValues, "zColAO", "255 255 255 255")));
+
+	shader_comp_main.setVec4("buyzone_color", parseVec4(kv::tryGetStringValue(tar_config->keyValues, "zColBuyzone", "255 255 255 255")));
+	shader_comp_main.setVec4("objective_color", parseVec4(kv::tryGetStringValue(tar_config->keyValues, "zColObjective", "255 255 255 255")));
+	shader_comp_main.setVec4("cover_color", parseVec4(kv::tryGetStringValue(tar_config->keyValues, "zColCover", "255 255 255 255")));
+
 	/* Bind texture samplers */
 	tex_background.bindOnSlot(0);
 	shader_comp_main.setInt("tex_background", 0);
@@ -683,7 +725,7 @@ int app(int argc, const char** argv) {
 
 #pragma region auto_export_game
 
-	if (!m_onlyOutputMasks) save_to_dds(m_renderWidth, m_renderHeight, filesys->create_output_filepath("resource/overviews/" + m_mapfile_name + "_radar.dds", true).c_str());
+	if (!m_onlyOutputMasks) save_to_dds(m_renderWidth, m_renderHeight, filesys->create_output_filepath("resource/overviews/" + m_mapfile_name + "_radar.dds", true).c_str(), IMG::MODE_DXT1);
 	if (m_outputMasks) render_to_png(m_renderWidth, m_renderHeight, filesys->create_output_filepath("resource/overviews/" + m_mapfile_name + ".resources/raw.png", true).c_str());
 
 #pragma region generate_radar_txt

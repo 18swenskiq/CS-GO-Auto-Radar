@@ -19,7 +19,7 @@ float remap(float value, float low1, float high1, float low2, float high2)
 
 void main()
 {
-	float height = pow(remap(FragPos.y, HEIGHT_MIN, HEIGHT_MAX, 0, 1), 2.2);
+	float height = remap(FragPos.y, HEIGHT_MIN, HEIGHT_MAX, 0, 1);// pow(, 2.2);
 
 	FragColor = vec4(write_playable, height, write_cover, 1);
 }

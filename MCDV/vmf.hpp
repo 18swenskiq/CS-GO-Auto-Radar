@@ -29,6 +29,8 @@
 
 #include <io.h>
 
+#include "../AutoRadar_installer/FileSystemHelper.h"
+
 namespace vmf_parse {
 	//Pass Vector3
 	bool Vector3f(std::string str, glm::vec3* vec)
@@ -169,6 +171,7 @@ namespace vmf {
 		int ID;
 		std::string classname;
 		glm::vec3 origin;
+		glm::vec3* angles;
 
 		std::map<std::string, std::string> keyValues;
 		std::vector<Solid> internal_solids;
@@ -199,8 +202,14 @@ namespace vmf {
 
 		std::vector<DrawableProp> props;
 
-		vmf(std::string path)
-		{
+		// String to vmf* conversion of referenced vmf files.
+		std::map<std::string, vmf*> subvmf_references;
+
+		std::string filepath;
+
+		vmf(std::string path){
+			this->filepath = path;
+
 			std::cout << "Opening: " << path << "\n";
 
 			std::ifstream ifs(path);
@@ -549,7 +558,6 @@ namespace vmf {
 		}
 
 		glm::vec3* calculateSpawnLocation(team _team) {
-
 			std::vector<Entity*> spawns = this->findEntitiesByClassName(_team == team::terrorist ? "info_player_terrorist" : "info_player_counterterrorist");
 
 			if (spawns.size() <= 0) return NULL;
@@ -649,6 +657,22 @@ namespace vmf {
 				Mesh* m = new Mesh(meshData, MeshMode::POS_XYZ_NORMAL_XYZ);
 				this->modelCache.push_back(m);
 			}
+		}
+
+		/* Calls all other setup functions in order... */
+		void setup_main() {
+			this->genVMFReferences(); // Load all our func_instances
+			this->ComputeGLMeshes();
+			this->ComputeDisplacements();
+
+			// Recurse and setup all subvmfs
+			for (auto && subVMF : this->subvmf_references) {
+				subVMF.second->setup_main();
+			}
+		}
+
+		void draw_main(std::string vgroupFilter, bool recurse = false) {
+
 		}
 
 		void populatePropList(std::string visgroupfilter = "") {
@@ -883,6 +907,29 @@ namespace vmf {
 			long long milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
 
 			std::cout << "Displacement computation: " << milliseconds << "ms" << std::endl;
+		}
+
+		/* Load all vmf instances. */
+		void genVMFReferences() {
+			std::string thisfolder = fs::getDirName(this->filepath);
+
+			for (auto && ent : this->findEntitiesByClassName("func_instance")) {
+				std::string mapname = kv::tryGetStringValue(ent->keyValues, "file", "");
+
+				if (mapname == "") continue; //Something went wrong...
+				if (this->subvmf_references.count(mapname)) continue; //Already referenced
+
+				std::string mappath = thisfolder + mapname;
+
+				if (fs::checkFileExist(mappath.c_str())) {
+					std::cout << "Loading referenced vmf: " << mapname << "\n";
+					vmf* ref = new vmf(mappath);
+					this->subvmf_references.insert({ mapname, ref }); // add to list
+				}
+				else {
+					std::cout << "Failed to load referenced vmf: " << mapname << "\n";
+				}
+			}
 		}
 
 		void clean() {

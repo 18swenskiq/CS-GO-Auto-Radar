@@ -2,7 +2,7 @@ versioninfo
 {
 	"editorversion" "400"
 	"editorbuild" "8075"
-	"mapversion" "155"
+	"mapversion" "175"
 	"formatversion" "100"
 	"prefab" "0"
 }
@@ -56,7 +56,7 @@ viewsettings
 world
 {
 	"id" "1"
-	"mapversion" "155"
+	"mapversion" "175"
 	"classname" "worldspawn"
 	"detailmaterial" "detail/detailsprites"
 	"detailvbsp" "detail.vbsp"
@@ -2779,6 +2779,95 @@ world
 }
 entity
 {
+	"id" "1369"
+	"classname" "tar_config"
+	"aoSize" "8"
+	"colorScheme" "-1"
+	"customCol0" "39 56 79"
+	"customCol1" "77 74 72"
+	"customCol2" "178 113 65"
+	"enableAO" "1"
+	"enableOutline" "1"
+	"outlineWidth" "2"
+	"vgroup_cover" "tar_cover"
+	"vgroup_layout" "tar_layout"
+	"vgroup_negative" "tar_mask"
+	"zColAO" "0 0 0 255"
+	"zColBuyzone" "46 211 57 170"
+	"zColCover" "179 179 179 255"
+	"zColObjective" "196 75 44 255"
+	"zColOutline" "204 204 204 153"
+	"origin" "-386.122 479.551 33"
+	editor
+	{
+		"color" "220 30 220"
+		"visgroupshown" "1"
+		"visgroupautoshown" "1"
+		"logicalpos" "[0 0]"
+	}
+}
+entity
+{
+	"id" "1220"
+	"classname" "func_instance"
+	"angles" "-0 0 0"
+	"file" "instancetest.vmf"
+	"origin" "1024 320 0"
+	editor
+	{
+		"color" "220 30 220"
+		"visgroupshown" "1"
+		"visgroupautoshown" "1"
+		"logicalpos" "[0 0]"
+	}
+}
+entity
+{
+	"id" "1291"
+	"classname" "func_instance"
+	"angles" "-0 0 0"
+	"file" "instancetest.vmf"
+	"origin" "1088 2048 128"
+	editor
+	{
+		"color" "220 30 220"
+		"visgroupshown" "1"
+		"visgroupautoshown" "1"
+		"logicalpos" "[0 0]"
+	}
+}
+entity
+{
+	"id" "1300"
+	"classname" "func_instance"
+	"angles" "-0 -60 0"
+	"file" "instancetest.vmf"
+	"origin" "1920 2112 128"
+	editor
+	{
+		"color" "220 30 220"
+		"visgroupshown" "1"
+		"visgroupautoshown" "1"
+		"logicalpos" "[0 0]"
+	}
+}
+entity
+{
+	"id" "1309"
+	"classname" "func_instance"
+	"angles" "-0 -135 0"
+	"file" "instancetest.vmf"
+	"origin" "-1472 64 128"
+	editor
+	{
+		"color" "220 30 220"
+		"visgroupshown" "1"
+		"visgroupautoshown" "1"
+		"logicalpos" "[0 0]"
+	}
+}
+entity
+{
 	"id" "1185"
 	"classname" "prop_static"
 	"angles" "0 0 0"
@@ -2916,31 +3005,6 @@ entity
 		"visgroupid" "14"
 		"visgroupid" "9"
 		"visgroupid" "16"
-		"visgroupshown" "1"
-		"visgroupautoshown" "1"
-		"logicalpos" "[0 0]"
-	}
-}
-entity
-{
-	"id" "484"
-	"classname" "tar_config"
-	"aoSize" "10"
-	"colorScheme" "-1"
-	"customCol0" "62 39 129"
-	"customCol1" "94 162 202"
-	"customCol2" "207 136 213"
-	"enableAO" "1"
-	"enableOutline" "1"
-	"enableShadows" "1"
-	"outlineWidth" "2"
-	"vgroup_cover" "tar_cover"
-	"vgroup_layout" "tar_layout"
-	"vgroup_negative" "tar_mask"
-	"origin" "-320 576 32"
-	editor
-	{
-		"color" "220 30 220"
 		"visgroupshown" "1"
 		"visgroupautoshown" "1"
 		"logicalpos" "[0 0]"

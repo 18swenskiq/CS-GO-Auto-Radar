@@ -20,6 +20,8 @@
 	customCol1(color255) : "Custom middle level color" : "77 74 72" : "What the color of the radar should be in the middle of the map"
 	customCol2(color255) : "Custom high level color" : "178 113 65" : "What the color of the radar should be at the heighest points of the map"
 	
+	vgs_seperate(string) : " " : "" : "(spacer)"
+	
 	// Ambient occlusion
 	
 	enableAO(choices) : "Ambient Occlusion" : 1 =
@@ -48,10 +50,24 @@
 	
 	outlineWidth(float) : "Outline width" : "2" : "How big should the outline be"
 	
+	vgs_seperate2(string) : " " : "" : "(spacer)"
+	
+	// Cover color 
+	zColCover(color255) : "Cover Color" : "179 179 179 255" : "Color of the cover"
+	zColOutline(color255) : "Outline Color" : "204 204 204 153" : "Color of the outline"
+	zColAO(color255) : "AO Color" : "0 0 0 255" : "Color of the ambient occlusion"
+	
+	zColBuyzone(color255) : "Buyzone Color" : "46 211 57 170" : "Color of the buyzones"
+	zColObjective(color255) : "Bombsite Color" : "196 75 44 255" : "What the color should cover be?"
+	
+	vgs_seperate3(string) : " " : "" : "(spacer)"
+	
 	// Visgroup specifiers
 	vgroup_layout(string) : "Visgroup: Layout" : "tar_layout" : "Name of the visgroup that specifies the layout of the map"
 	vgroup_negative(string) : "Visgroup: Mask" : "tar_mask" : "Name of the visgroup that specifies subtractive brushes of the maps layout (use on walls)"
 	vgroup_cover(string) : "Visgroup: Cover" : "tar_cover" : "Name of the visgroup that specifies the cover of the map. Chuck all yr crates in here"
+	
+	
 ]
 
 @PointClass iconsprite("tar/editor/tar_min.vmt") = tar_min : 

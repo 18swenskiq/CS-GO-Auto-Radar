@@ -127,6 +127,51 @@ uint8_t* compressImageDXT1(uint8_t* buf_RGB, uint32_t w, uint32_t h, uint32_t* c
 	return outBuffer;
 }
 
+/*
+imageData:	Pointer to image data
+compressedSize: Pointer to final data size
+w: image width
+h: image height
+mode: compression mode to use
+*/
+uint8_t* compressImageDXT5(uint8_t* buf_RGB, uint32_t w, uint32_t h, uint32_t* cSize) {
+	*cSize = ((w / 4) * (h / 4)) * BLOCK_SIZE_DXT5;
+
+	//Create output buffer
+	uint8_t* outBuffer = (uint8_t*)malloc(*cSize);
+
+	int blocks_x = w / 4;
+	int blocks_y = h / 4;
+
+	std::cout << "Compressing DXT1 from RGB buffer\n";
+
+	//Fill
+	for (int y = 0; y < blocks_y; y++) {
+		for (int x = 0; x < blocks_x; x++) {
+
+			int blockindex = x + (y * blocks_x);
+			int globalX = x * 4;
+			int globalY = y * 4;
+
+			uint8_t* src = new uint8_t[64]; //Create source RGBA buffer
+			for (int _y = 0; _y < 4; _y++) {
+				for (int _x = 0; _x < 4; _x++) {
+					src[(_x + (_y * 4)) * 4 + 0] = buf_RGB[(globalX + _x + ((h - (globalY + _y)) * w)) * 3 + 0];
+					src[(_x + (_y * 4)) * 4 + 1] = buf_RGB[(globalX + _x + ((h - (globalY + _y)) * w)) * 3 + 1];
+					src[(_x + (_y * 4)) * 4 + 2] = buf_RGB[(globalX + _x + ((h - (globalY + _y)) * w)) * 3 + 2];
+					src[(_x + (_y * 4)) * 4 + 3] = 0xFF;
+				}
+			}
+
+			stb_compress_dxt_block((unsigned char*)outBuffer + (blockindex * BLOCK_SIZE_DXT5), src, 1, STB_DXT_HIGHQUAL);
+
+			free(src);
+		}
+	}
+
+	return outBuffer;
+}
+
 bool dds_write(uint8_t* imageData, const char* filename, uint32_t w, uint32_t h, IMG mode) {
 	DDS_HEADER header = DDS_HEADER();
 	header.dwSize = DDS_HEADER_SIZE;
@@ -147,13 +192,12 @@ bool dds_write(uint8_t* imageData, const char* filename, uint32_t w, uint32_t h,
 		
 		break;
 	case IMG::MODE_DXT5:
-		header.dwPitchOrLinearSize = __max(1, ((w + 3) / 4)) * BLOCK_SIZE_DXT5; 
-		
+		header.dwPitchOrLinearSize = SwapEndian(__max(1, ((w + 3) / 4)) * BLOCK_SIZE_DXT5);
 		header.ddspf.dwFlags |= DDPF_FOURCC;
 		header.ddspf.dwFlags |= DDPF_ALPHA;
 		header.ddspf.dwFourCC = SwapEndian((uint32_t)'DXT5');
 		header.dwFlags |= DDSD_LINEARSIZE;
-		throw new std::exception("DXT5 Not implemented");
+
 		break;
 	case IMG::MODE_RGB888:
 		header.dwPitchOrLinearSize = w * (BBP_RGB888 / 8);
@@ -199,6 +243,11 @@ bool dds_write(uint8_t* imageData, const char* filename, uint32_t w, uint32_t h,
 	{
 		uint32_t size;
 		uint8_t* outputBuffer = compressImageDXT1(imageData, w, h, &size);
+		output.write((char*)outputBuffer, size);
+	}
+	else if (mode == IMG::MODE_DXT5) {
+		uint32_t size;
+		uint8_t* outputBuffer = compressImageDXT5(imageData, w, h, &size);
 		output.write((char*)outputBuffer, size);
 	}
 	else
