@@ -246,8 +246,9 @@ int app(int argc, const char** argv) {
 
 	FrameBuffer fb_tex_playspace = FrameBuffer(m_renderWidth, m_renderHeight);
 	FrameBuffer fb_tex_objectives = FrameBuffer(m_renderWidth, m_renderHeight);
-	FrameBuffer fb_comp = FrameBuffer(m_renderWidth, m_renderHeight);
-	FrameBuffer fb_comp_1 = FrameBuffer(m_renderWidth, m_renderHeight); //Reverse ordered frame buffer
+	FrameBuffer fb_comp = FrameBuffer(m_renderWidth * 2, m_renderHeight * 2);
+	FrameBuffer fb_comp_1 = FrameBuffer(m_renderWidth * 2, m_renderHeight * 2); //Reverse ordered frame buffer
+	FrameBuffer fb_final = FrameBuffer(m_renderWidth, m_renderHeight);
 
 	// Screenspace quad
 	std::cout << "Creating screenspace mesh\n";
@@ -422,6 +423,8 @@ int app(int argc, const char** argv) {
 
 	// ======================================================== REGULAR ORDER ========================================================
 
+	glViewport(0, 0, m_renderWidth * 2, m_renderHeight * 2);
+
 	fb_comp.Bind(); //Bind framebuffer
 
 	glClearColor(0.00f, 0.00f, 0.00f, 1.00f);
@@ -532,6 +535,8 @@ int app(int argc, const char** argv) {
 
 	// ========================================================== PRE-COMP ===========================================================
 
+	glViewport(0, 0, m_renderWidth, m_renderHeight);
+
 	// Apply diffusion
 	fb_tex_playspace.Bind();
 
@@ -566,6 +571,8 @@ int app(int argc, const char** argv) {
 #pragma region render_objectives
 	std::cout << "Rendering bombsites & buyzones space... ";
 
+	glViewport(0, 0, m_renderWidth * 2, m_renderHeight * 2);
+
 	fb_comp.Bind();
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -593,6 +600,8 @@ int app(int argc, const char** argv) {
 	}
 
 	// Apply diffusion
+	glViewport(0, 0, m_renderWidth, m_renderHeight);
+
 	fb_tex_objectives.Bind();
 
 	glClearColor(0.00f, 0.00f, 0.00f, 0.00f);
@@ -622,7 +631,7 @@ int app(int argc, const char** argv) {
 #pragma region compositing
 	std::cout << "Compositing... \n";
 
-	fb_comp.Bind();
+	fb_final.Bind();
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glPolygonMode(GL_FRONT, GL_FILL);

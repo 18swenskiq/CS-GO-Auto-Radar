@@ -201,6 +201,9 @@
     <None Include="shaders\ss_comp_main.fs">
       <Filter>OpenGL\Shader Files</Filter>
     </None>
+    <None Include="mapinfo.fs">
+      <Filter>OpenGL\Shader Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="fonts\dina-r.png">

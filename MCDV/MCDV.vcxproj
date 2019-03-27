@@ -168,6 +168,7 @@
     <ClCompile Include="main2.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="mapinfo.fs" />
     <None Include="shaders\depth.fs" />
     <None Include="shaders\depth.vs" />
     <None Include="shaders\fullscreenbase.vs" />
