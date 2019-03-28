@@ -787,3 +787,16 @@ int main(int argc, const char** argv) {
 	return 1;
 }
 #endif
+
+/* 
+
+NVIDIA optimus systems will default to intel integrated graphics chips.
+These chips cause fatal memory issues when using opengl3.3 (even though they claim to generate correct contexts)
+
+This export gets picked up by NVIDIA drivers (v 302+).
+It will force usage of the dedicated video device in the machine, which likely has full coverage of 3.3
+
+*/
+extern "C" {
+	_declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
+}
