@@ -30,7 +30,7 @@ Submit any issues on this git repository, and send suggestions to hgodden00@gmai
 # Guide:
 
 ### Configuration: 
-![](https://i.imgur.com/w2M0Ap9.png)
+![](https://i.imgur.com/Fd046ZK.png)
 
 Add a tar_config entity to your map. This defines your radars settings. It is not needed, but allows you to customize it.
 
