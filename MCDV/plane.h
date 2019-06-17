@@ -16,6 +16,8 @@ public:
 	glm::vec3 normal;
 	float offset;
 
+	int textureID = 0;
+
 	//Plane defined by three points
 	Plane(glm::vec3 P, glm::vec3 Q, glm::vec3 R) {
 		glm::vec3 n = glm::cross(P - Q, P - R); //Calculate normal
@@ -135,7 +137,7 @@ public:
 
 			float sign = glm::dot(glm::cross(diff, ref), plane.normal) < 0 ? -1.0f : 1.0f;
 			ang *= sign;
-
+			
 			angledVecs.push_back(glm::vec4(Points[i].x, Points[i].y, Points[i].z, ang));
 		}
 
@@ -164,5 +166,50 @@ public:
 		}
 
 		return Points;
+	}
+
+	static void InPlaceOrderCoplanarClockWise(Plane plane, std::vector<glm::vec3>* Points){
+		if (Points->size() == 0) return;
+
+		//Find center point (avarage distribution of points)
+		glm::vec3 center(0, 0, 0);
+		for (int i = 0; i < Points->size(); i++) {
+			center += (*Points)[i];
+		}
+		center /= Points->size();
+
+		glm::vec3 ref = (*Points)[0] - center;
+
+		std::vector<glm::vec4> angledVecs;
+
+		for (int i = 0; i < Points->size(); i++) {
+			glm::vec3 diff = (*Points)[i] - center;
+			float ang = atan2(glm::length(glm::cross(diff, ref)), glm::dot(diff, ref));
+
+			float sign = glm::dot(glm::cross(diff, ref), plane.normal) < 0 ? -1.0f : 1.0f;
+			ang *= sign;
+
+			angledVecs.push_back(glm::vec4((*Points)[i].x, (*Points)[i].y, (*Points)[i].z, ang));
+		}
+
+		while (true){
+			bool modified = false;
+
+			for (int i = 0; i < Points->size() - 1; i++){
+				int s0 = i; int s1 = i + 1;
+
+				glm::vec4 a = angledVecs[s0]; glm::vec4 b = angledVecs[s1];
+
+				if (a.w > b.w){
+					angledVecs[s0] = b; angledVecs[s1] = a;
+					modified = true;
+				}
+			}
+			if (!modified) break;
+		}
+
+		for (int i = 0; i < Points->size(); i++){
+			(*Points)[i] = glm::vec3(angledVecs[i].x, angledVecs[i].y, angledVecs[i].z);
+		}
 	}
 };

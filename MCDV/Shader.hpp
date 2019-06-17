@@ -32,6 +32,7 @@ public:
 	//Util functions
 	void setBool(const std::string &name, bool value) const;
 	void setInt(const std::string &name, int value) const;
+	void setUnsigned(const std::string &name, unsigned int value) const;
 	void setFloat(const std::string &name, float value) const;
 	void setMatrix(const std::string &name, glm::mat4 matrix) const;
 	void setVec3(const std::string &name, glm::vec3 vector) const;
@@ -39,6 +40,7 @@ public:
 	void setVec3(const std::string &name, float v1, float v2, float v3) const;
 	void setVec4(const std::string &name, float v1, float v2, float v3, float v4) const;
 	void setVec4(const std::string &name, glm::vec4 vector) const;
+	void setFragDataLocation(const std::string& name, unsigned int location) const;
 
 	unsigned int getUniformLocation(const std::string &name) const;
 };
@@ -139,6 +141,11 @@ void Shader::setInt(const std::string &name, int value) const
 	glUniform1i(glGetUniformLocation(this->programID, name.c_str()), value);
 }
 
+void Shader::setUnsigned(const std::string &name, unsigned int value) const
+{
+	glUniform1ui(glGetUniformLocation(this->programID, name.c_str()), value);
+}
+
 void Shader::setFloat(const std::string &name, float value) const
 {
 	glUniform1f(glGetUniformLocation(this->programID, name.c_str()), value);
@@ -179,4 +186,10 @@ void Shader::setVec4(const std::string &name, glm::vec4 vector) const
 	glUniform4fv(glGetUniformLocation(this->programID, name.c_str()),
 		1,
 		glm::value_ptr(vector));
+}
+
+void Shader::setFragDataLocation(const std::string& name, unsigned int location) const {
+	glBindFragDataLocation(this->programID,
+		location,
+		name.c_str());
 }

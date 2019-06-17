@@ -132,10 +132,12 @@
     <ClInclude Include="FrameBuffer.hpp" />
     <ClInclude Include="fuzzy_select.h" />
     <ClInclude Include="gamelump.hpp" />
+    <ClInclude Include="GBuffer.hpp" />
     <ClInclude Include="globals.h" />
     <ClInclude Include="GradientMap.hpp" />
     <ClInclude Include="interpolation.h" />
     <ClInclude Include="generic.hpp" />
+    <ClInclude Include="IRenderable.hpp" />
     <ClInclude Include="lumps_geometry.hpp" />
     <ClInclude Include="lumps_visibility.hpp" />
     <ClInclude Include="Mesh.hpp" />
@@ -144,9 +146,11 @@
     <ClInclude Include="plane.h" />
     <ClInclude Include="radar.hpp" />
     <ClInclude Include="Shader.hpp" />
+    <ClInclude Include="SSAOKernel.hpp" />
     <ClInclude Include="stb_dxt.h" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="stb_image_write.h" />
+    <ClInclude Include="tar_config.hpp" />
     <ClInclude Include="tbsp.hpp" />
     <ClInclude Include="TextFont.hpp" />
     <ClInclude Include="Texture.hpp" />
@@ -155,7 +159,12 @@
     <ClInclude Include="vdf.hpp" />
     <ClInclude Include="VectorOctTree.hpp" />
     <ClInclude Include="vfilesys.hpp" />
-    <ClInclude Include="vmf.hpp" />
+    <ClInclude Include="vmf.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClInclude>
+    <ClInclude Include="vmf_new.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="vpk.hpp" />
     <ClInclude Include="vtx.hpp" />
     <ClInclude Include="vvd.hpp" />
@@ -171,10 +180,15 @@
     <None Include="mapinfo.fs" />
     <None Include="shaders\depth.fs" />
     <None Include="shaders\depth.vs" />
+    <None Include="shaders\dev.fs" />
+    <None Include="shaders\fullscreenbase.fs" />
     <None Include="shaders\fullscreenbase.vs" />
+    <None Include="shaders\gBuffer.fs" />
+    <None Include="shaders\gBuffer.vs" />
+    <None Include="shaders\iBuffer.fs" />
+    <None Include="shaders\ss_comp_main.fso" />
     <None Include="shaders\ss_precomp_objectives.fs" />
     <None Include="shaders\ss_precomp_playspace.fs" />
-    <None Include="shaders\ss_comp_main.fs" />
     <None Include="shaders\textfont.fs" />
     <None Include="shaders\textfont.vs" />
     <None Include="shaders\unlit.fs" />

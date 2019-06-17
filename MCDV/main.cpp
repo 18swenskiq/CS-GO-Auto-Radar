@@ -1,5 +1,8 @@
 #include "globals.h"
 
+/* Entry point */
+#ifndef entry_point_testing
+
 // STDLib
 #include <iostream>
 
@@ -79,7 +82,7 @@ std::string m_game_path;
 #endif
 #ifdef _DEBUG
 std::string m_mapfile_path = "sample_stuff/de_tavr_test";
-std::string m_game_path = "D:/SteamLibrary/steamapps/common/Counter-Strike Global Offensive/csgo_dev";
+std::string m_game_path = "D:/SteamLibrary/steamapps/common/Counter-Strike Global Offensive/csgo";
 #endif
 
 //derived strings
@@ -774,8 +777,7 @@ int app(int argc, const char** argv) {
 	return 0;
 }
 
-/* Entry point */
-#ifndef entry_point_testing
+
 int main(int argc, const char** argv) {
 	try {
 		return app(argc, argv);
@@ -786,7 +788,7 @@ int main(int argc, const char** argv) {
 
 	return 1;
 }
-#endif
+
 
 /* 
 
@@ -800,3 +802,5 @@ It will force usage of the dedicated video device in the machine, which likely h
 extern "C" {
 	_declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
 }
+
+#endif

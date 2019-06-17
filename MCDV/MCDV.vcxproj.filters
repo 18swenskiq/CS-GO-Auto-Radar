@@ -113,9 +113,6 @@
     <ClInclude Include="stb_image_write.h">
       <Filter>OpenGL\stb</Filter>
     </ClInclude>
-    <ClInclude Include="vmf.hpp">
-      <Filter>Header Files\valve</Filter>
-    </ClInclude>
     <ClInclude Include="plane.h">
       <Filter>Header Files\math</Filter>
     </ClInclude>
@@ -148,6 +145,24 @@
     </ClInclude>
     <ClInclude Include="vfilesys.hpp">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GBuffer.hpp">
+      <Filter>OpenGL\engine</Filter>
+    </ClInclude>
+    <ClInclude Include="IRenderable.hpp">
+      <Filter>OpenGL</Filter>
+    </ClInclude>
+    <ClInclude Include="vmf_new.hpp">
+      <Filter>Header Files\valve</Filter>
+    </ClInclude>
+    <ClInclude Include="vmf.hpp">
+      <Filter>Header Files\valve</Filter>
+    </ClInclude>
+    <ClInclude Include="SSAOKernel.hpp">
+      <Filter>OpenGL\engine</Filter>
+    </ClInclude>
+    <ClInclude Include="tar_config.hpp">
+      <Filter>Header Files\valve</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -198,10 +213,25 @@
     <None Include="shaders\depth.vs">
       <Filter>OpenGL\Shader Files</Filter>
     </None>
-    <None Include="shaders\ss_comp_main.fs">
+    <None Include="mapinfo.fs">
       <Filter>OpenGL\Shader Files</Filter>
     </None>
-    <None Include="mapinfo.fs">
+    <None Include="shaders\gBuffer.fs">
+      <Filter>OpenGL\Shader Files</Filter>
+    </None>
+    <None Include="shaders\gBuffer.vs">
+      <Filter>OpenGL\Shader Files</Filter>
+    </None>
+    <None Include="shaders\fullscreenbase.fs">
+      <Filter>OpenGL\Shader Files</Filter>
+    </None>
+    <None Include="shaders\dev.fs">
+      <Filter>OpenGL\Shader Files</Filter>
+    </None>
+    <None Include="shaders\iBuffer.fs">
+      <Filter>OpenGL\Shader Files</Filter>
+    </None>
+    <None Include="shaders\ss_comp_main.fso">
       <Filter>OpenGL\Shader Files</Filter>
     </None>
   </ItemGroup>

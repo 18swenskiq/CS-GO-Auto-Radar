@@ -133,10 +133,13 @@ namespace ray
 
 class Polytope {
 public:
-	Mesh * GeneratedMesh;
+	Mesh* GeneratedMesh;
 	Mesh* ngonMesh;
 	std::vector<BrushPolygon> ngons;
 	std::vector<float> meshData;
+	std::map<int, Mesh*> meshes;
+
+	std::vector<std::vector<int>> triangles;
 
 	glm::vec3 NWU;
 	glm::vec3 SEL;

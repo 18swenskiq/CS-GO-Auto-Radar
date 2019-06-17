@@ -26,6 +26,8 @@ deps/
 *.vtx
 *.tmdl
 *.vmf
+*.vmx
+*.prt
 deps.zip
 
 # Build results

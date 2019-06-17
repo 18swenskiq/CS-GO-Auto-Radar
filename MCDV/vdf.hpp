@@ -133,7 +133,14 @@ namespace kv
 			return NULL;
 		}
 
-		//Gets all sub blocks by type
+		DataBlock* _GetFirstByName(const std::string& _name) {
+			for (auto && i : this->SubBlocks)
+				if (i.name == _name)
+					return &i;
+			return NULL;
+		}
+
+		// OBSOLETE: use _GetAllByName
 		std::vector<DataBlock> GetAllByName(std::string _name) {
 			std::vector<DataBlock> c;
 
@@ -141,6 +148,17 @@ namespace kv
 				if (_name == this->SubBlocks[i].name)
 					c.push_back(this->SubBlocks[i]);
 			}
+
+			return c;
+		}
+
+		// New ver
+		std::vector<DataBlock*> _GetAllByName(const std::string& _name) {
+			std::vector<DataBlock*> c;
+
+			for (auto && i : this->SubBlocks) 
+				if (i.name == _name)
+					c.push_back(&i);
 
 			return c;
 		}

@@ -31,6 +31,9 @@
 
 #include "../AutoRadar_installer/FileSystemHelper.h"
 
+#undef min
+#undef max
+
 namespace vmf_parse {
 	//Pass Vector3
 	bool Vector3f(std::string str, glm::vec3* vec)
@@ -746,6 +749,7 @@ namespace vmf {
 							std::vector<float> meshPoints;
 
 							std::vector<glm::vec3> finalPoints;
+							std::vector<glm::vec3> finalNormals;
 
 							glm::vec3* NWU = &v.bounds.NWU;
 							glm::vec3* SEL = &v.bounds.SEL;
@@ -765,6 +769,7 @@ namespace vmf {
 									P = P + offset; //Add offset to P
 
 									finalPoints.push_back(P);
+									finalNormals.push_back(info->normals[col][row]);
 
 									//Recompute bounds while we are at it
 									NWU->x = glm::max(-P.x, NWU->x);
@@ -773,32 +778,7 @@ namespace vmf {
 
 									SEL->x = glm::min(-P.x, SEL->x);
 									SEL->y = glm::min(P.z, SEL->y);
-									SEL->z = glm::min(P.y, SEL->z);								
-
-									continue;
-
-									/* TESTING TRIANGLES */
-									meshPoints.push_back(-P.x);
-									meshPoints.push_back(P.z);
-									meshPoints.push_back(P.y);
-									meshPoints.push_back(0);
-									meshPoints.push_back(0);
-									meshPoints.push_back(1);
-
-									meshPoints.push_back(-P.x);
-									meshPoints.push_back(P.z);
-									meshPoints.push_back(P.y + 8.0f);
-									meshPoints.push_back(0);
-									meshPoints.push_back(0);
-									meshPoints.push_back(1);
-
-
-									meshPoints.push_back(-P.x + 8.0f);
-									meshPoints.push_back(P.z);
-									meshPoints.push_back(P.y + 8.0f);
-									meshPoints.push_back(0);
-									meshPoints.push_back(0);
-									meshPoints.push_back(1);
+									SEL->z = glm::min(P.y, SEL->z);
 								}
 							}
 
@@ -808,89 +788,90 @@ namespace vmf {
 
 									// Gather point pointers
 									// hehe :(
-									glm::vec3* SW = &finalPoints[((row + 0) * points) + (col + 0)];
-									glm::vec3* SE = &finalPoints[((row + 0) * points) + (col + 1)];
-
-									glm::vec3* NW = &finalPoints[((row + 1) * points) + (col + 0)];
-									glm::vec3* NE = &finalPoints[((row + 1) * points) + (col + 1)];
+									glm::vec3* SW   =	&finalPoints	[((row + 0) * points) + (col + 0)];
+									glm::vec3* SW_N =	&finalNormals	[((row + 0) * points) + (col + 0)];
+									glm::vec3* SE   =	&finalPoints	[((row + 0) * points) + (col + 1)];
+									glm::vec3* SE_N =	&finalNormals	[((row + 0) * points) + (col + 1)];
+									glm::vec3* NW   =	&finalPoints	[((row + 1) * points) + (col + 0)];
+									glm::vec3* NW_N =	&finalNormals	[((row + 1) * points) + (col + 0)];
+									glm::vec3* NE   =	&finalPoints	[((row + 1) * points) + (col + 1)];
+									glm::vec3* NE_N =	&finalNormals	[((row + 1) * points) + (col + 1)];
 									
 									if (i_condition++ % 2 == 0) {//Condition 0
 										meshPoints.push_back(-SW->x);
 										meshPoints.push_back(SW->z);
 										meshPoints.push_back(SW->y);
-										meshPoints.push_back(0);
-										meshPoints.push_back(0);
-										meshPoints.push_back(1);
+										meshPoints.push_back(-SW_N->x);
+										meshPoints.push_back(SW_N->z);
+										meshPoints.push_back(SW_N->y);
 										meshPoints.push_back(-NW->x);
 										meshPoints.push_back(NW->z);
 										meshPoints.push_back(NW->y);
-										meshPoints.push_back(0);
-										meshPoints.push_back(0);
-										meshPoints.push_back(1);
+										meshPoints.push_back(-NW_N->x);
+										meshPoints.push_back(NW_N->z);
+										meshPoints.push_back(NW_N->y);
 										meshPoints.push_back(-NE->x);
 										meshPoints.push_back(NE->z);
 										meshPoints.push_back(NE->y);
-										meshPoints.push_back(0);
-										meshPoints.push_back(0);
-										meshPoints.push_back(1);
-
-										meshPoints.push_back(-SW->x);
+										meshPoints.push_back(-NE_N->x);
+										meshPoints.push_back(NE_N->z);
+										meshPoints.push_back(NE_N->y);
+										meshPoints.push_back(-SW->x); // tri2
 										meshPoints.push_back(SW->z);
 										meshPoints.push_back(SW->y);
-										meshPoints.push_back(0);
-										meshPoints.push_back(0);
-										meshPoints.push_back(1);
+										meshPoints.push_back(-SW_N->x);
+										meshPoints.push_back(SW_N->z);
+										meshPoints.push_back(SW_N->y);
 										meshPoints.push_back(-NE->x);
 										meshPoints.push_back(NE->z);
 										meshPoints.push_back(NE->y);
-										meshPoints.push_back(0);
-										meshPoints.push_back(0);
-										meshPoints.push_back(1);
+										meshPoints.push_back(-NE_N->x);
+										meshPoints.push_back(NE_N->z);
+										meshPoints.push_back(NE_N->y);
 										meshPoints.push_back(-SE->x);
 										meshPoints.push_back(SE->z);
 										meshPoints.push_back(SE->y);
-										meshPoints.push_back(0);
-										meshPoints.push_back(0);
-										meshPoints.push_back(1);
+										meshPoints.push_back(-SE_N->x);
+										meshPoints.push_back(SE_N->z);
+										meshPoints.push_back(SE_N->y);
 									}
 									else { //Condition 1
 										meshPoints.push_back(-SW->x);
 										meshPoints.push_back(SW->z);
 										meshPoints.push_back(SW->y);
-										meshPoints.push_back(0);
-										meshPoints.push_back(0);
-										meshPoints.push_back(1);
+										meshPoints.push_back(-SW_N->x);
+										meshPoints.push_back(SW_N->z);
+										meshPoints.push_back(SW_N->y);
 										meshPoints.push_back(-NW->x);
 										meshPoints.push_back(NW->z);
 										meshPoints.push_back(NW->y);
-										meshPoints.push_back(0);
-										meshPoints.push_back(0);
-										meshPoints.push_back(1);
+										meshPoints.push_back(-NW_N->x);
+										meshPoints.push_back(NW_N->z);
+										meshPoints.push_back(NW_N->y);
 										meshPoints.push_back(-SE->x);
 										meshPoints.push_back(SE->z);
 										meshPoints.push_back(SE->y);
-										meshPoints.push_back(0);
-										meshPoints.push_back(0);
-										meshPoints.push_back(1);
-
-										meshPoints.push_back(-NW->x);
+										meshPoints.push_back(-SE_N->x);
+										meshPoints.push_back(SE_N->z);
+										meshPoints.push_back(SE_N->y);
+										meshPoints.push_back(-NW->x); //tri2
 										meshPoints.push_back(NW->z);
 										meshPoints.push_back(NW->y);
-										meshPoints.push_back(0);
-										meshPoints.push_back(0);
-										meshPoints.push_back(1);
+										meshPoints.push_back(-NW_N->x);
+										meshPoints.push_back(NW_N->z);
+										meshPoints.push_back(NW_N->y);
 										meshPoints.push_back(-NE->x);
 										meshPoints.push_back(NE->z);
 										meshPoints.push_back(NE->y);
-										meshPoints.push_back(0);
-										meshPoints.push_back(0);
-										meshPoints.push_back(1);
+										meshPoints.push_back(-NE_N->x);
+										meshPoints.push_back(NE_N->z);
+										meshPoints.push_back(NE_N->y);
 										meshPoints.push_back(-SE->x);
 										meshPoints.push_back(SE->z);
 										meshPoints.push_back(SE->y);
-										meshPoints.push_back(0);
-										meshPoints.push_back(0);
-										meshPoints.push_back(1);
+										meshPoints.push_back(-SE_N->x);
+										meshPoints.push_back(SE_N->z);
+										meshPoints.push_back(SE_N->y);
 									}
 								}
 								i_condition++;
@@ -938,12 +919,7 @@ namespace vmf {
 				this->solids[i].mesh = NULL;
 			}
 
-			for (auto i : this->entities) {
-				for (auto m : i.internal_solids) {
-					delete m.mesh;
-					m.mesh = NULL;
-				}
-			}
+			/* Add code for entities mem cleanup */
 		}
 
 		~vmf() {

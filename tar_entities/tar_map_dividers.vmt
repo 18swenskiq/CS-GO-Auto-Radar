@@ -1,0 +1,5 @@
+"VertexLitGeneric"
+{
+	"$basetexture" "tar/editor/tar_map_dividers"
+	"$translucent" 1
+}
