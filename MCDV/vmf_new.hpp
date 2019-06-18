@@ -159,20 +159,23 @@ namespace vmf_parse {
 
 class material {
 public:
-	material() {
-		// ok.. what now?
+	static std::map<std::string, material*> m_index;
+
+	std::string name;
+	bool draw = true;
+
+	material(const std::string& materialname) {
+		this->name = materialname;
+		if (this->name == "TOOLS/TOOLSSKYBOX" ||
+			this->name == "TOOLS/NODRAW")
+			this->draw = false;
 	}
 
-	/*
-	static std::map<std::string, material*> material_index;
-
 	static material* get(const std::string& tex) {
-		if (!material_index.count(tex)) material_index.insert({ tex, new material() });
-		return material_index[tex];
-	}*/
+		if (material::m_index.count(tex)) return material::m_index[tex];
 
-	static material* get(const std::string& tex) {
-		return NULL;
+		material::m_index.insert({ tex, new material(tex) });
+		return material::m_index[tex];
 	}
 };
 
@@ -494,14 +497,16 @@ public:
 		this->m_editorvalues = editorvalues(dataSrc->_GetFirstByName("editor"));
 
 		// Read solids
-		for (auto && s : dataSrc->_GetAllByName("side")) m_sides.push_back(side::create(s));
+		for (auto && s : dataSrc->_GetAllByName("side")) {
+			m_sides.push_back(side::create(s));
+		}
 
 		// Process polytope problem. (still questionable why this is a thing)
 		std::vector<glm::vec3> intersecting;
 
 		float x, _x, y, _y, z, _z;
-		_x = _y = _z = std::numeric_limits<float>::max();
-		x = y = z = std::numeric_limits<float>::min();
+		x = _y = _z = std::numeric_limits<float>::max();
+		_x = y = z = std::numeric_limits<float>::min();
 
 		for (int i = 0; i < m_sides.size(); i++) {
 			for (int j = 0; j < m_sides.size(); j++) {
@@ -543,10 +548,10 @@ public:
 					intersecting.push_back(p);
 
 					// Calculate bounds
-					_x = glm::min(_x, p.x);
+					_x = glm::max(_x, p.x);
 					_y = glm::min(_y, p.y);
 					_z = glm::min(_z, p.z);
-					x = glm::max(x, p.x);
+					x = glm::min(x, p.x);
 					y = glm::max(y, p.y);
 					z = glm::max(z, p.z);
 				}
@@ -592,6 +597,7 @@ public:
 		for (auto && s : this->m_sides) {
 			if (s->m_dispinfo != NULL) continue;
 			if (s->m_vertices.size() < 3) continue;
+			if (!s->m_texture->draw) continue;
 
 			for (int j = 0; j < s->m_vertices.size() - 2; j++) {
 				glm::vec3* c = &s->m_vertices[0];
@@ -708,6 +714,8 @@ public:
 
 	std::set<unsigned int> m_whitelist_visgroups;
 	std::set<std::string> m_whitelist_classnames;
+	float m_render_h_max = 10000.0f;
+	float m_render_h_min = -10000.0f;
 	
 	static std::map<std::string, Mesh*> s_model_dict;
 
@@ -809,6 +817,11 @@ public:
 		this->m_whitelist_classnames = classnames;
 	}
 
+	void SetMinMax(float min, float max) {
+		this->m_render_h_min = min;
+		this->m_render_h_max = max;
+	}
+
 	void DrawWorld(Shader* shader, std::vector<glm::mat4> transform_stack = {}, unsigned int infoFlags = 0x00) {
 		glm::mat4 model = glm::mat4();
 		shader->setMatrix("model", model);
@@ -816,6 +829,8 @@ public:
 
 		// Draw solids
 		for (auto && solid : this->m_solids) {
+			if (solid.SEL.y > this->m_render_h_min || solid.SEL.y < this->m_render_h_max) continue;
+
 			if (check_in_whitelist(&solid.m_editorvalues.m_visgroups, this->m_whitelist_visgroups)) {
 				shader->setUnsigned("Info", infoFlags);
 				solid.Draw(shader);
@@ -836,7 +851,7 @@ public:
 		for (auto && ent : this->m_entities) {
 			// Visgroup pre-check
 			if (check_in_whitelist(&ent.m_editorvalues.m_visgroups, this->m_whitelist_visgroups)) {
-
+				if (ent.m_origin.y > this->m_render_h_min || ent.m_origin.y < this->m_render_h_max) continue;
 				if (this->m_whitelist_classnames.count(ent.m_classname)) {
 					if (ent.m_classname == "prop_static" ||
 						ent.m_classname == "prop_dynamic" ||
@@ -907,6 +922,32 @@ public:
 		return bounds;
 	}
 
+	glm::vec3* calculateSpawnAVG_PMIN(const std::string& classname) {
+		std::vector<entity*> spawns = this->get_entities_by_classname(classname);
+
+		if (spawns.size() <= 0) return NULL;
+
+		//Find lowest priority (highest)
+		int lowest = kv::tryGetValue<int>(spawns[0]->m_keyvalues, "priority", 0);
+		for (auto && s : spawns) {
+			int l = kv::tryGetValue<int>(s->m_keyvalues, "priority", 0);
+			lowest = l < lowest ? l : lowest;
+		}
+
+		//Collect all spawns with that priority
+		glm::vec3* location = new glm::vec3();
+		int c = 0;
+		for (auto && s : spawns) {
+			if (kv::tryGetValue<int>(s->m_keyvalues, "priority", 0) == lowest) {
+				*location += s->m_origin; c++;
+			}
+		}
+
+		//avg
+		*location = *location / (float)c;
+		return location;
+	}
+
 	std::vector<entity*> get_entities_by_classname(const std::string& classname) {
 		std::vector<entity*> ents;
 		for (auto && i : this->m_entities) {
@@ -921,3 +962,4 @@ public:
 
 vfilesys* vmf::s_fileSystem = NULL;
 std::map<std::string, Mesh*> vmf::s_model_dict;
+std::map<std::string, material*> material::m_index;

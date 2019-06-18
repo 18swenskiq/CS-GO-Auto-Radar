@@ -1,3 +1,4 @@
+#pragma once
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h> 
@@ -7,7 +8,6 @@
 
 #define __max(a,b)            (((a) > (b)) ? (a) : (b))
 #define __min(a,b)            (((a) < (b)) ? (a) : (b))
-#pragma once
 
 #pragma pack(push, 1)
 struct DDS_PIXELFORMAT {
@@ -81,6 +81,8 @@ UINT32 SwapEndian(UINT32 val)
 #define DDS_HEADER_SIZE 124
 #define DDS_HEADER_PFSIZE 32
 #define DDS_MAGICNUM 0x20534444;
+
+#define DDS_FLIP_VERTICALLY_ON_WRITE
 
 /*
 imageData:	Pointer to image data
@@ -252,7 +254,9 @@ bool dds_write(uint8_t* imageData, const char* filename, uint32_t w, uint32_t h,
 	}
 	else
 	{
-		output.write((char*)imageData, final_image_size);
+		for (int row = 0; row < h; row++) {
+			output.write((char*)imageData + (final_image_size - (row * w * 3)), w * 3);
+		}
 	}
 
 	output.close();

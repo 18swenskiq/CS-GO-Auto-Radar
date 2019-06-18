@@ -234,6 +234,18 @@
     <None Include="shaders\ss_comp_main.fso">
       <Filter>OpenGL\Shader Files</Filter>
     </None>
+    <None Include="shaders\ss_comp_multilayer_blend.fs">
+      <Filter>OpenGL\Shader Files</Filter>
+    </None>
+    <None Include="shaders\ss_comp_multilayer_finalstage.fs">
+      <Filter>OpenGL\Shader Files</Filter>
+    </None>
+    <None Include="shaders\ss_fxaa.fs">
+      <Filter>OpenGL\Shader Files</Filter>
+    </None>
+    <None Include="shaders\ss_msaa.fs">
+      <Filter>OpenGL\Shader Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="fonts\dina-r.png">

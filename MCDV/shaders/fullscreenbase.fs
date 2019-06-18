@@ -13,7 +13,6 @@ uniform vec3 bounds_SEL;	// South-East-Lower coordinate of the playspace (worlds
 //                                     SAMPLER UNIFORMS
 // Image Inputs _______________________________________________________________________________
 uniform sampler2D tex_gradient;
-uniform sampler2D tex_background;
 uniform sampler2D tex_modulate;
 uniform sampler2D gbuffer_position;
 uniform sampler2D gbuffer_clean_position;
@@ -26,6 +25,7 @@ uniform usampler2D umask_buyzone;
 uniform vec3 samples[256];
 uniform sampler2D ssaoRotations;
 uniform float ssaoScale;
+uniform int mssascale;
 uniform mat4 projection;
 uniform mat4 view;
 
@@ -35,6 +35,10 @@ uniform vec4 color_objective;
 uniform vec4 color_buyzone;
 uniform vec4 color_cover;
 uniform vec4 color_cover2;
+uniform vec4 color_ao;
+
+uniform float blend_objective_stripes;
+uniform float blend_ao;
 
 //                                       SHADER HELPERS
 // ____________________________________________________________________________________________
@@ -48,6 +52,11 @@ float lerp(float a, float b, float w)
 vec3 lerp(vec3 a, vec3 b, float w)
 {
   return a + w*(b-a);
+}
+
+vec4 lerp(vec4 a, vec4 b, float w)
+{
+	return a + w*(b-a);
 }
 
 vec4 blend_normal(vec4 a, vec4 b, float s)
@@ -180,8 +189,7 @@ void main()
 		lerp(s_position_clean.y, s_position.y, clamp((1 - s_modulate.r) + (float((s_info >> 1) & 0x1U) - m_playspace_clean), 0, 1))
 	), m_playspace);
 
-	final = blend_normal(final, color_cover, float((s_info >> 7) & 0x1U) * m_playspace);
-	final = blend_normal(final, color_cover * vec4(0.4, 0.4, 0.4, 1.0), float((s_info >> 7) & 0x1U) * m_playspace * (1 - ((s_position.y - s_position_clean.y) / 256)));
+	final = blend_normal(final, lerp(color_cover, color_cover2, float((s_info >> 7) & 0x1U) * m_playspace * (1 - ((s_position.y - s_position_clean.y) / 196))), float((s_info >> 7) & 0x1U) * m_playspace);
 
 	vec4 s_normal = texture(gbuffer_normal, TexCoords);
 	vec3 randVec = texture(ssaoRotations, TexCoords * noiseScale).rgb;
@@ -206,23 +214,23 @@ void main()
 		occlusion += (sDepth >= sample.y + 10.0 ? 1.0 : 0.0);
 	}
 
-	final = blend_normal(final, vec4(0,0,0,1), (occlusion / 200) * m_playspace);
+	final = blend_normal(final, color_ao, (occlusion / 200) * m_playspace * blend_ao);
 
 
 	final = blend_normal(final, color_objective,																// Objectives
 		(
-		(kernel_filter_glow(umask_objectives, 13, 1))
+		(kernel_filter_glow(umask_objectives, 13 * mssascale, 1))
 		* m_objectives
 		* ( 1 - float((s_info >> 7) & 0x1U))
 		)
 		+ 
 		(
-		kernel_filter_outline(umask_objectives, 2) * 0.9
-		* ( 1 - float((s_info >> 7) & 0x1U)) * s_modulate_1_5.r
+		kernel_filter_outline(umask_objectives, 3 * mssascale) * 0.9
+		* ( 1 - float((s_info >> 7) & 0x1U)) * clamp(s_modulate_1_5.r + blend_objective_stripes, 0, 1)
 		)
 		+
 		(
-		(kernel_filter_glow(umask_objectives, 13, 0))
+		(kernel_filter_glow(umask_objectives, 13 * mssascale, 0))
 		* ( 1 - m_objectives )
 		* ( 1 - float((s_info >> 7) & 0x1U))
 		)
@@ -230,18 +238,18 @@ void main()
 	
 	final = blend_normal(final, color_buyzone,																// Objectives
 		(
-		(kernel_filter_glow(umask_buyzone, 13, 1))
+		(kernel_filter_glow(umask_buyzone, 13 * mssascale, 1))
 		* m_buyzones
 		* ( 1 - float((s_info >> 7) & 0x1U))
 		)
 		+ 
 		(
-		kernel_filter_outline(umask_buyzone, 2) * 0.9
+		kernel_filter_outline(umask_buyzone, 3 * mssascale) * 0.9
 		* ( 1 - float((s_info >> 7) & 0x1U))
 		)
 		+
 		(
-		(kernel_filter_glow(umask_buyzone, 13, 0))
+		(kernel_filter_glow(umask_buyzone, 13 * mssascale, 0))
 		* ( 1 - m_buyzones )
 		* ( 1 - float((s_info >> 7) & 0x1U))
 		)

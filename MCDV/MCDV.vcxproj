@@ -187,6 +187,10 @@
     <None Include="shaders\gBuffer.vs" />
     <None Include="shaders\iBuffer.fs" />
     <None Include="shaders\ss_comp_main.fso" />
+    <None Include="shaders\ss_comp_multilayer_blend.fs" />
+    <None Include="shaders\ss_comp_multilayer_finalstage.fs" />
+    <None Include="shaders\ss_fxaa.fs" />
+    <None Include="shaders\ss_msaa.fs" />
     <None Include="shaders\ss_precomp_objectives.fs" />
     <None Include="shaders\ss_precomp_playspace.fs" />
     <None Include="shaders\textfont.fs" />
