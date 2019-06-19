@@ -354,17 +354,17 @@ int app(int argc, const char** argv) {
 
 	if (loc_spawnCT != NULL) {
 		node_radar.Values.insert({ "CTSpawn_x", std::to_string(util::roundf(remap(loc_spawnCT->x, g_tar_config->m_view_origin.x, g_tar_config->m_view_origin.x + g_tar_config->m_render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
-		node_radar.Values.insert({ "CTSpawn_y", std::to_string(util::roundf(remap(loc_spawnCT->y, g_tar_config->m_view_origin.y, g_tar_config->m_view_origin.y - g_tar_config->m_render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
+		node_radar.Values.insert({ "CTSpawn_y", std::to_string(util::roundf(remap(loc_spawnCT->z, g_tar_config->m_view_origin.y, g_tar_config->m_view_origin.y - g_tar_config->m_render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
 	}
 	if (loc_spawnT != NULL) {
 		node_radar.Values.insert({ "TSpawn_x", std::to_string(util::roundf(remap(loc_spawnT->x, g_tar_config->m_view_origin.x, g_tar_config->m_view_origin.x + g_tar_config->m_render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
-		node_radar.Values.insert({ "TSpawn_y", std::to_string(util::roundf(remap(loc_spawnT->y, g_tar_config->m_view_origin.y, g_tar_config->m_view_origin.y - g_tar_config->m_render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
+		node_radar.Values.insert({ "TSpawn_y", std::to_string(util::roundf(remap(loc_spawnT->z, g_tar_config->m_view_origin.y, g_tar_config->m_view_origin.y - g_tar_config->m_render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
 	}
 
 	int hostn = 1;
 	for (auto && hostage : g_vmf_file->get_entities_by_classname("info_hostage_spawn")) {
 		node_radar.Values.insert({ "Hostage" + std::to_string(hostn) + "_x", std::to_string(util::roundf(remap(hostage->m_origin.x, g_tar_config->m_view_origin.x, g_tar_config->m_view_origin.x + g_tar_config->m_render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
-		node_radar.Values.insert({ "Hostage" + std::to_string(hostn++) + "_y", std::to_string(util::roundf(remap(hostage->m_origin.y, g_tar_config->m_view_origin.y, g_tar_config->m_view_origin.y - g_tar_config->m_render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
+		node_radar.Values.insert({ "Hostage" + std::to_string(hostn++) + "_y", std::to_string(util::roundf(remap(hostage->m_origin.z, g_tar_config->m_view_origin.y, g_tar_config->m_view_origin.y - g_tar_config->m_render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
 	}
 
 	std::ofstream out(filesys->create_output_filepath("resource/overviews/" + g_mapfile_name + ".txt", true).c_str());
