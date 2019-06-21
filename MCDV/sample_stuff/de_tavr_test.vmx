@@ -2,7 +2,7 @@ versioninfo
 {
 	"editorversion" "400"
 	"editorbuild" "8075"
-	"mapversion" "345"
+	"mapversion" "357"
 	"formatversion" "100"
 	"prefab" "0"
 }
@@ -44,7 +44,7 @@ viewsettings
 world
 {
 	"id" "1"
-	"mapversion" "345"
+	"mapversion" "357"
 	"classname" "worldspawn"
 	"detailmaterial" "detail/detailsprites"
 	"detailvbsp" "detail.vbsp"
@@ -2637,17 +2637,28 @@ world
 }
 entity
 {
-	"id" "2894"
-	"classname" "tar_map_divider"
-	"maxs" "4096 4096 2"
-	"mins" "-4096 -4096 -2"
-	"origin" "-80 0 -64"
+	"id" "2969"
+	"classname" "tar_max"
+	"origin" "-368.448 -11.867 140.175"
 	editor
 	{
 		"color" "127 224 0"
 		"visgroupshown" "1"
 		"visgroupautoshown" "1"
-		"logicalpos" "[0 0]"
+		"logicalpos" "[0 1000]"
+	}
+}
+entity
+{
+	"id" "2971"
+	"classname" "tar_min"
+	"origin" "-344.583 -139.156 33"
+	editor
+	{
+		"color" "127 224 0"
+		"visgroupshown" "1"
+		"visgroupautoshown" "1"
+		"logicalpos" "[0 1500]"
 	}
 }
 entity
@@ -2656,25 +2667,26 @@ entity
 	"classname" "tar_config"
 	"aoSize" "1000"
 	"background" "grid.png"
-	"colorScheme" "5"
+	"colorScheme" "7"
 	"customCol0" "104 15 15"
 	"customCol1" "64 166 38"
 	"customCol2" "44 199 199"
-	"ddsMode" "0"
+	"ddsMode" "2"
 	"enableAO" "1"
+	"enableOutline" "0"
 	"ObjectiveUseStripes" "1"
 	"outlineWidth" "2"
-	"ssaam" "3"
+	"ssaam" "1"
 	"vgroup_cover" "tar_cover"
 	"vgroup_layout" "tar_layout"
 	"vgroup_negative" "tar_mask"
 	"vgroup_overlap" "tar_overlap"
 	"zColAO" "0 0 0 255"
-	"zColBuyzone" "46 211 57 170"
+	"zColBuyzone" "46 211 57 255"
 	"zColCover" "179 179 179 255"
 	"zColCover2" "85 85 85 170"
 	"zColObjective" "0 128 255 255"
-	"zColOutline" "204 204 204 153"
+	"zColOutline" "204 204 204 255"
 	"origin" "-240 592 33"
 	editor
 	{
@@ -3415,10 +3427,10 @@ entity
 		side
 		{
 			"id" "315"
-			"plane" "(-384 -512 160) (-384 -128 160) (96 -128 160)"
+			"plane" "(-496 -576 160) (-496 -192 160) (-16 -192 160)"
 			"material" "TERRI/TOOLS/TOOLS_TRIGGER"
-			"uaxis" "[1 0 0 -25.6] 3.75"
-			"vaxis" "[0 -1 0 -42.6667] 3"
+			"uaxis" "[1 0 0 4.26667] 3.75"
+			"vaxis" "[0 -1 0 -64] 3"
 			"rotation" "0"
 			"lightmapscale" "16"
 			"smoothing_groups" "0"
@@ -3426,10 +3438,10 @@ entity
 		side
 		{
 			"id" "314"
-			"plane" "(-384 -128 16) (-384 -512 16) (96 -512 16)"
+			"plane" "(-496 -192 16) (-496 -576 16) (-16 -576 16)"
 			"material" "TERRI/TOOLS/TOOLS_TRIGGER"
-			"uaxis" "[1 0 0 -25.6] 3.75"
-			"vaxis" "[0 -1 0 -42.6667] 3"
+			"uaxis" "[1 0 0 4.26667] 3.75"
+			"vaxis" "[0 -1 0 -64] 3"
 			"rotation" "0"
 			"lightmapscale" "16"
 			"smoothing_groups" "0"
@@ -3437,9 +3449,9 @@ entity
 		side
 		{
 			"id" "313"
-			"plane" "(-384 -512 16) (-384 -128 16) (-384 -128 160)"
+			"plane" "(-496 -576 16) (-496 -192 16) (-496 -192 160)"
 			"material" "TERRI/TOOLS/TOOLS_TRIGGER"
-			"uaxis" "[0 1 0 42.6667] 3"
+			"uaxis" "[0 1 0 64] 3"
 			"vaxis" "[0 0 -1 14.2222] 1.125"
 			"rotation" "0"
 			"lightmapscale" "16"
@@ -3448,9 +3460,9 @@ entity
 		side
 		{
 			"id" "312"
-			"plane" "(96 -128 16) (96 -512 16) (96 -512 160)"
+			"plane" "(-16 -192 16) (-16 -576 16) (-16 -576 160)"
 			"material" "TERRI/TOOLS/TOOLS_TRIGGER"
-			"uaxis" "[0 1 0 42.6667] 3"
+			"uaxis" "[0 1 0 64] 3"
 			"vaxis" "[0 0 -1 14.2222] 1.125"
 			"rotation" "0"
 			"lightmapscale" "16"
@@ -3459,9 +3471,9 @@ entity
 		side
 		{
 			"id" "311"
-			"plane" "(-384 -128 16) (96 -128 16) (96 -128 160)"
+			"plane" "(-496 -192 16) (-16 -192 16) (-16 -192 160)"
 			"material" "TERRI/TOOLS/TOOLS_TRIGGER"
-			"uaxis" "[1 0 0 -25.6] 3.75"
+			"uaxis" "[1 0 0 4.26667] 3.75"
 			"vaxis" "[0 0 -1 14.2222] 1.125"
 			"rotation" "0"
 			"lightmapscale" "16"
@@ -3470,9 +3482,9 @@ entity
 		side
 		{
 			"id" "310"
-			"plane" "(96 -512 16) (-384 -512 16) (-384 -512 160)"
+			"plane" "(-16 -576 16) (-496 -576 16) (-496 -576 160)"
 			"material" "TERRI/TOOLS/TOOLS_TRIGGER"
-			"uaxis" "[1 0 0 -25.6] 3.75"
+			"uaxis" "[1 0 0 4.26667] 3.75"
 			"vaxis" "[0 0 -1 14.2222] 1.125"
 			"rotation" "0"
 			"lightmapscale" "16"

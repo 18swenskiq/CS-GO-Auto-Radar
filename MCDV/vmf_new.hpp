@@ -505,8 +505,8 @@ public:
 		std::vector<glm::vec3> intersecting;
 
 		float x, _x, y, _y, z, _z;
-		_x = _y = _z = 99999.0f;// std::numeric_limits<float>::max();
-		x = y = z = -99999.0f;// std::numeric_limits<float>::min();
+		x = _y = _z = 99999.0f;// std::numeric_limits<float>::max();
+		_x = y = z = -99999.0f;// std::numeric_limits<float>::min();
 
 		for (int i = 0; i < m_sides.size(); i++) {
 			for (int j = 0; j < m_sides.size(); j++) {
@@ -548,10 +548,10 @@ public:
 					intersecting.push_back(p);
 
 					// Calculate bounds
-					_x = glm::round(glm::min(_x, p.x));
+					_x = glm::round(glm::max(_x, p.x));
 					_y = glm::round(glm::min(_y, p.y));
 					_z = glm::round(glm::min(_z, p.z));
-					x = glm::round(glm::max(x, p.x));
+					x = glm::round(glm::min(x, p.x));
 					y = glm::round(glm::max(y, p.y));
 					z = glm::round(glm::max(z, p.z));
 				}

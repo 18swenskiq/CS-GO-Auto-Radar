@@ -1,4 +1,6 @@
 #version 330 core
+// I sincerily apologize to anyone reading this mess of a shader... -Terri00 21 6 19
+
 //                                         OPENGL
 // ____________________________________________________________________________________________
 in vec2 TexCoords;
@@ -147,6 +149,25 @@ float kernel_filter_glow(usampler2D sampler, int sample_size, int inverse)
 	return r * r;
 }
 
+float _kernel_filter_glow(usampler2D sampler, usampler2D samplerMask, int sample_size, int inverse)
+{
+	vec2 pixel_size = 1.0 / vec2(textureSize(sampler, 0));
+
+	uint sT = 0U;
+	int sample_double = sample_size * 2;
+
+	// Process kernel
+	for(int x = 0; x <= sample_double; x++){
+		for(int y = 0; y <= sample_double; y++){
+			if(inverse == 0)
+			sT += (texture(sampler, TexCoords + vec2((-sample_size + x) * pixel_size.x, (-sample_size + y) * pixel_size.y)).r) * texture(samplerMask, TexCoords + vec2((-sample_size + x) * pixel_size.x, (-sample_size + y) * pixel_size.y)).r;
+			else sT += (1U - texture(sampler, TexCoords + vec2((-sample_size + x) * pixel_size.x, (-sample_size + y) * pixel_size.y)).r) * texture(samplerMask, TexCoords + vec2((-sample_size + x) * pixel_size.x, (-sample_size + y) * pixel_size.y)).r;
+		}
+	}
+	float r = float(sT) / (sample_double * sample_double);
+	return r * r;
+}
+
 // Given a 0-1 mask, return an outline drawn around that mask
 float kernel_filter_outline(usampler2D sampler, int sample_size)
 {
@@ -165,6 +186,27 @@ float kernel_filter_outline(usampler2D sampler, int sample_size)
 	}
 
 	return float(max(min(sT, 1U) - texture(sampler, TexCoords).r, 0U));
+}
+
+// Given a 0-1 mask, return an outline drawn around that mask
+float _kernel_filter_outline(usampler2D sampler, usampler2D samplerMask, int sample_size)
+{
+	vec2 pixel_size = 1.0 / vec2(textureSize(sampler, 0));
+
+	float sT = 0;
+	int sample_double = sample_size * 2;
+	
+	// Process kernel
+	for(int x = 0; x <= sample_double; x++){
+		for(int y = 0; y <= sample_double; y++){
+			sT += 
+			(sample_size - min(length(vec2(-sample_size + x, -sample_size + y)), sample_size)) * 
+			float(texture(sampler, TexCoords + vec2((-sample_size + x) * pixel_size.x, (-sample_size + y) * pixel_size.y)).r) * 
+			texture(samplerMask, TexCoords + vec2((-sample_size + x) * pixel_size.x, (-sample_size + y) * pixel_size.y)).r;
+		}
+	}
+
+	return float(max(min(sT, 1U) - (texture(sampler, TexCoords).r * texture(samplerMask, TexCoords).r), 0U));
 }
 
 void main()
@@ -239,40 +281,42 @@ void main()
 
 	final = blend_normal(final, color_objective,																// Objectives
 		(
-		(kernel_filter_glow(umask_objectives, 13 * mssascale, 1))
+		(_kernel_filter_glow(umask_objectives, umask_playspace, 13 * mssascale, 1))
 		* m_objectives
 		* ( 1 - float((s_info >> 7) & 0x1U))
 		)
 		+ 
 		(
-		kernel_filter_outline(umask_objectives, 3 * mssascale) * 0.9
+		_kernel_filter_outline(umask_objectives, umask_playspace, 3 * mssascale) * 0.9
 		* ( 1 - float((s_info >> 7) & 0x1U)) * clamp(s_modulate_1_5.r + blend_objective_stripes, 0, 1)
 		)
 		+
 		(
-		(kernel_filter_glow(umask_objectives, 13 * mssascale, 0))
+		(_kernel_filter_glow(umask_objectives, umask_playspace, 13 * mssascale, 0))
 		* ( 1 - m_objectives )
 		* ( 1 - float((s_info >> 7) & 0x1U))
 		)
+		+ (float(texture(umask_objectives, TexCoords).r * texture(umask_playspace, TexCoords).r) * 0.08)
 		);
 	
-	final = blend_normal(final, color_buyzone,																// Objectives
+	final = blend_normal(final, color_buyzone,																// Buyzone
 		(
-		(kernel_filter_glow(umask_buyzone, 13 * mssascale, 1))
+		(_kernel_filter_glow(umask_buyzone, umask_playspace, 13 * mssascale, 1))
 		* m_buyzones
 		* ( 1 - float((s_info >> 7) & 0x1U))
 		)
 		+ 
 		(
-		kernel_filter_outline(umask_buyzone, 3 * mssascale) * 0.9
+		_kernel_filter_outline(umask_buyzone, umask_playspace, 3 * mssascale) * 0.9
 		* ( 1 - float((s_info >> 7) & 0x1U))
 		)
 		+
 		(
-		(kernel_filter_glow(umask_buyzone, 13 * mssascale, 0))
+		(_kernel_filter_glow(umask_buyzone, umask_playspace, 13 * mssascale, 0))
 		* ( 1 - m_buyzones )
 		* ( 1 - float((s_info >> 7) & 0x1U))
 		)
+		+ (float(texture(umask_buyzone, TexCoords).r * texture(umask_playspace, TexCoords).r) * 0.07)
 		);
 
 	FragColor = final;

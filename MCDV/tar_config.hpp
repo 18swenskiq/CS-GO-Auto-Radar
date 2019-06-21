@@ -139,10 +139,10 @@ public:
 		std::cout << -this->m_map_bounds.SEL.x << "," << this->m_map_bounds.SEL.y << "," << this->m_map_bounds.SEL.z << "\n";
 
 		for (auto && min : v->get_entities_by_classname("tar_min"))
-			this->m_map_bounds.SEL.y = glm::min(min->m_origin.y, this->m_map_bounds.SEL.y);
+			this->m_map_bounds.SEL.y = glm::max(min->m_origin.y, this->m_map_bounds.SEL.y);
 
 		for(auto && max : v->get_entities_by_classname("tar_max"))
-			this->m_map_bounds.NWU.y = glm::max(max->m_origin.y, this->m_map_bounds.NWU.y);
+			this->m_map_bounds.NWU.y = glm::min(max->m_origin.y, this->m_map_bounds.NWU.y);
 
 		float padding = 128.0f;
 
