@@ -2,7 +2,9 @@
 //                                         OPENGL
 // ____________________________________________________________________________________________
 in vec2 TexCoords;
-out vec4 FragColor;
+layout (location = 0) out vec4 FragColor;
+layout (location = 1) out float hData;
+//layout (location = 2) out uint aoBuffer;
 
 //                                        UNIFORMS
 // Vector Information _________________________________________________________________________
@@ -15,6 +17,7 @@ uniform vec3 bounds_SEL;	// South-East-Lower coordinate of the playspace (worlds
 uniform sampler2D tex_gradient;
 uniform sampler2D tex_modulate;
 uniform sampler2D gbuffer_position;
+uniform sampler2D gbuffer_origin;
 uniform sampler2D gbuffer_clean_position;
 uniform sampler2D gbuffer_normal;
 uniform usampler2D gbuffer_info;
@@ -189,7 +192,21 @@ void main()
 		lerp(s_position_clean.y, s_position.y, clamp((1 - s_modulate.r) + (float((s_info >> 1) & 0x1U) - m_playspace_clean), 0, 1))
 	), m_playspace);
 
-	final = blend_normal(final, lerp(color_cover, color_cover2, float((s_info >> 7) & 0x1U) * m_playspace * (1 - ((s_position.y - s_position_clean.y) / 196))), float((s_info >> 7) & 0x1U) * m_playspace);
+	vec2 sloc = texture(gbuffer_origin, TexCoords).xy;
+	vec4 originSample = vec4(sloc.x, 0, sloc.y, 1);
+	originSample = projection * view * originSample;
+	originSample.xyz /= originSample.w;
+	originSample.xyz = originSample.xyz * 0.5 + 0.5;
+
+	//float sh = (s_position.y - texture(gbuffer_clean_position, originSample.xy).y) / 196.0;
+
+	//FragColor = vec4(sh, sh, sh, 1);
+
+	final = blend_normal(
+	final, 
+	lerp(color_cover, color_cover2, 
+		float((s_info >> 7) & 0x1U) * m_playspace * (1 - ((s_position.y - texture(gbuffer_clean_position, originSample.xy).y) / 196))), 
+		float((s_info >> 7) & 0x1U) * m_playspace);
 
 	vec4 s_normal = texture(gbuffer_normal, TexCoords);
 	vec3 randVec = texture(ssaoRotations, TexCoords * noiseScale).rgb;
@@ -197,6 +214,8 @@ void main()
 	vec3 tangent = normalize(randVec - s_normal.rgb * dot(randVec, s_normal.rgb));
 	vec3 bitangent = cross(s_normal.rgb, tangent);
 	mat3 TBN = mat3(tangent, bitangent, s_normal.rgb);
+
+	hData = s_position.y;
 
 	float occlusion = 0.0;
 	for(int i = 0; i < 256; i++)
@@ -211,11 +230,12 @@ void main()
 
 		float sDepth = texture(gbuffer_position, offset.xy).y;
 
-		occlusion += (sDepth >= sample.y + 10.0 ? 1.0 : 0.0);
+		occlusion += (sDepth >= sample.y + 6 ? 1.0 : 0.0);
 	}
 
 	final = blend_normal(final, color_ao, (occlusion / 200) * m_playspace * blend_ao);
 
+	//aoBuffer = occlusion / 200;
 
 	final = blend_normal(final, color_objective,																// Objectives
 		(

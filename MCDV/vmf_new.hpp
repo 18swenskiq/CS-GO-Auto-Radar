@@ -829,10 +829,12 @@ public:
 
 		// Draw solids
 		for (auto && solid : this->m_solids) {
-			if (solid.SEL.y > this->m_render_h_min || solid.SEL.y < this->m_render_h_max) continue;
+			if (solid.NWU.y > this->m_render_h_min || solid.NWU.y < this->m_render_h_max) continue;
 
 			if (check_in_whitelist(&solid.m_editorvalues.m_visgroups, this->m_whitelist_visgroups)) {
 				shader->setUnsigned("Info", infoFlags);
+				glm::vec2 orgin = glm::vec2(solid.NWU.x + solid.SEL.x, solid.NWU.z + solid.SEL.z) / 2.0f;
+				shader->setVec2("origin", glm::vec2(orgin.x, orgin.y));
 				solid.Draw(shader);
 			}
 		}
@@ -851,8 +853,8 @@ public:
 		for (auto && ent : this->m_entities) {
 			// Visgroup pre-check
 			if (check_in_whitelist(&ent.m_editorvalues.m_visgroups, this->m_whitelist_visgroups)) {
-				if (ent.m_origin.y > this->m_render_h_min || ent.m_origin.y < this->m_render_h_max) continue;
 				if (this->m_whitelist_classnames.count(ent.m_classname)) {
+					if (ent.m_origin.y > this->m_render_h_min || ent.m_origin.y < this->m_render_h_max) continue;
 					if (ent.m_classname == "prop_static" ||
 						ent.m_classname == "prop_dynamic" ||
 						ent.m_classname == "prop_physics" ) {
@@ -867,6 +869,7 @@ public:
 						model = glm::scale(model, glm::vec3(::atof(kv::tryGetStringValue(ent.m_keyvalues, "uniformscale", "1").c_str())));
 						shader->setMatrix("model", model);
 						shader->setUnsigned("Info", infoFlags);
+						shader->setVec2("origin", glm::vec2(ent.m_origin.x, ent.m_origin.z));
 
 						vmf::s_model_dict[kv::tryGetStringValue(ent.m_keyvalues, "model", "error.mdl")]->Draw();
 					}
@@ -876,6 +879,8 @@ public:
 						shader->setUnsigned("Info", infoFlags);
 
 						for (auto && s : ent.m_internal_solids) {
+							if (s.NWU.y > this->m_render_h_min || s.NWU.y < this->m_render_h_max) continue;
+							shader->setVec2("origin", glm::vec2(ent.m_origin.x, ent.m_origin.z));
 							s.Draw(shader);
 						}
 					}

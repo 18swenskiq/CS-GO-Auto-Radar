@@ -12,6 +12,7 @@ class GBuffer {
 	unsigned int gPosition;
 	unsigned int gNormal;
 	unsigned int gMapInfo;
+	unsigned int gOrigin;
 
 	unsigned int gMask;
 
@@ -52,14 +53,23 @@ public:
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, this->gMapInfo, 0);
 
+		// Brush/model origin whatever
+		glGenTextures(1, &this->gOrigin);
+		glBindTexture(GL_TEXTURE_2D, this->gOrigin);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RG16F, window_width, window_height, 0, GL_RG, GL_FLOAT, NULL);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, this->gOrigin, 0);
+
 		// Announce attachments
-		unsigned int attachments[3] = { 
+		unsigned int attachments[4] = { 
 			GL_COLOR_ATTACHMENT0, 
 			GL_COLOR_ATTACHMENT1, 
-			GL_COLOR_ATTACHMENT2
+			GL_COLOR_ATTACHMENT2,
+			GL_COLOR_ATTACHMENT3
 		};
 
-		glDrawBuffers(3, attachments);
+		glDrawBuffers(4, attachments);
 
 		// Create and test render buffer
 		glGenRenderbuffers(1, &this->rBuffer);
@@ -95,6 +105,12 @@ public:
 	void BindInfoBufferToTexSlot(int slot = 0) {
 		glActiveTexture(GL_TEXTURE0 + slot);
 		glBindTexture(GL_TEXTURE_2D, this->gMapInfo);
+		glActiveTexture(GL_TEXTURE0);
+	}
+
+	void BindOriginBufferToTexSlot(int slot = 0) {
+		glActiveTexture(GL_TEXTURE0 + slot);
+		glBindTexture(GL_TEXTURE_2D, this->gOrigin);
 		glActiveTexture(GL_TEXTURE0);
 	}
 
@@ -187,6 +203,8 @@ class FBuffer {
 	unsigned int rBuffer;
 
 	unsigned int gColor;
+	unsigned int hData;
+	unsigned int aoBuffer;
 
 	int width;
 	int height;
@@ -200,7 +218,7 @@ public:
 		glGenFramebuffers(1, &this->gBuffer);
 		glBindFramebuffer(GL_FRAMEBUFFER, this->gBuffer);
 
-		// Position buffer float16 (48bpp)
+		// Color buffer
 		glGenTextures(1, &this->gColor);
 		glBindTexture(GL_TEXTURE_2D, this->gColor);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, window_width, window_height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
@@ -208,12 +226,30 @@ public:
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->gColor, 0);
 
+		// Position buffer float16
+		glGenTextures(1, &this->hData);
+		glBindTexture(GL_TEXTURE_2D, this->hData);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_R16F, window_width, window_height, 0, GL_RED, GL_FLOAT, NULL);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, this->hData, 0);
+
+		// Position buffer float16
+		glGenTextures(1, &this->aoBuffer);
+		glBindTexture(GL_TEXTURE_2D, this->aoBuffer);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, window_width, window_height, 0, GL_RED, GL_UNSIGNED_BYTE, NULL);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, this->aoBuffer, 0);
+
 		// Announce attachments
-		unsigned int attachments[1] = {
-			GL_COLOR_ATTACHMENT0
+		unsigned int attachments[3] = {
+			GL_COLOR_ATTACHMENT0,
+			GL_COLOR_ATTACHMENT1,
+			GL_COLOR_ATTACHMENT2
 		};
 
-		glDrawBuffers(1, attachments);
+		glDrawBuffers(3, attachments);
 
 		// Create and test render buffer
 		glGenRenderbuffers(1, &this->rBuffer);
@@ -237,6 +273,12 @@ public:
 	void BindRTToTexSlot(int slot = 0) {
 		glActiveTexture(GL_TEXTURE0 + slot);
 		glBindTexture(GL_TEXTURE_2D, this->gColor);
+		glActiveTexture(GL_TEXTURE0);
+	}
+
+	void BindHeightToTexSlot(int slot = 0) {
+		glActiveTexture(GL_TEXTURE0 + slot);
+		glBindTexture(GL_TEXTURE_2D, this->hData);
 		glActiveTexture(GL_TEXTURE0);
 	}
 

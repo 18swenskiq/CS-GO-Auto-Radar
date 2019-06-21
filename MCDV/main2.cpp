@@ -29,6 +29,7 @@
 #include "stb_image_write.h"
 
 #define TAR_MAX_LAYERS 5
+#define TAR_AO_SAMPLES 256
 
 std::string g_game_path = "D:/SteamLibrary/steamapps/common/Counter-Strike Global Offensive/csgo";
 std::string g_mapfile_path = "sample_stuff/de_tavr_test";
@@ -77,7 +78,7 @@ uint32_t g_msaa_mul = 1;
 void render_to_png(int x, int y, const char* filepath);
 void save_to_dds(int x, int y, const char* filepath, IMG imgmode = IMG::MODE_DXT1);
 
-#define __DEBUG
+#define _DEBUG
 
 int app(int argc, const char** argv) {
 #ifndef _DEBUG
@@ -203,7 +204,7 @@ int app(int argc, const char** argv) {
 	// Load textures
 	g_texture_background = g_tar_config->m_texture_background;//new Texture("textures/grid.png");
 	g_texture_modulate = new Texture("textures/modulate.png");
-	g_ssao_samples = get_ssao_samples(256);
+	g_ssao_samples = get_ssao_samples(TAR_AO_SAMPLES);
 	g_ssao_rotations = new ssao_rotations_texture();
 
 	glEnable(GL_DEPTH_TEST);
@@ -244,8 +245,10 @@ int app(int argc, const char** argv) {
 
 		g_shader_multilayer_blend->use();
 		g_shader_multilayer_blend->setInt("tex_layer", 1);
+		g_shader_multilayer_blend->setInt("gbuffer_height", 0);
 		g_shader_multilayer_blend->setFloat("saturation", 0.1f);
-		g_shader_multilayer_blend->setFloat("value", 0.3f);
+		g_shader_multilayer_blend->setFloat("value", 0.5669f);
+		g_shader_multilayer_blend->setFloat("active", 0.0f);
 
 		for(int x = 0; x < g_tar_config->layers.size(); x++)
 		{
@@ -253,13 +256,23 @@ int app(int argc, const char** argv) {
 			if (l == &megalayer) continue;
 
 			_flayers[l]->BindRTToTexSlot(1);
+			_flayers[l]->BindHeightToTexSlot(0);
+
+			g_shader_multilayer_blend->setFloat("layer_min", l->layer_min);
+			g_shader_multilayer_blend->setFloat("layer_max", l->layer_max);
+
 			g_mesh_screen_quad->Draw();
 		}
 
-		g_shader_multilayer_blend->setFloat("saturation", 1.0f);
-		g_shader_multilayer_blend->setFloat("value", 1.0f);
+		g_shader_multilayer_blend->setFloat("layer_min", megalayer.layer_min);
+		g_shader_multilayer_blend->setFloat("layer_max", megalayer.layer_max);
+
+		//g_shader_multilayer_blend->setFloat("saturation", 1.0f);
+		//g_shader_multilayer_blend->setFloat("value", 1.0f);
+		g_shader_multilayer_blend->setFloat("active", 1.0f);
 
 		_flayers[&megalayer]->BindRTToTexSlot(1);
+		_flayers[&megalayer]->BindHeightToTexSlot(0);
 		g_mesh_screen_quad->Draw();
 
 		
@@ -382,7 +395,7 @@ int app(int argc, const char** argv) {
 
 #endif
 
-#define _RENDERCLIP
+#define __RENDERCLIP
 
 void render_config(tar_config_layer layer, const std::string& layerName, FBuffer* drawTarget) {
 	// G BUFFER GENERATION ======================================================================================
@@ -395,12 +408,14 @@ void render_config(tar_config_layer layer, const std::string& layerName, FBuffer
 		g_tar_config->m_view_origin.y - g_tar_config->m_render_ortho_scale,	// -Y
 		g_tar_config->m_view_origin.y,										// +Y
 		0.0f, //g_tar_config->m_map_bounds.NWU.y,									// NEARZ
-		layer.layer_max - layer.layer_min);// g_tar_config->m_map_bounds.SEL.y);									// FARZ
+		glm::abs(layer.layer_max - layer.layer_min));// g_tar_config->m_map_bounds.SEL.y);									// FARZ
 
 	glm::mat4 l_mat4_viewm = glm::lookAt(
-		glm::vec3(0, layer.layer_max, 0), 
-		glm::vec3(0.0f, layer.layer_max -1.0f, 0.0f),
+		glm::vec3(0, -layer.layer_max, 0), 
+		glm::vec3(0.0f, -layer.layer_max -1.0f, 0.0f),
 		glm::vec3(0, 0, 1));
+
+	g_vmf_file->SetMinMax(10000, -10000);
 #else
 	glm::mat4 l_mat4_projm = glm::ortho(
 		g_tar_config->m_view_origin.x,										// -X
@@ -558,6 +573,9 @@ void render_config(tar_config_layer layer, const std::string& layerName, FBuffer
 	g_gbuffer_clean->BindPositionBufferToTexSlot(8);
 	g_shader_comp->setInt("gbuffer_clean_position", 8);
 
+	g_gbuffer->BindOriginBufferToTexSlot(11);
+	g_shader_comp->setInt("gbuffer_origin", 11);
+
 	g_texture_modulate->bindOnSlot(10);
 	g_shader_comp->setInt("tex_modulate", 10);
 
@@ -567,7 +585,7 @@ void render_config(tar_config_layer layer, const std::string& layerName, FBuffer
 	g_shader_comp->setMatrix("projection", l_mat4_projm);
 	g_shader_comp->setMatrix("view", l_mat4_viewm);
 
-	for (int i = 0; i < 256; i++) {
+	for (int i = 0; i < TAR_AO_SAMPLES; i++) {
 		g_shader_comp->setVec3("samples[" + std::to_string(i) + "]", g_ssao_samples[i]);
 	}
 
@@ -586,7 +604,7 @@ void render_config(tar_config_layer layer, const std::string& layerName, FBuffer
 
 	g_mesh_screen_quad->Draw();
 
-	//render_to_png(g_renderWidth, g_renderHeight, layerName.c_str());
+	render_to_png(g_renderWidth, g_renderHeight, layerName.c_str());
 #pragma endregion
 }
 

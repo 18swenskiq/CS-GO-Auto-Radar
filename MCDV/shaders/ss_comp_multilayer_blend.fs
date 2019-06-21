@@ -7,10 +7,16 @@ out vec4 FragColor;
 //                                     SAMPLER UNIFORMS
 // Image Inputs _______________________________________________________________________________
 uniform sampler2D tex_layer;
-uniform sampler2D gbuffer_position;
+uniform sampler2D gbuffer_height;
 
-uniform float saturation;
-uniform float value;
+uniform float layer_min;
+uniform float layer_max;
+
+float saturation = 0.1;
+float value = 0.666;
+float dist = 100;
+
+uniform float active;
 
 //                                       SHADER HELPERS
 // ____________________________________________________________________________________________
@@ -72,12 +78,19 @@ vec3 hsv2rgb(vec3 c)
 void main()
 {
 	vec4 s_layer = texture(tex_layer, TexCoords);
-	vec4 s_gbuffer = texture(gbuffer_position, TexCoords);
+	float s_height = texture(gbuffer_height, TexCoords).r;
+
+	float dist_from_min = 1 - remap(clamp(layer_min - s_height, 0, dist), 0, dist, 0, 1);
+	float dist_from_max = 1 - remap(clamp(s_height - layer_max, 0, dist), 0, dist, 0, 1);
+	
+	float dist_blend = clamp(clamp(dist_from_max + dist_from_min, 0, 1) + ( 1 - active ), 0, 1);
+
 	
 	vec3 colHSV = rgb2hsv(s_layer.rgb);
 	colHSV.g *= saturation;
 	colHSV.b *= value;
 	vec3 colRGB = hsv2rgb(colHSV);
 
-	FragColor = vec4(colRGB, s_layer.a);
+	//FragColor = vec4(dist_blend,dist_blend,dist_blend, s_layer.a);
+	FragColor = vec4(lerp(s_layer.rgb, colRGB, dist_blend), s_layer.a);
 }
