@@ -505,8 +505,8 @@ public:
 		std::vector<glm::vec3> intersecting;
 
 		float x, _x, y, _y, z, _z;
-		x = _y = _z = std::numeric_limits<float>::max();
-		_x = y = z = std::numeric_limits<float>::min();
+		_x = _y = _z = 99999.0f;// std::numeric_limits<float>::max();
+		x = y = z = -99999.0f;// std::numeric_limits<float>::min();
 
 		for (int i = 0; i < m_sides.size(); i++) {
 			for (int j = 0; j < m_sides.size(); j++) {
@@ -548,12 +548,12 @@ public:
 					intersecting.push_back(p);
 
 					// Calculate bounds
-					_x = glm::max(_x, p.x);
-					_y = glm::min(_y, p.y);
-					_z = glm::min(_z, p.z);
-					x = glm::min(x, p.x);
-					y = glm::max(y, p.y);
-					z = glm::max(z, p.z);
+					_x = glm::round(glm::min(_x, p.x));
+					_y = glm::round(glm::min(_y, p.y));
+					_z = glm::round(glm::min(_z, p.z));
+					x = glm::round(glm::max(x, p.x));
+					y = glm::round(glm::max(y, p.y));
+					z = glm::round(glm::max(z, p.z));
 				}
 			}
 		}
@@ -829,7 +829,7 @@ public:
 
 		// Draw solids
 		for (auto && solid : this->m_solids) {
-			if (solid.NWU.y > this->m_render_h_min || solid.NWU.y < this->m_render_h_max) continue;
+			if (solid.NWU.y < this->m_render_h_max || solid.NWU.y > this->m_render_h_min) continue;
 
 			if (check_in_whitelist(&solid.m_editorvalues.m_visgroups, this->m_whitelist_visgroups)) {
 				shader->setUnsigned("Info", infoFlags);
@@ -854,10 +854,10 @@ public:
 			// Visgroup pre-check
 			if (check_in_whitelist(&ent.m_editorvalues.m_visgroups, this->m_whitelist_visgroups)) {
 				if (this->m_whitelist_classnames.count(ent.m_classname)) {
-					if (ent.m_origin.y > this->m_render_h_min || ent.m_origin.y < this->m_render_h_max) continue;
 					if (ent.m_classname == "prop_static" ||
 						ent.m_classname == "prop_dynamic" ||
 						ent.m_classname == "prop_physics" ) {
+						if (ent.m_origin.y > this->m_render_h_min || ent.m_origin.y < this->m_render_h_max) continue;
 
 						model = glm::mat4();
 						model = glm::translate(model, ent.m_origin);
@@ -901,14 +901,14 @@ public:
 		unsigned int vgroup = this->m_visgroups[visgroup];
 
 		bounds.NWU = glm::vec3(
-			std::numeric_limits<float>::min(),
-			std::numeric_limits<float>::min(),
-			std::numeric_limits<float>::min());
+			-999999.0f,
+			-999999.0f,
+			-999999.0f);
 
 		bounds.SEL = glm::vec3(
-			std::numeric_limits<float>::max(),
-			std::numeric_limits<float>::max(),
-			std::numeric_limits<float>::max());
+			999999.0f,
+			999999.0f,
+			999999.0f);
 
 		for (auto && iSolid : this->m_solids) {
 			if (!check_in_whitelist(&iSolid.m_editorvalues.m_visgroups, std::set<unsigned int>{ vgroup })) continue;

@@ -78,7 +78,7 @@ uint32_t g_msaa_mul = 1;
 void render_to_png(int x, int y, const char* filepath);
 void save_to_dds(int x, int y, const char* filepath, IMG imgmode = IMG::MODE_DXT1);
 
-#define _DEBUG
+//#define _DEBUG
 
 int app(int argc, const char** argv) {
 #ifndef _DEBUG
@@ -250,22 +250,20 @@ int app(int argc, const char** argv) {
 		g_shader_multilayer_blend->setFloat("value", 0.5669f);
 		g_shader_multilayer_blend->setFloat("active", 0.0f);
 
+		bool above = false;
+
 		for(int x = 0; x < g_tar_config->layers.size(); x++)
 		{
 			tar_config_layer* l = &g_tar_config->layers[g_tar_config->layers.size() - x - 1];
-			if (l == &megalayer) continue;
+			if (l == &megalayer) { above = true; continue; }
 
 			_flayers[l]->BindRTToTexSlot(1);
 			_flayers[l]->BindHeightToTexSlot(0);
 
-			g_shader_multilayer_blend->setFloat("layer_min", l->layer_min);
-			g_shader_multilayer_blend->setFloat("layer_max", l->layer_max);
-
+			g_shader_multilayer_blend->setFloat("layer_target", !above? l->layer_min: l->layer_max);
+			
 			g_mesh_screen_quad->Draw();
 		}
-
-		g_shader_multilayer_blend->setFloat("layer_min", megalayer.layer_min);
-		g_shader_multilayer_blend->setFloat("layer_max", megalayer.layer_max);
 
 		//g_shader_multilayer_blend->setFloat("saturation", 1.0f);
 		//g_shader_multilayer_blend->setFloat("value", 1.0f);

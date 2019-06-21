@@ -9,8 +9,10 @@ out vec4 FragColor;
 uniform sampler2D tex_layer;
 uniform sampler2D gbuffer_height;
 
-uniform float layer_min;
-uniform float layer_max;
+//uniform float layer_min;
+//uniform float layer_max;
+
+uniform float layer_target;
 
 float saturation = 0.1;
 float value = 0.666;
@@ -80,12 +82,15 @@ void main()
 	vec4 s_layer = texture(tex_layer, TexCoords);
 	float s_height = texture(gbuffer_height, TexCoords).r;
 
-	float dist_from_min = 1 - remap(clamp(layer_min - s_height, 0, dist), 0, dist, 0, 1);
-	float dist_from_max = 1 - remap(clamp(s_height - layer_max, 0, dist), 0, dist, 0, 1);
+	float dist_from_target = remap(abs(layer_target - s_height), 0, 200, 0, 1);
 	
-	float dist_blend = clamp(clamp(dist_from_max + dist_from_min, 0, 1) + ( 1 - active ), 0, 1);
+	float dist_blend = 1 - active;//1 - clamp((active) + dist_from_target, 0, 1);//clamp(clamp(dist_from_max + dist_from_min, 0, 1) + ( 1 - active ), 0, 1);
+	
+	if(active < 0.5)
+		dist_blend -= (1 - dist_from_target);
 
-	
+	dist_blend = clamp(dist_blend, 0, 1);
+
 	vec3 colHSV = rgb2hsv(s_layer.rgb);
 	colHSV.g *= saturation;
 	colHSV.b *= value;
