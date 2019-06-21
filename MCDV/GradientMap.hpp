@@ -60,8 +60,8 @@ public:
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 		free(data);
 	}
@@ -70,4 +70,67 @@ public:
 		glActiveTexture(GL_TEXTURE0 + slot);
 		glBindTexture(GL_TEXTURE_2D, this->texture_id);
 	}*/
+};
+
+class WGradientTexture : public Texture{
+public:
+	WGradientTexture(std::vector<entity*>& tarcol) {
+		std::map<float, Color255> colorMap;
+
+		for (auto && i : tarcol) {
+			colorMap.insert({ i->m_origin.y, kv::tryGetStringValue(i->m_keyvalues, "_light", "128 128 128 255") });
+		}
+
+		// Fill with blank color
+		if (colorMap.size() < 1) {
+			colorMap.insert({ 0.0f, Color255("128 128 128 255") });
+		}
+
+		// Copy first to last
+		if (colorMap.size() < 2) {
+			colorMap.insert({ 949.4342231f , colorMap.begin()->second });
+		}
+
+		std::map<float, Color255>::iterator it_end = colorMap.end();
+		it_end--;
+
+		float dy = it_end->first - colorMap.begin()->first;
+
+		std::map<float, Color255>::iterator it = colorMap.begin();
+		std::map<float, Color255>::iterator it_next = colorMap.begin();
+		it_next++;
+		
+		glGenTextures(1, &this->texture_id);
+		unsigned char* data = (unsigned char*)malloc(2048 * 4);
+
+		for (int i = 0; i < 2048; i++) {
+			float pc = (float)i / (float)2048;
+			float absdist = colorMap.begin()->first + (pc * dy);
+
+			if (absdist > it_next->first) {
+				if (it_next != colorMap.end()) {
+					it++;
+					it_next++;
+				}
+			}
+
+			float subpc = remap(absdist, it->first, it_next->first, 0, 1);
+
+			data[i * 4 + 0] = lerpT<float>(it->second.r, it_next->second.r, subpc);
+			data[i * 4 + 1] = lerpT<float>(it->second.g, it_next->second.g, subpc);
+			data[i * 4 + 2] = lerpT<float>(it->second.b, it_next->second.b, subpc);
+			data[i * 4 + 3] = lerpT<float>(it->second.a, it_next->second.a, subpc);
+		}
+
+		glBindTexture(GL_TEXTURE_2D, this->texture_id);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 2048, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+		free(data);
+	}
 };

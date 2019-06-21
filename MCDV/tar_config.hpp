@@ -84,13 +84,18 @@ public:
 		// Load color scheme gradient
 		// TODO: Entity based gradients
 		std::string schemeNum = kv::tryGetStringValue(kvs, "colorScheme", "0");
-		if (schemeNum == "-1" || schemeNum == "-2") {
+		if (schemeNum == "-1") {
 			this->m_texture_gradient = new GradientTexture(
 				kv::tryGetStringValue(kvs, "customCol0", "39  56  79  255"),
 				kv::tryGetStringValue(kvs, "customCol1", "77  74  72  255"),
 				kv::tryGetStringValue(kvs, "customCol2", "178 113 65  255")
 			);
-		} else {
+		}
+		else if (schemeNum == "-2") {
+			// Do thi thening
+			this->m_texture_gradient = new WGradientTexture(v->get_entities_by_classname("tar_color"));
+		}
+		else {
 			this->m_texture_gradient = new Texture("textures/gradients/gradientmap_" + schemeNum + ".png", true);
 		}
 

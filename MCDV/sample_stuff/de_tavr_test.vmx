@@ -2,7 +2,7 @@ versioninfo
 {
 	"editorversion" "400"
 	"editorbuild" "8075"
-	"mapversion" "357"
+	"mapversion" "379"
 	"formatversion" "100"
 	"prefab" "0"
 }
@@ -44,7 +44,7 @@ viewsettings
 world
 {
 	"id" "1"
-	"mapversion" "357"
+	"mapversion" "379"
 	"classname" "worldspawn"
 	"detailmaterial" "detail/detailsprites"
 	"detailvbsp" "detail.vbsp"
@@ -2637,9 +2637,79 @@ world
 }
 entity
 {
+	"id" "3061"
+	"classname" "tar_color"
+	"_light" "0 255 0 255"
+	"origin" "-393 -64 48"
+	editor
+	{
+		"color" "220 30 220"
+		"visgroupshown" "1"
+		"visgroupautoshown" "1"
+		"logicalpos" "[0 0]"
+	}
+}
+entity
+{
+	"id" "3159"
+	"classname" "tar_color"
+	"_light" "255 255 0 255"
+	"origin" "-393 -64 208"
+	editor
+	{
+		"color" "220 30 220"
+		"visgroupshown" "1"
+		"visgroupautoshown" "1"
+		"logicalpos" "[0 0]"
+	}
+}
+entity
+{
+	"id" "3165"
+	"classname" "tar_color"
+	"_light" "198 57 149 255"
+	"origin" "-393 -64 224"
+	editor
+	{
+		"color" "220 30 220"
+		"visgroupshown" "1"
+		"visgroupautoshown" "1"
+		"logicalpos" "[0 0]"
+	}
+}
+entity
+{
+	"id" "3004"
+	"classname" "tar_color"
+	"_light" "255 0 0 255"
+	"origin" "-393 -64 80"
+	editor
+	{
+		"color" "220 30 220"
+		"visgroupshown" "1"
+		"visgroupautoshown" "1"
+		"logicalpos" "[0 0]"
+	}
+}
+entity
+{
+	"id" "3026"
+	"classname" "tar_color"
+	"_light" "0 0 255 255"
+	"origin" "-393 -64 104.5"
+	editor
+	{
+		"color" "220 30 220"
+		"visgroupshown" "1"
+		"visgroupautoshown" "1"
+		"logicalpos" "[0 0]"
+	}
+}
+entity
+{
 	"id" "2969"
 	"classname" "tar_max"
-	"origin" "-368.448 -11.867 140.175"
+	"origin" "-368.448 16 128"
 	editor
 	{
 		"color" "127 224 0"
@@ -2652,7 +2722,7 @@ entity
 {
 	"id" "2971"
 	"classname" "tar_min"
-	"origin" "-344.583 -139.156 33"
+	"origin" "-344.583 640 -192"
 	editor
 	{
 		"color" "127 224 0"
@@ -2667,7 +2737,7 @@ entity
 	"classname" "tar_config"
 	"aoSize" "1000"
 	"background" "grid.png"
-	"colorScheme" "7"
+	"colorScheme" "-2"
 	"customCol0" "104 15 15"
 	"customCol1" "64 166 38"
 	"customCol2" "44 199 199"
@@ -2687,7 +2757,7 @@ entity
 	"zColCover2" "85 85 85 170"
 	"zColObjective" "0 128 255 255"
 	"zColOutline" "204 204 204 255"
-	"origin" "-240 592 33"
+	"origin" "-352 -144 33"
 	editor
 	{
 		"color" "127 224 0"

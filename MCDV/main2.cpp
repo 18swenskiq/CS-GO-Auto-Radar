@@ -78,7 +78,7 @@ uint32_t g_msaa_mul = 1;
 void render_to_png(int x, int y, const char* filepath);
 void save_to_dds(int x, int y, const char* filepath, IMG imgmode = IMG::MODE_DXT1);
 
-//#define _DEBUG
+#define _DEBUG
 
 int app(int argc, const char** argv) {
 #ifndef _DEBUG
