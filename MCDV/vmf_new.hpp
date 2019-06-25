@@ -871,7 +871,8 @@ public:
 						shader->setUnsigned("Info", infoFlags);
 						shader->setVec2("origin", glm::vec2(ent.m_origin.x, ent.m_origin.z));
 
-						vmf::s_model_dict[kv::tryGetStringValue(ent.m_keyvalues, "model", "error.mdl")]->Draw();
+						if(vmf::s_model_dict.count(kv::tryGetStringValue(ent.m_keyvalues, "model", "error.mdl")))
+							vmf::s_model_dict[kv::tryGetStringValue(ent.m_keyvalues, "model", "error.mdl")]->Draw();
 					}
 					else {
 						model = glm::mat4();

@@ -22,6 +22,7 @@ uniform sampler2D gbuffer_position;
 uniform sampler2D gbuffer_origin;
 uniform sampler2D gbuffer_clean_position;
 uniform sampler2D gbuffer_normal;
+uniform sampler2D gbuffer_clean_normal;
 uniform usampler2D gbuffer_info;
 uniform usampler2D umask_playspace;
 uniform usampler2D umask_objectives;
@@ -231,7 +232,7 @@ void main()
 
 	final = blend_normal(final, 
 	sample_gradient(
-		lerp(s_position_clean.y, s_position.y, clamp((1 - s_modulate.r) + (float((s_info >> 1) & 0x1U) - m_playspace_clean), 0, 1))
+		lerp(s_position_clean.y, s_position.y, clamp((1 - s_modulate.r), 0, 1))
 	), m_playspace);
 
 	vec2 sloc = texture(gbuffer_origin, TexCoords).xy;
@@ -244,39 +245,90 @@ void main()
 
 	//FragColor = vec4(sh, sh, sh, 1);
 
-	final = blend_normal(
-	final, 
-	lerp(color_cover, color_cover2, 
-		float((s_info >> 7) & 0x1U) * m_playspace * (1 - ((s_position.y - texture(gbuffer_clean_position, originSample.xy).y) / 196))), 
-		float((s_info >> 7) & 0x1U) * m_playspace);
+	
+	//vec4 backColorC = sample_gradient(
+	//	lerp(texture(gbuffer_clean_position, originSample.xy).y, texture(gbuffer_position, originSample.xy).y, clamp((1 - s_modulate.r) + (float((s_info >> 1) & 0x1U) - m_playspace_clean), 0, 1))
+	//);
 
-	vec4 s_normal = texture(gbuffer_normal, TexCoords);
+	vec4 backColorC = sample_gradient(texture(gbuffer_position, originSample.xy).y);
+
+	//final = blend_normal(
+	//	final, 
+	//	lerp(
+	//		color_cover, 
+	//		vec4(lerp(color_cover2.rgb, backColorC.rgb, 1 - color_cover2.a), 1),
+	//	(1 - ((s_position_clean.y - texture(gbuffer_position, originSample.xy).y) / 130))), 
+	//
+	//float((s_info >> 7) & 0x1U) * m_playspace);
+
+	float htt = clamp((s_position_clean.y - texture(gbuffer_position, originSample.xy).y) / 130, 0, 1);
+
+	//final = vec4(htt, htt, htt, 1);
+
+
+	final = blend_normal(
+		final,
+		lerp(backColorC, color_cover, htt),
+		float(  (s_info >> 7) & 0x1U  ) * m_playspace
+	);
+
+	vec4 s_normal = 
+	lerp(
+		lerp
+		(
+			texture(gbuffer_normal, TexCoords),
+			texture(gbuffer_clean_normal, TexCoords),
+			clamp((1 - s_modulate.r) + (1 - float((s_info >> 1) & 0x1U)), 0, 1)
+		),
+		texture(gbuffer_clean_normal, TexCoords),
+		float((s_info >> 7) & 0x1U)
+	);
+
 	vec3 randVec = texture(ssaoRotations, TexCoords * noiseScale).rgb;
 
 	vec3 tangent = normalize(randVec - s_normal.rgb * dot(randVec, s_normal.rgb));
 	vec3 bitangent = cross(s_normal.rgb, tangent);
 	mat3 TBN = mat3(tangent, bitangent, s_normal.rgb);
 
-	hData = s_position.y;
+	hData = lerp(lerp(s_position_clean.y, s_position.y, clamp((1 - s_modulate.r), 0, 1)), texture(gbuffer_clean_position, TexCoords).y, float(  (s_info >> 7) & 0x1U  ));
 
 	float occlusion = 0.0;
 	for(int i = 0; i < 256; i++)
 	{
 		vec3 sample = TBN * samples[i];
-		sample = s_position.xyz + sample * ssaoScale;
+		sample =
+		lerp
+		(
+			lerp
+			(
+				s_position_clean.xyz,
+				s_position.xyz, 
+				clamp((1 - s_modulate.r) + (1 - float((s_info >> 1) & 0x1U)), 0, 1)
+			), 
+		
+			s_position_clean.xyz, 
+		
+			float((s_info >> 7) & 0x1U)  
+		) 
+		+ (sample * ssaoScale);
 
 		vec4 offset = vec4(sample, 1.0);
 		offset = projection * view * offset;
 		offset.xyz /= offset.w;
 		offset.xyz = offset.xyz * 0.5 + 0.5;
 
-		float sDepth = texture(gbuffer_position, offset.xy).y;
+		float sDepth = lerp
+		(
+			texture(gbuffer_position, offset.xy).y, 
+			texture(gbuffer_clean_position, offset.xy).y, 
+			float((texture(gbuffer_info, offset.xy).r >> 7) & 0x1U)
+		);
 
-		occlusion += (sDepth >= sample.y + 6 ? 1.0 : 0.0);
+		occlusion += (sDepth >= sample.y + 3 ? 1.0 : 0.0);
 	}
 
 	final = blend_normal(final, color_ao, (occlusion / 200) * m_playspace * blend_ao);
-
+	//FragColor = vec4(texture(gbuffer_clean_position, TexCoords).rgb * 0.01, 1);
 	//aoBuffer = occlusion / 200;
 
 	final = blend_normal(final, color_objective,																// Objectives

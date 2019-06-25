@@ -43,7 +43,8 @@ enum IMG {
 	MODE_RGB888,
 	MODE_RGBA8888,
 	MODE_DXT1,
-	MODE_DXT5
+	MODE_DXT5,
+	MODE_DXT1_1BA
 };
 
 UINT32 SwapEndian(UINT32 val)
@@ -90,8 +91,9 @@ compressedSize: Pointer to final data size
 w: image width
 h: image height
 mode: compression mode to use
+useAlpha: Use 1 bit alpha.
 */
-uint8_t* compressImageDXT1(uint8_t* buf_RGB, uint32_t w, uint32_t h, uint32_t* cSize) {
+uint8_t* compressImageDXT1(uint8_t* buf_RGB, uint32_t w, uint32_t h, uint32_t* cSize, bool useAlpha = false) {
 	*cSize = ((w / 4) * (h / 4)) * BLOCK_SIZE_DXT1;
 
 	//Create output buffer
@@ -113,14 +115,23 @@ uint8_t* compressImageDXT1(uint8_t* buf_RGB, uint32_t w, uint32_t h, uint32_t* c
 			uint8_t* src = new uint8_t[64]; //Create source RGBA buffer
 			for (int _y = 0; _y < 4; _y++) {
 				for (int _x = 0; _x < 4; _x++) {
-					src[(_x + (_y * 4)) * 4 + 0] = buf_RGB[(globalX + _x + ((h - (globalY + _y)) * w)) * 3 + 0];
-					src[(_x + (_y * 4)) * 4 + 1] = buf_RGB[(globalX + _x + ((h - (globalY + _y)) * w)) * 3 + 1];
-					src[(_x + (_y * 4)) * 4 + 2] = buf_RGB[(globalX + _x + ((h - (globalY + _y)) * w)) * 3 + 2];
-					src[(_x + (_y * 4)) * 4 + 3] = 0xFF;
+					src[(_x + (_y * 4)) * 4 + 0] = buf_RGB[(globalX + _x + ((h - (globalY + _y) - 1) * w)) * 4 + 0];
+					src[(_x + (_y * 4)) * 4 + 1] = buf_RGB[(globalX + _x + ((h - (globalY + _y) - 1) * w)) * 4 + 1];
+					src[(_x + (_y * 4)) * 4 + 2] = buf_RGB[(globalX + _x + ((h - (globalY + _y) - 1) * w)) * 4 + 2];
+					src[(_x + (_y * 4)) * 4 + 3] = buf_RGB[(globalX + _x + ((h - (globalY + _y) - 1) * w)) * 4 + 3];
 				}
 			}
 
 			stb_compress_dxt_block((unsigned char*)outBuffer + (blockindex * BLOCK_SIZE_DXT1), src, 0, STB_DXT_HIGHQUAL);
+			
+			// We need to do 1ba manually weeee
+			if (useAlpha) {
+				for (int i = 0; i < 16; i++) {
+					if (src[(i * 4) + 3] < 0xFFFFFFF) {
+						*((unsigned char*)outBuffer + (blockindex * BLOCK_SIZE_DXT1) + (i / 4) + 4) |= (0x3 << (i % 4));
+					}
+				}
+			}
 
 			free(src);
 		}
@@ -158,10 +169,10 @@ uint8_t* compressImageDXT5(uint8_t* buf_RGB, uint32_t w, uint32_t h, uint32_t* c
 			uint8_t* src = new uint8_t[64]; //Create source RGBA buffer
 			for (int _y = 0; _y < 4; _y++) {
 				for (int _x = 0; _x < 4; _x++) {
-					src[(_x + (_y * 4)) * 4 + 0] = buf_RGB[(globalX + _x + ((h - (globalY + _y)) * w)) * 3 + 0];
-					src[(_x + (_y * 4)) * 4 + 1] = buf_RGB[(globalX + _x + ((h - (globalY + _y)) * w)) * 3 + 1];
-					src[(_x + (_y * 4)) * 4 + 2] = buf_RGB[(globalX + _x + ((h - (globalY + _y)) * w)) * 3 + 2];
-					src[(_x + (_y * 4)) * 4 + 3] = 0xFF;
+					src[(_x + (_y * 4)) * 4 + 0] = buf_RGB[(globalX + _x + ((h - (globalY + _y)) * w)) * 4 + 0];
+					src[(_x + (_y * 4)) * 4 + 1] = buf_RGB[(globalX + _x + ((h - (globalY + _y)) * w)) * 4 + 1];
+					src[(_x + (_y * 4)) * 4 + 2] = buf_RGB[(globalX + _x + ((h - (globalY + _y)) * w)) * 4 + 2];
+					src[(_x + (_y * 4)) * 4 + 3] = buf_RGB[(globalX + _x + ((h - (globalY + _y)) * w)) * 4 + 3];
 				}
 			}
 
@@ -186,12 +197,14 @@ bool dds_write(uint8_t* imageData, const char* filename, uint32_t w, uint32_t h,
 	int final_image_size = 0;
 
 	switch (mode) {
+	case IMG::MODE_DXT1_1BA:
+		header.ddspf.dwFlags |= DDPF_ALPHA;
 	case IMG::MODE_DXT1:
 		header.dwPitchOrLinearSize = SwapEndian(__max(1, ((w + 3) / 4)) * BLOCK_SIZE_DXT1);
 		header.ddspf.dwFlags |= DDPF_FOURCC;
 		header.ddspf.dwFourCC = SwapEndian((uint32_t)'DXT1');
 		header.dwFlags |= DDSD_LINEARSIZE;
-		
+
 		break;
 	case IMG::MODE_DXT5:
 		header.dwPitchOrLinearSize = SwapEndian(__max(1, ((w + 3) / 4)) * BLOCK_SIZE_DXT5);
@@ -245,6 +258,11 @@ bool dds_write(uint8_t* imageData, const char* filename, uint32_t w, uint32_t h,
 	{
 		uint32_t size;
 		uint8_t* outputBuffer = compressImageDXT1(imageData, w, h, &size);
+		output.write((char*)outputBuffer, size);
+	}
+	else if (mode == IMG::MODE_DXT1_1BA) {
+		uint32_t size;
+		uint8_t* outputBuffer = compressImageDXT1(imageData, w, h, &size, true);
 		output.write((char*)outputBuffer, size);
 	}
 	else if (mode == IMG::MODE_DXT5) {

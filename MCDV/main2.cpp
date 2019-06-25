@@ -78,7 +78,7 @@ uint32_t g_msaa_mul = 1;
 void render_to_png(int x, int y, const char* filepath);
 void save_to_dds(int x, int y, const char* filepath, IMG imgmode = IMG::MODE_DXT1);
 
-#define _DEBUG
+//#define _DEBUG
 
 int app(int argc, const char** argv) {
 #ifndef _DEBUG
@@ -261,6 +261,8 @@ int app(int argc, const char** argv) {
 			_flayers[l]->BindHeightToTexSlot(0);
 
 			g_shader_multilayer_blend->setFloat("layer_target", !above? l->layer_min: l->layer_max);
+			g_shader_multilayer_blend->setFloat("layer_min", l->layer_min);
+			g_shader_multilayer_blend->setFloat("layer_max", l->layer_max);
 			
 			g_mesh_screen_quad->Draw();
 		}
@@ -268,6 +270,8 @@ int app(int argc, const char** argv) {
 		//g_shader_multilayer_blend->setFloat("saturation", 1.0f);
 		//g_shader_multilayer_blend->setFloat("value", 1.0f);
 		g_shader_multilayer_blend->setFloat("active", 1.0f);
+		g_shader_multilayer_blend->setFloat("layer_min", megalayer.layer_min);
+		g_shader_multilayer_blend->setFloat("layer_max", megalayer.layer_max);
 
 		_flayers[&megalayer]->BindRTToTexSlot(1);
 		_flayers[&megalayer]->BindHeightToTexSlot(0);
@@ -316,72 +320,86 @@ int app(int argc, const char** argv) {
 
 		// final composite
 		//render_to_png(1024, 1024, ("comp" + std::to_string(i++) + ".png").c_str());
+
 		if (i == 0) {
-			save_to_dds(g_renderWidth, g_renderHeight, filesys->create_output_filepath("resource/overviews/" + g_mapfile_name +"_radar.dds", true).c_str(), g_tar_config->m_dds_img_mode);
+			if(g_tar_config->m_write_dds)
+				save_to_dds(g_renderWidth, g_renderHeight, filesys->create_output_filepath("resource/overviews/" + g_mapfile_name +"_radar.dds", true).c_str(), g_tar_config->m_dds_img_mode);
+
+			if(g_tar_config->m_write_png)
+				render_to_png(g_renderWidth, g_renderHeight, filesys->create_output_filepath("resource/overviews/" + g_mapfile_name + "_radar.png", true).c_str());
+
 			i++;
 		}
 		else {
-			save_to_dds(g_renderWidth, g_renderHeight, filesys->create_output_filepath("resource/overviews/" + g_mapfile_name + "_layer" + std::to_string(i++) + "_radar.dds", true).c_str(), g_tar_config->m_dds_img_mode);
+			if (g_tar_config->m_write_dds)
+				save_to_dds(g_renderWidth, g_renderHeight, filesys->create_output_filepath("resource/overviews/" + g_mapfile_name + "_layer" + std::to_string(i) + "_radar.dds", true).c_str(), g_tar_config->m_dds_img_mode);
+
+			if (g_tar_config->m_write_png)
+				render_to_png(g_renderWidth, g_renderHeight, filesys->create_output_filepath("resource/overviews/" + g_mapfile_name + "_layer" + std::to_string(i) + "_radar.png", true).c_str());
+
+			i++;
 		}
 		FBuffer::Unbind();
 	}
 
 #pragma endregion
+	if (g_tar_config->m_write_txt)
+	{
+		std::cout << "Generating radar .TXT... ";
 
-	std::cout << "Generating radar .TXT... ";
+		kv::DataBlock node_radar = kv::DataBlock();
+		node_radar.name = "\"" + g_mapfile_name + "\"";
+		node_radar.Values.insert({ "material", "overviews/" + g_mapfile_name });
 
-	kv::DataBlock node_radar = kv::DataBlock();
-	node_radar.name = "\"" + g_mapfile_name + "\"";
-	node_radar.Values.insert({ "material", "overviews/" + g_mapfile_name });
+		node_radar.Values.insert({ "pos_x", std::to_string(g_tar_config->m_view_origin.x) });
+		node_radar.Values.insert({ "pos_y", std::to_string(g_tar_config->m_view_origin.y) });
+		node_radar.Values.insert({ "scale", std::to_string(g_tar_config->m_render_ortho_scale / g_renderWidth) });
 
-	node_radar.Values.insert({ "pos_x", std::to_string(g_tar_config->m_view_origin.x) });
-	node_radar.Values.insert({ "pos_y", std::to_string(g_tar_config->m_view_origin.y) });
-	node_radar.Values.insert({ "scale", std::to_string(g_tar_config->m_render_ortho_scale / g_renderWidth) });
+		if (g_tar_config->layers.size() > 1) {
+			kv::DataBlock node_vsections = kv::DataBlock();
+			node_vsections.name = "\"verticalsections\"";
 
-	if (g_tar_config->layers.size() > 1) {
-		kv::DataBlock node_vsections = kv::DataBlock();
-		node_vsections.name = "\"verticalsections\"";
+			int ln = 0;
+			for (auto && layer : g_tar_config->layers) {
+				kv::DataBlock node_layer = kv::DataBlock();
+				if (ln == 0) {
+					node_layer.name = "\"default\""; ln++;
+				}
+				else node_layer.name = "\"layer" + std::to_string(ln++) + "\"";
 
-		int ln = 0;
-		for (auto && layer : g_tar_config->layers) {
-			kv::DataBlock node_layer = kv::DataBlock();
-			if (ln == 0) {
-				node_layer.name = "\"default\""; ln++;
+				node_layer.Values.insert({ "AltitudeMin", std::to_string(layer.layer_max) });
+				node_layer.Values.insert({ "AltitudeMax", std::to_string(layer.layer_min) });
+
+				node_vsections.SubBlocks.push_back(node_layer);
 			}
-			else node_layer.name = "\"layer" + std::to_string(ln++) + "\"";
 
-			node_layer.Values.insert({ "AltitudeMin", std::to_string(layer.layer_max) });
-			node_layer.Values.insert({ "AltitudeMax", std::to_string(layer.layer_min) });
-			
-			node_vsections.SubBlocks.push_back(node_layer);
+			node_radar.SubBlocks.push_back(node_vsections);
 		}
 
-		node_radar.SubBlocks.push_back(node_vsections);
-	}
+		// Try resolve spawn positions
+		glm::vec3* loc_spawnCT = g_vmf_file->calculateSpawnAVG_PMIN("info_player_counterterrorist");
+		glm::vec3* loc_spawnT = g_vmf_file->calculateSpawnAVG_PMIN("info_player_terrorist");
 
-	// Try resolve spawn positions
-	glm::vec3* loc_spawnCT = g_vmf_file->calculateSpawnAVG_PMIN("info_player_counterterrorist");
-	glm::vec3* loc_spawnT = g_vmf_file->calculateSpawnAVG_PMIN("info_player_terrorist");
+		if (loc_spawnCT != NULL) {
+			node_radar.Values.insert({ "CTSpawn_x", std::to_string(util::roundf(remap(loc_spawnCT->x, g_tar_config->m_view_origin.x, g_tar_config->m_view_origin.x + g_tar_config->m_render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
+			node_radar.Values.insert({ "CTSpawn_y", std::to_string(util::roundf(remap(loc_spawnCT->z, g_tar_config->m_view_origin.y, g_tar_config->m_view_origin.y - g_tar_config->m_render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
+		}
+		if (loc_spawnT != NULL) {
+			node_radar.Values.insert({ "TSpawn_x", std::to_string(util::roundf(remap(loc_spawnT->x, g_tar_config->m_view_origin.x, g_tar_config->m_view_origin.x + g_tar_config->m_render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
+			node_radar.Values.insert({ "TSpawn_y", std::to_string(util::roundf(remap(loc_spawnT->z, g_tar_config->m_view_origin.y, g_tar_config->m_view_origin.y - g_tar_config->m_render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
+		}
 
-	if (loc_spawnCT != NULL) {
-		node_radar.Values.insert({ "CTSpawn_x", std::to_string(util::roundf(remap(loc_spawnCT->x, g_tar_config->m_view_origin.x, g_tar_config->m_view_origin.x + g_tar_config->m_render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
-		node_radar.Values.insert({ "CTSpawn_y", std::to_string(util::roundf(remap(loc_spawnCT->z, g_tar_config->m_view_origin.y, g_tar_config->m_view_origin.y - g_tar_config->m_render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
-	}
-	if (loc_spawnT != NULL) {
-		node_radar.Values.insert({ "TSpawn_x", std::to_string(util::roundf(remap(loc_spawnT->x, g_tar_config->m_view_origin.x, g_tar_config->m_view_origin.x + g_tar_config->m_render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
-		node_radar.Values.insert({ "TSpawn_y", std::to_string(util::roundf(remap(loc_spawnT->z, g_tar_config->m_view_origin.y, g_tar_config->m_view_origin.y - g_tar_config->m_render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
-	}
+		int hostn = 1;
+		for (auto && hostage : g_vmf_file->get_entities_by_classname("info_hostage_spawn")) {
+			node_radar.Values.insert({ "Hostage" + std::to_string(hostn) + "_x", std::to_string(util::roundf(remap(hostage->m_origin.x, g_tar_config->m_view_origin.x, g_tar_config->m_view_origin.x + g_tar_config->m_render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
+			node_radar.Values.insert({ "Hostage" + std::to_string(hostn++) + "_y", std::to_string(util::roundf(remap(hostage->m_origin.z, g_tar_config->m_view_origin.y, g_tar_config->m_view_origin.y - g_tar_config->m_render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
+		}
 
-	int hostn = 1;
-	for (auto && hostage : g_vmf_file->get_entities_by_classname("info_hostage_spawn")) {
-		node_radar.Values.insert({ "Hostage" + std::to_string(hostn) + "_x", std::to_string(util::roundf(remap(hostage->m_origin.x, g_tar_config->m_view_origin.x, g_tar_config->m_view_origin.x + g_tar_config->m_render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
-		node_radar.Values.insert({ "Hostage" + std::to_string(hostn++) + "_y", std::to_string(util::roundf(remap(hostage->m_origin.z, g_tar_config->m_view_origin.y, g_tar_config->m_view_origin.y - g_tar_config->m_render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
+		std::ofstream out(filesys->create_output_filepath("resource/overviews/" + g_mapfile_name + ".txt", true).c_str());
+		out << "// TAVR - AUTO RADAR. v 2.5.0a\n";
+		node_radar.Serialize(out);
+		out.close();
 	}
-
-	std::ofstream out(filesys->create_output_filepath("resource/overviews/" + g_mapfile_name + ".txt", true).c_str());
-	out << "// TAVR - AUTO RADAR. v 2.5.0a\n";
-	node_radar.Serialize(out);
-	out.close();
 
 	IL_EXIT:
 	glfwTerminate();
@@ -462,14 +480,10 @@ void render_config(tar_config_layer layer, const std::string& layerName, FBuffer
 	g_vmf_file->DrawWorld(g_shader_gBuffer);
 	g_vmf_file->DrawEntities(g_shader_gBuffer);
 
-	g_vmf_file->SetFilters({ g_tar_config->m_visgroup_overlap }, { "func_detail", "prop_static" });
-	g_vmf_file->DrawWorld(g_shader_gBuffer, {}, TAR_MIBUFFER_OVERLAP);
-	g_vmf_file->DrawEntities(g_shader_gBuffer, {}, TAR_MIBUFFER_OVERLAP);
-
-	// Draw cover with cover flag set
-	g_vmf_file->SetFilters({ g_tar_config->m_visgroup_cover }, { "func_detail", "prop_static" });
-	g_vmf_file->DrawWorld(g_shader_gBuffer, {}, TAR_MIBUFFER_COVER0);
-	g_vmf_file->DrawEntities(g_shader_gBuffer, {}, TAR_MIBUFFER_COVER0);
+	//// Draw cover with cover flag set
+	//g_vmf_file->SetFilters({ g_tar_config->m_visgroup_cover }, { "func_detail", "prop_static" });
+	//g_vmf_file->DrawWorld(g_shader_gBuffer, {}, TAR_MIBUFFER_COVER0);
+	//g_vmf_file->DrawEntities(g_shader_gBuffer, {}, TAR_MIBUFFER_COVER0);
 
 	GBuffer::Unbind();
 
@@ -477,9 +491,18 @@ void render_config(tar_config_layer layer, const std::string& layerName, FBuffer
 	glClearColor(0.0, 0.0, 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+	
 	g_vmf_file->SetFilters({ g_tar_config->m_visgroup_layout, g_tar_config->m_visgroup_mask }, { "func_detail", "prop_static" });
 	g_vmf_file->DrawWorld(g_shader_gBuffer);
 	g_vmf_file->DrawEntities(g_shader_gBuffer);
+
+	g_vmf_file->SetFilters({ g_tar_config->m_visgroup_cover }, { "func_detail", "prop_static" });
+	g_vmf_file->DrawWorld(g_shader_gBuffer, {}, TAR_MIBUFFER_COVER0);
+	g_vmf_file->DrawEntities(g_shader_gBuffer, {}, TAR_MIBUFFER_COVER0);
+
+	g_vmf_file->SetFilters({ g_tar_config->m_visgroup_overlap }, { "func_detail", "prop_static" });
+	g_vmf_file->DrawWorld(g_shader_gBuffer, {}, TAR_MIBUFFER_OVERLAP);
+	g_vmf_file->DrawEntities(g_shader_gBuffer, {}, TAR_MIBUFFER_OVERLAP);
 
 	GBuffer::Unbind();
 
@@ -556,7 +579,7 @@ void render_config(tar_config_layer layer, const std::string& layerName, FBuffer
 	g_gbuffer->BindNormalBufferToTexSlot      (	3 );
 	g_shader_comp->setInt("gbuffer_normal",  	3 );
 
-	g_gbuffer->BindInfoBufferToTexSlot		  ( 4 );
+	g_gbuffer_clean->BindInfoBufferToTexSlot		  ( 4 );
 	g_shader_comp->setInt("gbuffer_info",       4 );
 
 	g_mask_playspace->BindMaskBufferToTexSlot (	5 );
@@ -571,7 +594,10 @@ void render_config(tar_config_layer layer, const std::string& layerName, FBuffer
 	g_gbuffer_clean->BindPositionBufferToTexSlot(8);
 	g_shader_comp->setInt("gbuffer_clean_position", 8);
 
-	g_gbuffer->BindOriginBufferToTexSlot(11);
+	g_gbuffer_clean->BindNormalBufferToTexSlot(12);
+	g_shader_comp->setInt("gbuffer_clean_normal", 12);
+
+	g_gbuffer_clean->BindOriginBufferToTexSlot(11);
 	g_shader_comp->setInt("gbuffer_origin", 11);
 
 	g_texture_modulate->bindOnSlot(10);
@@ -602,7 +628,7 @@ void render_config(tar_config_layer layer, const std::string& layerName, FBuffer
 
 	g_mesh_screen_quad->Draw();
 
-	render_to_png(g_renderWidth, g_renderHeight, layerName.c_str());
+	//render_to_png(g_renderWidth, g_renderHeight, layerName.c_str());
 #pragma endregion
 }
 
@@ -631,9 +657,9 @@ void render_to_png(int x, int y, const char* filepath){
 
 void save_to_dds(int x, int y, const char* filepath, IMG imgmode)
 {
-	void* data = malloc(4 * x * y);
+	void* data = malloc(6 * x * y);
 
-	glReadPixels(0, 0, x, y, GL_RGB, GL_UNSIGNED_BYTE, data);
+	glReadPixels(0, 0, x, y, GL_RGBA, GL_UNSIGNED_BYTE, data);
 
 	dds_write((uint8_t*)data, filepath, x, y, imgmode);
 

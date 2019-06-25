@@ -61,6 +61,10 @@ public:
 	int				m_outline_width;
 	bool			m_outline_stripes_enable;
 
+	bool			m_write_dds = true;
+	bool			m_write_txt = true;
+	bool			m_write_png = false;
+
 	// Color settings
 	glm::vec4		m_color_cover;
 	glm::vec4		m_color_cover2;
@@ -128,13 +132,41 @@ public:
 
 		switch (hash(kv::tryGetStringValue(kvs, "ddsMode", "0").c_str())) {
 			case hash("1"): this->m_dds_img_mode = IMG::MODE_DXT5; break;
-			case hash("2"): this->m_dds_img_mode = IMG::MODE_RGB888; break;		
+			case hash("3"): case hash("2"): this->m_dds_img_mode = IMG::MODE_RGB888; break;	
+			case hash("4"): this->m_dds_img_mode = IMG::MODE_DXT1_1BA; break;
 		}
 
 		this->m_sampling_mode = sampling_mode::FXAA;
 		switch (hash(kv::tryGetStringValue(kvs, "ssaam", "3").c_str())) {
 			case hash("1"): this->m_sampling_mode = sampling_mode::MSAA4x; break;
 			case hash("2"): this->m_sampling_mode = sampling_mode::MSAA16x; break;
+		}
+
+		switch (hash(kv::tryGetStringValue(kvs, "outputMode", "0").c_str())) {
+		case hash("1"):
+			this->m_write_png = true;
+		case hash("0"):
+			this->m_write_dds = true;
+			this->m_write_txt = true;
+			break;
+		
+		case hash("2"):
+			this->m_write_png = true;
+			this->m_write_txt = true;
+			this->m_write_dds = false;
+			break;
+
+		case hash("3"):
+			this->m_write_txt = false;
+			this->m_write_png = false;
+			this->m_write_dds = true;
+			break;
+
+		case hash("4"):
+			this->m_write_dds = false;
+			this->m_write_txt = false;
+			this->m_write_png = true;
+			break;
 		}
 
 		// Configure camera setup
