@@ -140,6 +140,7 @@ public:
 		switch (hash(kv::tryGetStringValue(kvs, "ssaam", "3").c_str())) {
 			case hash("1"): this->m_sampling_mode = sampling_mode::MSAA4x; break;
 			case hash("2"): this->m_sampling_mode = sampling_mode::MSAA16x; break;
+			case hash("0"): this->m_sampling_mode = sampling_mode::NONE; break;
 		}
 
 		switch (hash(kv::tryGetStringValue(kvs, "outputMode", "0").c_str())) {
