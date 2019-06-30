@@ -3,14 +3,14 @@ Automatically make a radar with every compile of a map you do:
 
 Specify the layout in hammer by adding brushes to a visgroup named 'tar_layout', and Auto Radar will do the rest.
 
-![](https://i.imgur.com/jNWULV0.png)
+![](https://i.imgur.com/98QEtMx.gif)
 
 Editable GLSL compositor engine for CS:GO Radars, many features to come.
 
 Notable things up ahead:
 - ~~Prop support~~ Done!
 - func_instances
-- baked lighting & even better AO
+- baked lighting & ~~even better AO~~ Done
 - Auto CSG geometry for even better masking
 
 Want to support development? https://www.paypal.me/terri00 :)
@@ -47,6 +47,7 @@ Brushes, displacements, entity brushes and prop_statics which are inside visgrou
 | tar_layout   | specifies the layout of the map (the floor)             |
 | tar_mask | brushes that should subtract from the layout of the map, use this on walls |
 | tar_cover    | brushes that should show up as cover in the radar    |
+| tar_overlap   | Brushes that should show up as two level overlaps   |
 
 ### Detected Entities:
 ![](https://i.imgur.com/PyPuPh5.png)
@@ -57,6 +58,8 @@ Entities with these classnames get picked up by Auto Radar. They are not require
 |-----------------|-----------------------------------------------|
 | tar_min | Overrides the minimum height value of the map (place it at the lowest part of your map) |
 | tar_max | Overrides the maximum height value (place it at the top of your map) |
+| tar_map_divider | Seperates your map on the up axis, and will generate multi level radars |
+| tar_color | Use many of these entities (on the up axis) to create your own gradient. Set tar_config's gradient to 'use auto gradient entities' |
 
 ### Generating:
 ![](https://i.imgur.com/Y1l9eDC.png)
@@ -64,6 +67,7 @@ Entities with these classnames get picked up by Auto Radar. They are not require
 The AutoRadar installer set up a new compile profile in the 'expert' mode. Enter the compile mode, and select [TAR] Generate Radar from the list. The hit Go!
 
 ### Using this software with Yanzl's Radar graph:
+*This works with versions below 2.5 only.
 https://github.com/Terri00/CS-GO-Auto-Radar/blob/tavr/radar-graph.md
 
 ### Free software used:
