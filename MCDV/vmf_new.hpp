@@ -209,8 +209,8 @@ public:
 	dispinfo(kv::DataBlock* dataSrc, side* src_side) {
 		this->m_source_side = src_side;
 
-		kv::DataBlock* kv_normals = dataSrc->_GetFirstByName("normals");
-		kv::DataBlock* kv_distances = dataSrc->_GetFirstByName("distances");
+		kv::DataBlock* kv_normals = dataSrc->GetFirstByName("normals");
+		kv::DataBlock* kv_distances = dataSrc->GetFirstByName("distances");
 
 		this->power = std::stoi(dataSrc->Values["power"]);
 		vmf_parse::Vector3fS(dataSrc->Values["startposition"], &this->startposition);
@@ -450,7 +450,7 @@ side* side::create(kv::DataBlock* dataSrc) {
 
 	if (!vmf_parse::plane(dataSrc->Values["plane"], &s->m_plane)) return s;
 
-	kv::DataBlock* kv_dispInfo = dataSrc->_GetFirstByName("dispinfo");
+	kv::DataBlock* kv_dispInfo = dataSrc->GetFirstByName("dispinfo");
 	if (kv_dispInfo != NULL) s->m_dispinfo = new dispinfo(kv_dispInfo, s);
 	return s;
 }
@@ -494,10 +494,10 @@ public:
 
 	solid(kv::DataBlock* dataSrc) {
 		// Read editor values
-		this->m_editorvalues = editorvalues(dataSrc->_GetFirstByName("editor"));
+		this->m_editorvalues = editorvalues(dataSrc->GetFirstByName("editor"));
 
 		// Read solids
-		for (auto && s : dataSrc->_GetAllByName("side")) {
+		for (auto && s : dataSrc->GetAllByName("side")) {
 			m_sides.push_back(side::create(s));
 		}
 
@@ -631,6 +631,8 @@ public:
 		}
 
 		this->m_mesh = new Mesh(verts, MeshMode::POS_XYZ_NORMAL_XYZ);
+
+		
 	}
 };
 
@@ -646,20 +648,20 @@ public:
 	entity (kv::DataBlock* dataSrc) {
 		
 
-		if ((dataSrc->_GetFirstByName("solid") == NULL) && (dataSrc->Values.count("origin") == 0))
+		if ((dataSrc->GetFirstByName("solid") == NULL) && (dataSrc->Values.count("origin") == 0))
 			throw std::exception(("origin could not be resolved for entity ID: " + dataSrc->Values["id"]).c_str());
 
 		this->m_classname = dataSrc->Values["classname"];
 		this->m_id = (int)::atof(dataSrc->Values["id"].c_str());
 		this->m_keyvalues = dataSrc->Values;
-		this->m_editorvalues = editorvalues(dataSrc->_GetFirstByName("editor"));
+		this->m_editorvalues = editorvalues(dataSrc->GetFirstByName("editor"));
 		
-		if (dataSrc->_GetFirstByName("solid") == NULL) {
+		if (dataSrc->GetFirstByName("solid") == NULL) {
 			vmf_parse::Vector3f(dataSrc->Values["origin"], &this->m_origin);
 			this->m_origin = glm::vec3(-this->m_origin.x, this->m_origin.z, this->m_origin.y);
 		}
 		else {
-			for (auto && s : dataSrc->_GetAllByName("solid")) {
+			for (auto && s : dataSrc->GetAllByName("solid")) {
 				this->m_internal_solids.push_back(solid(s));
 			}
 
@@ -743,7 +745,7 @@ public:
 
 		debug("Processing visgroups");
 		// Process visgroup list
-		for (auto && vg : file_kv.headNode._GetFirstByName("visgroups")->_GetAllByName("visgroup")) {
+		for (auto && vg : file_kv.headNode->GetFirstByName("visgroups")->GetAllByName("visgroup")) {
 			v->m_visgroups.insert({ vg->Values["name"], std::stoi(vg->Values["visgroupid"]) });
 			std::cout << "'" << vg->Values["name"] << "': " << std::stoi(vg->Values["visgroupid"]) << "\n";
 		}
@@ -751,13 +753,13 @@ public:
 
 		debug("Processing solids");
 		// Solids
-		for (auto && kv_solid : file_kv.headNode._GetFirstByName("world")->_GetAllByName("solid")) {
+		for (auto && kv_solid : file_kv.headNode->GetFirstByName("world")->GetAllByName("solid")) {
 			v->m_solids.push_back(solid(kv_solid));
 		}
 
 		debug("Processing entities");
 		// Entities
-		for (auto && kv_entity : file_kv.headNode._GetAllByName("entity")) {
+		for (auto && kv_entity : file_kv.headNode->GetAllByName("entity")) {
 			try {
 				entity ent = entity(kv_entity);
 				v->m_entities.push_back(ent);

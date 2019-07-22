@@ -1,4 +1,5 @@
 #pragma once
+#include "vmf_new.hpp"
 #include <stdint.h>
 #include <string>
 

@@ -39,6 +39,12 @@
     <Filter Include="Header Files\util">
       <UniqueIdentifier>{d74bb335-8fb5-4eb2-b1c1-4436cdc881cc}</UniqueIdentifier>
     </Filter>
+    <Filter Include="OpenGL\Shader Files\source">
+      <UniqueIdentifier>{6c0969a3-4023-42c1-b2b4-d15407cddb76}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Dependencies">
+      <UniqueIdentifier>{72c933a8-4049-4058-9713-cd633da3113e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="interpolation.h">
@@ -164,6 +170,15 @@
     <ClInclude Include="tar_config.hpp">
       <Filter>Header Files\valve</Filter>
     </ClInclude>
+    <ClInclude Include="studiomdl.hpp">
+      <Filter>Header Files\valve</Filter>
+    </ClInclude>
+    <ClInclude Include="mdl.hpp">
+      <Filter>Header Files\valve</Filter>
+    </ClInclude>
+    <ClInclude Include="loguru.hpp">
+      <Filter>Source Files\Dependencies</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -177,6 +192,12 @@
     </ClCompile>
     <ClCompile Include="main2.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="main3.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="loguru.cpp">
+      <Filter>Source Files\Dependencies</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -245,6 +266,12 @@
     </None>
     <None Include="shaders\ss_msaa.fs">
       <Filter>OpenGL\Shader Files</Filter>
+    </None>
+    <None Include="shaders\source\basic.fs">
+      <Filter>OpenGL\Shader Files\source</Filter>
+    </None>
+    <None Include="shaders\source\basic.vs">
+      <Filter>OpenGL\Shader Files\source</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

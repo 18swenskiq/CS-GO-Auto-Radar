@@ -3,7 +3,7 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
-
+#include "util.h"
 
 #pragma pack(push, 1)
 namespace vpk
@@ -85,8 +85,8 @@ namespace vpk
 			std::cout << "Version: " << this->header.Version << "\n";
 			std::cout << "TreeSize: " << this->header.TreeSize << "\n";
 
-			std::ofstream f;
-			f.open("vpk.txt");
+			//std::ofstream f;
+			//f.open("vpk.txt");
 
 			while (true) {
 				std::string extension = get_sz(&reader);
@@ -114,7 +114,7 @@ namespace vpk
 						}
 
 						entry.entryString = folder + "/" + filename + "." + extension;
-						f << folder + "/" + filename + "." + extension << "\n";
+						//f << folder + "/" + filename + "." + extension << "\n";
 
 						this->entries.push_back(entry);
 					}
@@ -123,7 +123,7 @@ namespace vpk
 
 		IL_EXIT:
 
-			f.close();
+			//f.close();
 
 			std::cout << "Done reading\n";
 			std::cout << this->entries.size() << " entries read\n";

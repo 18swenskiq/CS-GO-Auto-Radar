@@ -5,12 +5,12 @@
 #include "vvd.hpp"
 #include "vtx.hpp"
 #include "../AutoRadar_installer/FileSystemHelper.h"
+#include "loguru.hpp"
 
 class vfilesys : public util::verboseControl {
 public:
 	// Cached items
 	vpk::index* vpkIndex;
-	kv::DataBlock* gameinfo;
 
 	// Paths
 	std::string dir_gamedir;  // Where the gameinfo.txt is (and where we should output to)
@@ -21,19 +21,21 @@ public:
 
 	/* Create a file system helper from game info */
 	vfilesys(std::string gameinfo, std::string exedir = ""){
+		LOG_SCOPE_FUNCTION(1);
+
 		if (!fs::checkFileExist(gameinfo.c_str())) throw std::exception("gameinfo.txt not found");
+
+		LOG_F(1, "Loading gameinfo.txt");
 
 		// Load gameinfo
 		std::ifstream ifs(gameinfo);
 		if (!ifs) {
-			std::cout << "Could not open file... " << gameinfo << std::endl;
 			throw std::exception("File read error");
 		}
 
 		std::string str((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
 
-		kv::FileData* kv_gameinfo = new kv::FileData(str);
-		this->gameinfo = &kv_gameinfo->headNode;
+		kv::FileData kv_gameinfo = kv::FileData(str);
 
 		// Set gamedir
 		this->dir_gamedir = fs::getDirName(gameinfo);
@@ -54,7 +56,7 @@ public:
 		this->dir_bin = this->dir_exedir + "bin/";
 
 		// Collect search paths from gameinfo.txt
-		for (auto && path : kv::getList(this->gameinfo->GetFirstByName("\"GameInfo\"")->GetFirstByName("FileSystem")->GetFirstByName("SearchPaths")->Values, "Game")) {
+		for (auto && path : kv::getList( kv_gameinfo.headNode->GetFirstByName("\"GameInfo\"")->GetFirstByName("FileSystem")->GetFirstByName("SearchPaths")->Values, "Game")) {
 			std::string _path = "";
 			if (path.find(':') != path.npos) _path = path + "/"; //this path is abs
 			else _path = this->dir_exedir + path + "/"; // relative path to exedir
@@ -77,22 +79,6 @@ public:
 
 	IL_FOUND:
 		std::cout << "Finished setting up filesystem.\n";
-	}
-
-	/* Dump out what this filesystem has in memory */
-	void debug_info() {
-		std::cout << "Directories:\n";
-		std::cout << "  dir_game: " << dir_gamedir << "\n";
-		std::cout << "  dir_exe:  " << dir_exedir << "\n";
-		std::cout << "  dir_bin:  " << dir_bin << "\n";
-
-		std::cout << "\nSearchpaths:\n";
-		for (auto && sp : this->searchPaths) std::cout << "  | " << sp << "\n";
-
-		std::cout << "\nCache locations:\n";
-		std::cout << "  vpkindex* =" << this->vpkIndex << "\n";
-		std::cout << "  gameinfo* =" << this->gameinfo << "\n";
-		std::cout << "\n";
 	}
 
 	/* Create a file handle on an existing resource file. Could be from vpk, could be from custom. Returns null if not found */

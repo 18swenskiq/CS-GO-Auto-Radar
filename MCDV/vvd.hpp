@@ -76,7 +76,7 @@ public:
 
 			// Do the sorce->opengl flipperoo
 			glm::vec3 temp = vert.m_vecPosition;
-			vert.m_vecPosition = glm::vec3(-temp.x, temp.z, temp.y);
+			vert.m_vecPosition = glm::vec3(temp.x, temp.y, temp.z);
 
 			this->verticesLOD0.push_back(vert);
 		}
@@ -84,6 +84,4 @@ public:
 		this->debug("Data length: ", this->verticesLOD0.size());
 		stream->close();
 	}
-
-	~vvd_data() {};
 };

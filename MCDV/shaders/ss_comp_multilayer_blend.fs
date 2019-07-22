@@ -18,7 +18,7 @@ float saturation = 0.1;
 float value = 0.333;
 float dist = 100;
 
-uniform float active;
+uniform float thislayer;
 
 //                                       SHADER HELPERS
 // ____________________________________________________________________________________________
@@ -84,14 +84,14 @@ void main()
 
 	float dist_from_target = remap(abs(layer_target - s_height), 0, 160, 0, 1);
 	
-	float dist_blend = 1 - active;//1 - clamp((active) + dist_from_target, 0, 1);//clamp(clamp(dist_from_max + dist_from_min, 0, 1) + ( 1 - active ), 0, 1);
+	float dist_blend = 1 - thislayer;//1 - clamp((thislayer) + dist_from_target, 0, 1);//clamp(clamp(dist_from_max + dist_from_min, 0, 1) + ( 1 - thislayer ), 0, 1);
 	
-	if(active < 0.5)
+	if(thislayer < 0.5)
 		dist_blend -= (1 - dist_from_target);
 
 	dist_blend = clamp(dist_blend, 0, 1);
 	
-	dist_blend = 1 - active;
+	dist_blend = 1 - thislayer;
 
 	vec3 colHSV = rgb2hsv(s_layer.rgb);
 	colHSV.g *= saturation;

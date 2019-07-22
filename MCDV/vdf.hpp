@@ -12,8 +12,7 @@
 
 #define _USE_REGEX
 
-namespace kv
-{
+namespace kv{
 	//const std::regex reg_kv("(\"([^=\"]*)\")|([^=\\s]+)");
 	const std::regex reg_kv(R"vv("(.*?)"|([^\s]+))vv");
 
@@ -38,28 +37,29 @@ namespace kv
 		return list;
 	}
 
-	class DataBlock
-	{
+	class DataBlock{
 	public:
 		std::string name = "";
-		std::vector<DataBlock> SubBlocks;
+		std::vector<DataBlock*> SubBlocks;
 		std::map<std::string, std::string> Values;
+
+		// One node up. Should only by null if its head node.
+		DataBlock* parent = NULL;
 
 		DataBlock() {}
 
-		DataBlock(std::istringstream* stream, std::string name = "", void* progress_callback = NULL) {
+		// Init node with name
+		DataBlock(std::istringstream* stream, const std::string& name = "", DataBlock* _parent = NULL): parent(_parent) {
 			this->name = sutil::trim(name);
 
 			std::string line, prev = "";
 			while (std::getline(*stream, line)) {
-				if(progress_callback != NULL) util::CastFunctionPtr(progress_callback); //Increment line counter
-
 				line = split(line, "//")[0];
 
 				if (sutil::get_unquoted_material(line).find("{") != std::string::npos) {
 					std::string pname = prev;
 					prev.erase(std::remove(prev.begin(), prev.end(), '"'), prev.end());
-					this->SubBlocks.push_back(DataBlock(stream, pname, progress_callback));
+					this->SubBlocks.push_back(new DataBlock(stream, pname, this));
 					continue;
 				}
 				if (sutil::get_unquoted_material(line).find("}") != std::string::npos) {
@@ -78,8 +78,7 @@ namespace kv
 					strings.push_back(s1[1]);
 					strings.push_back(s1[3]);
 				}
-#endif 
-#ifdef _USE_REGEX
+#else
 				std::vector<std::string> strings = sutil::regexmulti(line, reg_kv);
 #endif
 
@@ -100,8 +99,8 @@ namespace kv
 			}
 		}
 
-		void Serialize(std::ofstream& stream, int depth = 0)
-		{
+		// Take this node and write it and all other sub-nodes into filestream
+		void Serialize(std::ofstream& stream, int depth = 0){
 			//Build indentation levels
 			std::string indenta = "";
 			for (int i = 0; i < depth; i++)
@@ -117,66 +116,58 @@ namespace kv
 
 			//Write subdata recursively
 			for (int i = 0; i < this->SubBlocks.size(); i++) 
-				this->SubBlocks[i].Serialize(stream, depth + 1);
+				this->SubBlocks[i]->Serialize(stream, depth + 1);
 
 			if (depth >= 0)
 				stream << indenta << "}" << std::endl;
 		}
 
-		//Scan for sub block with name
-		DataBlock* GetFirstByName(std::string _name) {
-			for (int i = 0; i < this->SubBlocks.size(); i++) {
-				if (_name == this->SubBlocks[i].name)
-					return &this->SubBlocks[i];
-			}
-
+		// Gets the first data block by name. Returns null if not found
+		DataBlock* GetFirstByName(const std::string& _name) {
+			for (auto&& i: this->SubBlocks)
+				if (i->name == _name)
+					return i;
 			return NULL;
 		}
 
-		DataBlock* _GetFirstByName(const std::string& _name) {
-			for (auto && i : this->SubBlocks)
-				if (i.name == _name)
-					return &i;
-			return NULL;
-		}
-
-		// OBSOLETE: use _GetAllByName
-		std::vector<DataBlock> GetAllByName(std::string _name) {
-			std::vector<DataBlock> c;
-
-			for (int i = 0; i < this->SubBlocks.size(); i++) {
-				if (_name == this->SubBlocks[i].name)
-					c.push_back(this->SubBlocks[i]);
-			}
-
-			return c;
-		}
-
-		// New ver
-		std::vector<DataBlock*> _GetAllByName(const std::string& _name) {
+		// Gets all datablocks by name. Returns a list of pointers to matches
+		std::vector<DataBlock*> GetAllByName(const std::string& _name) {
 			std::vector<DataBlock*> c;
 
-			for (auto && i : this->SubBlocks) 
-				if (i.name == _name)
-					c.push_back(&i);
+			for (auto&& i: this->SubBlocks) 
+				if (i->name == _name)
+					c.push_back(i);
 
 			return c;
+		}
+
+		// Append a child node (copy-construct)
+		void AddNode(const DataBlock& node) {
+			DataBlock* block = new DataBlock(node);
+
+			block->parent = this;
+			this->SubBlocks.push_back(block);
+		}
+
+		// Destructor; delete child datablocks (recursive fuck-off delete)
+		~DataBlock() {
+			for(auto&& i: this->SubBlocks) delete i;
 		}
 	};
 
+	// Wrapper to set everything up.
 	class FileData
 	{
 	public:
-		DataBlock headNode;
+		DataBlock* headNode;
 
-		FileData(std::string filestring, void* progress_callback = NULL)
+		FileData(std::string filestring)
 		{
 			std::istringstream sr(filestring);
 
 			auto start = std::chrono::high_resolution_clock::now();
 
-			this->headNode = DataBlock(&sr, "", progress_callback);
-
+			this->headNode = new DataBlock(&sr, "");
 
 			auto elapsed = std::chrono::high_resolution_clock::now() - start;
 			long long milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
@@ -188,6 +179,6 @@ namespace kv
 
 		}
 
-		~FileData() {}
+		~FileData() { delete this->headNode; }
 	};
 }

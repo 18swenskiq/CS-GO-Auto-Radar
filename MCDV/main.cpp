@@ -1,7 +1,7 @@
 #include "globals.h"
 
 /* Entry point */
-#ifndef entry_point_testing
+#ifdef entry_point_main
 
 // STDLib
 #include <iostream>

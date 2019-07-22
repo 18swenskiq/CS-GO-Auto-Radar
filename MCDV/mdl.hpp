@@ -4,8 +4,9 @@
 #include <iostream>
 #include <fstream>
 
-#include "util.h"
-#include "vector.h"
+#include <glm\glm.hpp>
+#include <glm\gtc\matrix_transform.hpp>
+#include <glm\gtc\type_ptr.hpp>
 
 namespace mdl
 {
@@ -21,15 +22,15 @@ namespace mdl
 		char				name[64];
 		int					length;
 
-		vec3				eyeposition;	// ideal eye position
+		glm::vec3				eyeposition;	// ideal eye position
 
-		vec3				illumposition;	// illumination center
+		glm::vec3				illumposition;	// illumination center
 
-		vec3				hull_min;		// ideal movement hull size
-		vec3				hull_max;
+		glm::vec3				hull_min;		// ideal movement hull size
+		glm::vec3				hull_max;
 
-		vec3				view_bbmin;		// clipping bounding box
-		vec3				view_bbmax;
+		glm::vec3				view_bbmin;		// clipping bounding box
+		glm::vec3				view_bbmax;
 
 		int					flags;
 
@@ -150,23 +151,19 @@ namespace mdl
 #pragma pack(pop)
 }
 
-class mdl_model : public verboseControl
+class mdl_model
 {
 public:
 	mdl::header header;
 
-	mdl_model(std::string mdl, bool verbose)
-	{
-		this->use_verbose = verbose;
+	mdl_model(std::string mdl, bool verbose){
 		std::ifstream reader(mdl, std::ios::in | std::ios::binary);
 
 		if (!reader) {
 			throw std::exception("MDL::LOAD FAILED"); return;
 		}
 
-
 		reader.read((char*)&this->header, sizeof(this->header));
-		this->debug("Version", this->header.version);
 
 		//Read texture data
 		reader.seekg(this->header.cdtextureindex);
@@ -188,11 +185,6 @@ public:
 			name += c;
 		}
 
-		this->debug(name);
-
-
 		reader.close();
 	}
-
-	virtual ~mdl_model() {}
 };

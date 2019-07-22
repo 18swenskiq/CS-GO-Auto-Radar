@@ -304,6 +304,4 @@ public:
 		}
 	IL_EXIT: stream->close();
 	}
-
-	virtual ~vtx_mesh() {}
 };

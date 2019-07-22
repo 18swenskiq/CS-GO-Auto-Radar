@@ -1,8 +1,7 @@
 #include "globals.h"
-#include "vmf_new.hpp"
 
 #ifdef entry_point_testing
-
+#include "vmf_new.hpp"
 #include <glad\glad.h>
 #include <GLFW\glfw3.h>
 
@@ -248,7 +247,7 @@ int app(int argc, const char** argv) {
 		g_shader_multilayer_blend->setInt("gbuffer_height", 0);
 		g_shader_multilayer_blend->setFloat("saturation", 0.1f);
 		g_shader_multilayer_blend->setFloat("value", 0.5669f);
-		g_shader_multilayer_blend->setFloat("active", 0.0f);
+		g_shader_multilayer_blend->setFloat("thislayer", 0.0f);
 
 		bool above = false;
 
@@ -269,7 +268,7 @@ int app(int argc, const char** argv) {
 
 		//g_shader_multilayer_blend->setFloat("saturation", 1.0f);
 		//g_shader_multilayer_blend->setFloat("value", 1.0f);
-		g_shader_multilayer_blend->setFloat("active", 1.0f);
+		g_shader_multilayer_blend->setFloat("thislayer", 1.0f);
 		g_shader_multilayer_blend->setFloat("layer_min", megalayer.layer_min);
 		g_shader_multilayer_blend->setFloat("layer_max", megalayer.layer_max);
 
@@ -409,7 +408,6 @@ int app(int argc, const char** argv) {
 	return 0;
 }
 
-#endif
 
 #define __RENDERCLIP
 
@@ -679,3 +677,5 @@ It will force usage of the dedicated video device in the machine, which likely h
 extern "C" {
 	_declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
 }
+
+#endif

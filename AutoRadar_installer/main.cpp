@@ -151,9 +151,9 @@ int main(int argc, const char** argv) {
 	
 	std::string vinfo_str((std::istreambuf_iterator<char>(ifs_vinfo)), std::istreambuf_iterator<char>());
 	kv::FileData vinfo(vinfo_str);
-	kv::DataBlock vinfodata = vinfo.headNode.SubBlocks[0];
+	kv::DataBlock* vinfodata = vinfo.headNode.SubBlocks[0];
 
-	cc::fancy(); std::cout << "Installing version: " << vinfodata.Values["version"] << "\n";
+	cc::fancy(); std::cout << "Installing version: " << vinfodata->Values["version"] << "\n";
 	cc::reset();
 
 	// Overide install
@@ -191,9 +191,9 @@ IL_PRE_INSTALL:
 	std::cout << "Copying files\n________________________________________________________\n\n";
 	
 	// Copy folders
-	for (auto && folder : vinfodata.GetAllByName("folder")){
-		std::string source_folder = kv::tryGetStringValue(folder.Values, "path");
-		std::string target_folder = kv::tryGetStringValue(folder.Values, "target");
+	for (auto && folder : vinfodata->GetAllByName("folder")){
+		std::string source_folder = kv::tryGetStringValue(folder->Values, "path");
+		std::string target_folder = kv::tryGetStringValue(folder->Values, "target");
 
 		if ((source_folder == "") || (target_folder == "")) {
 			cc::warning(); std::cout << "Missing source/destination paths. Skipping...\n";
@@ -231,8 +231,8 @@ IL_PRE_INSTALL:
 	// Install command sequences
 	std::cout << "Installing command sequences\n________________________________________________________\n\n";
 
-	for (auto && seqH : vinfodata.GetAllByName("CommandSequenceFile")) {
-		std::string target_file = kv::tryGetStringValue(seqH.Values, "target");
+	for (auto && seqH : vinfodata->GetAllByName("CommandSequenceFile")) {
+		std::string target_file = kv::tryGetStringValue(seqH->Values, "target");
 
 		if (target_file == "") {
 			cc::warning(); std::cout << "Missing target file. Skipping CommandSeq...\n";
@@ -252,11 +252,11 @@ IL_PRE_INSTALL:
 
 		wc::filedata WcFile(target_file);
 
-		std::cout << "Writing to: " << kv::tryGetStringValue(seqH.Values, "target") << "\n";
+		std::cout << "Writing to: " << kv::tryGetStringValue(seqH->Values, "target") << "\n";
 
-		for (auto && seqS : seqH.GetAllByName("Sequence")) {
-			std::cout << "Installing sequence:  " << kv::tryGetStringValue(seqS.Values, "name", "error-name") << "\n";
-			std::string name = kv::tryGetStringValue(seqS.Values, "name", "error-name");
+		for (auto && seqS : seqH->GetAllByName("Sequence")) {
+			std::cout << "Installing sequence:  " << kv::tryGetStringValue(seqS->Values, "name", "error-name") << "\n";
+			std::string name = kv::tryGetStringValue(seqS->Values, "name", "error-name");
 
 			for (auto && seq : WcFile.sequences) {
 				if (strstr(seq.name, name.c_str()) != NULL) {
@@ -267,20 +267,20 @@ IL_PRE_INSTALL:
 			wc::Sequence seq_new = wc::Sequence();
 			strcpy_s(seq_new.name, name.c_str());
 
-			for (auto && cmd : seqS.GetAllByName("Command")){
+			for (auto && cmd : seqS->GetAllByName("Command")){
 				wc::Command command_build = wc::Command();
-				command_build.is_enabled = kv::tryGetValue(cmd.Values, "is_enabled", 0);
-				command_build.special = kv::tryGetValue(cmd.Values, "special", 0);
-				command_build.is_long_filename = kv::tryGetValue(cmd.Values, "is_long_filename", 0);
-				command_build.ensure_check = kv::tryGetValue(cmd.Values, "ensure_check", 0);
-				command_build.use_proc_win = kv::tryGetValue(cmd.Values, "use_proc_win", 0);
-				command_build.no_wait = kv::tryGetValue(cmd.Values, "no_wait", 0);;
+				command_build.is_enabled = kv::tryGetValue(cmd->Values, "is_enabled", 0);
+				command_build.special = kv::tryGetValue(cmd->Values, "special", 0);
+				command_build.is_long_filename = kv::tryGetValue(cmd->Values, "is_long_filename", 0);
+				command_build.ensure_check = kv::tryGetValue(cmd->Values, "ensure_check", 0);
+				command_build.use_proc_win = kv::tryGetValue(cmd->Values, "use_proc_win", 0);
+				command_build.no_wait = kv::tryGetValue(cmd->Values, "no_wait", 0);;
 
-				std::string executable = kv::tryGetStringValue(cmd.Values, "executable", "error-executable");
+				std::string executable = kv::tryGetStringValue(cmd->Values, "executable", "error-executable");
 
 				strcpy_s(command_build.executable, executable.c_str());
 
-				std::string args = kv::tryGetStringValue(cmd.Values, "args", "error-args");
+				std::string args = kv::tryGetStringValue(cmd->Values, "args", "error-args");
 				strcpy_s(command_build.args, args.c_str());
 
 				seq_new.commands.push_back(command_build);
@@ -312,15 +312,15 @@ IL_PRE_INSTALL:
 		std::string str_gameconfig((std::istreambuf_iterator<char>(ifs_gameconfig)), std::istreambuf_iterator<char>());
 		kv::FileData gameConfig(str_gameconfig);
 
-		kv::DataBlock* hammerBlock = gameConfig.headNode.SubBlocks[0].GetFirstByName("\"Games\"")->GetFirstByName("\"Counter-Strike: Global Offensive\"")->GetFirstByName("\"Hammer\"");
+		kv::DataBlock* hammerBlock = gameConfig.headNode.SubBlocks[0]->GetFirstByName("\"Games\"")->GetFirstByName("\"Counter-Strike: Global Offensive\"")->GetFirstByName("\"Hammer\"");
 		int freeIndex = -1;
 
-		for (auto && newEntry : vinfodata.GetAllByName("HammerVGDRegistry")){
+		for (auto && newEntry : vinfodata->GetAllByName("HammerVGDRegistry")){
 			// Check if entry exists
 			int i = -1;
 			bool matched = false;
 			while (hammerBlock->Values.count("GameData" + std::to_string(++i))) {
-				if (csgo_sdk_bin_path + newEntry.Values["source"] == hammerBlock->Values["GameData" + std::to_string(i)]) {
+				if (csgo_sdk_bin_path + newEntry->Values["source"] == hammerBlock->Values["GameData" + std::to_string(i)]) {
 					matched = true;
 					break;
 				}
@@ -329,12 +329,12 @@ IL_PRE_INSTALL:
 			if (matched) continue;
 
 			while (hammerBlock->Values.count("GameData" + std::to_string(++freeIndex)));
-			hammerBlock->Values.insert({ "GameData" + std::to_string(freeIndex), csgo_sdk_bin_path + newEntry.Values["source"]});
+			hammerBlock->Values.insert({ "GameData" + std::to_string(freeIndex), csgo_sdk_bin_path + newEntry->Values["source"]});
 		}
 
 		std::cout << "Saving GameConfig.cfg\n";
 		std::ofstream out(std::string(csgo_sdk_bin_path + "GameConfig.txt").c_str());
-		gameConfig.headNode.SubBlocks[0].Serialize(out);
+		gameConfig.headNode.SubBlocks[0]->Serialize(out);
 	}
 
 #pragma endregion

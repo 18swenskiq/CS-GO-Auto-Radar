@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -83,6 +83,8 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <AdditionalDependencies>glfw3.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -103,6 +105,8 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -138,8 +142,10 @@
     <ClInclude Include="interpolation.h" />
     <ClInclude Include="generic.hpp" />
     <ClInclude Include="IRenderable.hpp" />
+    <ClInclude Include="loguru.hpp" />
     <ClInclude Include="lumps_geometry.hpp" />
     <ClInclude Include="lumps_visibility.hpp" />
+    <ClInclude Include="mdl.hpp" />
     <ClInclude Include="Mesh.hpp" />
     <ClInclude Include="GameObject.hpp" />
     <ClInclude Include="nav.hpp" />
@@ -150,6 +156,7 @@
     <ClInclude Include="stb_dxt.h" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="stb_image_write.h" />
+    <ClInclude Include="studiomdl.hpp" />
     <ClInclude Include="tar_config.hpp" />
     <ClInclude Include="tbsp.hpp" />
     <ClInclude Include="TextFont.hpp" />
@@ -173,8 +180,10 @@
   <ItemGroup>
     <ClCompile Include="glad.c" />
     <ClCompile Include="GLFWUtil.hpp" />
+    <ClCompile Include="loguru.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="main2.cpp" />
+    <ClCompile Include="main3.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="mapinfo.fs" />
@@ -186,6 +195,8 @@
     <None Include="shaders\gBuffer.fs" />
     <None Include="shaders\gBuffer.vs" />
     <None Include="shaders\iBuffer.fs" />
+    <None Include="shaders\source\basic.fs" />
+    <None Include="shaders\source\basic.vs" />
     <None Include="shaders\ss_comp_main.fso" />
     <None Include="shaders\ss_comp_multilayer_blend.fs" />
     <None Include="shaders\ss_comp_multilayer_finalstage.fs" />
