@@ -27,64 +27,36 @@
 
 // other
 #include <limits>
+#include "loguru.hpp"
 
 // Source sdk
 #include "vfilesys.hpp"
 
-// UINT16 buffer bit definitions ================
-// Byte 0
-#define TAR_MIBUFFER_PLAYSPACE 0x1
-#define TAR_MIBUFFER_OVERLAP 0x2
-#define TAR_MIBUFFER_OBJECTIVE_B 0x4
-#define TAR_MIBUFFER_OBJECTIVE_X 0x8
-#define TAR_MIBUFFER_BUYZONE_CT 0x10
-#define TAR_MIBUFFER_BUYZONE_T 0x20
-#define TAR_MIBUFFER_BUYZONE_X 0x40
-#define TAR_MIBUFFER_COVER0 0x80
-// Byte 1
-#define TAR_MIBUFFER_COVER1 0x100
-#define TAR_MIBUFFER_MODEL 0x200
-#define TAR_MIBUFFER_FUNC_DETAIL 0x400
-#define TAR_MIBUFFER_NEGATIVE 0x800
-#define TAR_MIBUFFER_USER0 0x1000
-#define TAR_MIBUFFER_USER1 0x2000
-#define TAR_MIBUFFER_USER2 0x4000
-#define TAR_MIBUFFER_USER3 0x8000
-// ============================================
-
-typedef unsigned int TAR_MIBUFFER_FLAGS;
-std::map<unsigned int, TAR_MIBUFFER_FLAGS> g_visgroup_flag_translations;
-
-bool use_verbose = true;
-std::string prefix = "";
+#undef min
+#undef max
 
 inline glm::vec3 get_normal(const glm::vec3& A, const glm::vec3& B, const glm::vec3& C) {
 	return glm::normalize(glm::cross(A - C, B - C));
 }
 
+// Append a vector 3 to a float array.
+inline void push_vec3(const glm::vec3& P, std::vector<float>* vec) {
+	vec->push_back(P.x); vec->push_back(P.y); vec->push_back(P.z);
+}
+
+// Push boundaries
+inline void boundary_extend(glm::vec3* NWU, glm::vec3* SEL, const glm::vec3& eNWU, const glm::vec3& eSEL) {
+	NWU->z = glm::max(NWU->z, eNWU.z);
+	NWU->y = glm::max(NWU->y, eNWU.y);
+	NWU->x = glm::max(NWU->x, eNWU.x);
+	SEL->z = glm::min(SEL->z, eSEL.z);
+	SEL->y = glm::min(SEL->y, eSEL.y);
+	SEL->x = glm::min(SEL->x, eSEL.x);
+}
+
 constexpr
-unsigned int hash(const char* str, int h = 0)
-{
+unsigned int hash(const char* str, int h = 0){
 	return !str[h] ? 5381 : (hash(str, h + 1) * 33) ^ str[h];
-}
-
-//Variadic print
-void _debug() {
-	std::cout << std::endl;
-}
-
-template<typename First, typename ... Strings>
-void _debug(First arg, const Strings&... rest) {
-	std::cout << arg;
-	_debug(rest...);
-}
-
-template<typename First, typename ... Strings>
-void debug(First arg, const Strings&... rest) {
-	if (use_verbose) {
-		std::cout << prefix;
-		_debug(arg, rest...);
-	}
 }
 
 namespace vmf_parse {
@@ -190,13 +162,9 @@ public:
 	std::vector<glm::vec3> m_vertices;
 
 	static side* create(kv::DataBlock* dataSrc);
-
-	void howmany() {
-		debug(this->m_vertices.size());
-	}
 };
 
-class dispinfo : public IRenderable{
+class dispinfo: public IRenderable{
 public:
 	unsigned int power;
 	glm::vec3 startposition;
@@ -205,6 +173,7 @@ public:
 	std::vector<std::vector<float>> distances;
 
 	side* m_source_side = NULL;
+	Mesh* m_mesh;
 
 	dispinfo(kv::DataBlock* dataSrc, side* src_side) {
 		this->m_source_side = src_side;
@@ -242,14 +211,14 @@ public:
 	}
 
 	// internal draw method
-	void IRenderable::_Draw(Shader* shader, std::vector<glm::mat4> transform_stack = {}) { 
+	void IRenderable::_Draw(Shader* shader) { 
 		this->m_mesh->Draw();
 	}
 
 	// Compute GL Mesh
-	void IRenderable::SetupDrawable() {
+	void IRenderable::_Init() {
 		if (this->m_source_side->m_vertices.size() != 4) {
-			debug("Displacement info matched to face with {", this->m_source_side->m_vertices.size(), "} vertices!!!");
+			LOG_F(WARNING, "Displacement matched to: %u vertices.", this->m_source_side->m_vertices.size());
 			return;
 		}
 
@@ -342,99 +311,49 @@ public:
 
 #pragma region lots of triangles
 				// Insert triangles.
-				if (i_condition++ % 2 == 0) {//Condition 0
+				if (i_condition++ % 2 == 0) { //Condition 0
 					glm::vec3 n1 = get_normal(*SW, *NW, *NE);
-					meshData.push_back(-NE->x);
-					meshData.push_back(NE->z);
-					meshData.push_back(NE->y);
-					meshData.push_back(-n1.x);
-					meshData.push_back(n1.z);
-					meshData.push_back(n1.y);
+					push_vec3(*NE, &meshData);
+					push_vec3(n1,  &meshData);
 
-					meshData.push_back(-NW->x);
-					meshData.push_back(NW->z);
-					meshData.push_back(NW->y);
-					meshData.push_back(-n1.x);
-					meshData.push_back(n1.z);
-					meshData.push_back(n1.y);
+					push_vec3(*NW, &meshData);
+					push_vec3(n1,  &meshData);
 
-					meshData.push_back(-SW->x);
-					meshData.push_back(SW->z);
-					meshData.push_back(SW->y);
-					meshData.push_back(-n1.x);
-					meshData.push_back(n1.z);
-					meshData.push_back(n1.y);
+					push_vec3(*SW, &meshData);
+					push_vec3(n1,  &meshData);
 
 					glm::vec3 n2 = get_normal(*SW, *NE, *SE);
-					meshData.push_back(-SE->x);
-					meshData.push_back(SE->z);
-					meshData.push_back(SE->y);
-					meshData.push_back(-n2.x);
-					meshData.push_back(n2.z);
-					meshData.push_back(n2.y);
+					push_vec3(*SE, &meshData);
+					push_vec3(n2,  &meshData);
 
-					meshData.push_back(-NE->x);
-					meshData.push_back(NE->z);
-					meshData.push_back(NE->y);
-					meshData.push_back(-n2.x);
-					meshData.push_back(n2.z);
-					meshData.push_back(n2.y);
+					push_vec3(*NE, &meshData);
+					push_vec3(n2,  &meshData);
 
-					meshData.push_back(-SW->x); // tri2
-					meshData.push_back(SW->z);
-					meshData.push_back(SW->y);
-					meshData.push_back(-n2.x);
-					meshData.push_back(n2.z);
-					meshData.push_back(n2.y);
+					push_vec3(*SW, &meshData);
+					push_vec3(n2,  &meshData);
 				}
 				else { //Condition 1
 					glm::vec3 n1 = get_normal(*SW, *NW, *SE);
-					meshData.push_back(-SE->x);
-					meshData.push_back(SE->z);
-					meshData.push_back(SE->y);
-					meshData.push_back(-n1.x);
-					meshData.push_back(n1.z);
-					meshData.push_back(n1.y);
+					push_vec3(*SE, &meshData);
+					push_vec3(n1,  &meshData);
 
-					meshData.push_back(-NW->x);
-					meshData.push_back(NW->z);
-					meshData.push_back(NW->y);
-					meshData.push_back(-n1.x);
-					meshData.push_back(n1.z);
-					meshData.push_back(n1.y);
+					push_vec3(*NW, &meshData);
+					push_vec3(n1,  &meshData);
 
-					meshData.push_back(-SW->x);
-					meshData.push_back(SW->z);
-					meshData.push_back(SW->y);
-					meshData.push_back(-n1.x);
-					meshData.push_back(n1.z);
-					meshData.push_back(n1.y);
-
+					push_vec3(*SW, &meshData);
+					push_vec3(n1,  &meshData);
 
 					glm::vec3 n2 = get_normal(*NW, *NE, *SE);
-					meshData.push_back(-SE->x);
-					meshData.push_back(SE->z);
-					meshData.push_back(SE->y);
-					meshData.push_back(-n2.x);
-					meshData.push_back(n2.z);
-					meshData.push_back(n2.y);
+					push_vec3(*SE, &meshData);
+					push_vec3(n2,  &meshData);
 
-					meshData.push_back(-NE->x);
-					meshData.push_back(NE->z);
-					meshData.push_back(NE->y);
-					meshData.push_back(-n2.x);
-					meshData.push_back(n2.z);
-					meshData.push_back(n2.y);
+					push_vec3(*NE, &meshData);
+					push_vec3(n2,  &meshData);
 
-					meshData.push_back(-NW->x); //tri2
-					meshData.push_back(NW->z);
-					meshData.push_back(NW->y);
-					meshData.push_back(-n2.x);
-					meshData.push_back(n2.z);
-					meshData.push_back(n2.y);
+					push_vec3(*NW, &meshData);
+					push_vec3(n2,  &meshData);
 				}
 #pragma endregion
-
 			}
 			i_condition++;
 		}
@@ -462,8 +381,6 @@ public:
 	std::vector<unsigned int> m_visgroups;
 	glm::vec3 m_editorcolor;
 
-	TAR_MIBUFFER_FLAGS m_miflags;
-
 	editorvalues(){}
 	editorvalues(kv::DataBlock* dataSrc) {
 		if (dataSrc == NULL) return;
@@ -471,9 +388,6 @@ public:
 		for (auto && vgroup : kv::getList(dataSrc->Values, "visgroupid")) {
 			unsigned int vgroupid = std::stoi(vgroup);
 			this->m_visgroups.push_back(vgroupid);
-
-			if (g_visgroup_flag_translations.count(vgroupid))
-				this->m_miflags |= g_visgroup_flag_translations[vgroupid];
 		}
 
 #ifdef VMF_READ_SOLID_COLORS
@@ -485,12 +399,14 @@ public:
 	}
 };
 
-class solid : public IRenderable {
+class solid: public IRenderable {
 public:
 	std::vector<side*> m_sides;
 	editorvalues m_editorvalues;
 	glm::vec3 NWU;
 	glm::vec3 SEL;
+
+	Mesh* m_mesh;
 
 	solid(kv::DataBlock* dataSrc) {
 		// Read editor values
@@ -551,9 +467,9 @@ public:
 					_x = glm::round(glm::max(_x, p.x));
 					_y = glm::round(glm::min(_y, p.y));
 					_z = glm::round(glm::min(_z, p.z));
-					x = glm::round(glm::min(x, p.x));
-					y = glm::round(glm::max(y, p.y));
-					z = glm::round(glm::max(z, p.z));
+					x =  glm::round(glm::min(x,  p.x));
+					y =  glm::round(glm::max(y,  p.y));
+					z =  glm::round(glm::max(z,  p.z));
 				}
 			}
 		}
@@ -577,9 +493,10 @@ public:
 		return false;
 	}
 
-	void IRenderable::_Draw(Shader* shader, std::vector<glm::mat4> transform_stack = {}) {
+	void IRenderable::_Draw(Shader* shader) {
+		// Loop through solid faces, if there is a displacement draw it
 		bool dispDrawn = false;
-		for (auto && s : this->m_sides) {
+		for (auto&& s: this->m_sides) {
 			if (s->m_dispinfo != NULL) {
 				s->m_dispinfo->Draw(shader);
 				dispDrawn = true;
@@ -592,7 +509,7 @@ public:
 		}
 	}
 
-	void IRenderable::SetupDrawable() {
+	void IRenderable::_Init() {
 		std::vector<float> verts;
 		for (auto && s : this->m_sides) {
 			if (s->m_dispinfo != NULL) continue;
@@ -604,35 +521,18 @@ public:
 				glm::vec3* b = &s->m_vertices[j + 1];
 				glm::vec3* a = &s->m_vertices[j + 2];
 
-				verts.push_back(-a->x);
-				verts.push_back(a->z);
-				verts.push_back(a->y);
+				push_vec3(*a, &verts);
+				push_vec3(s->m_plane.normal, &verts);
 
-				verts.push_back(s->m_plane.normal.x);
-				verts.push_back(-s->m_plane.normal.z);
-				verts.push_back(-s->m_plane.normal.y);
+				push_vec3(*b, &verts);
+				push_vec3(s->m_plane.normal, &verts);
 
-				verts.push_back(-b->x);
-				verts.push_back(b->z);
-				verts.push_back(b->y);
-
-				verts.push_back(s->m_plane.normal.x);
-				verts.push_back(-s->m_plane.normal.z);
-				verts.push_back(-s->m_plane.normal.y);
-
-				verts.push_back(-c->x);
-				verts.push_back(c->z);
-				verts.push_back(c->y);
-
-				verts.push_back(s->m_plane.normal.x);
-				verts.push_back(-s->m_plane.normal.z);
-				verts.push_back(-s->m_plane.normal.y);
+				push_vec3(*c, &verts);
+				push_vec3(s->m_plane.normal, &verts);
 			}
 		}
 
 		this->m_mesh = new Mesh(verts, MeshMode::POS_XYZ_NORMAL_XYZ);
-
-		
 	}
 };
 
@@ -646,8 +546,6 @@ public:
 	glm::vec3 m_origin;
 
 	entity (kv::DataBlock* dataSrc) {
-		
-
 		if ((dataSrc->GetFirstByName("solid") == NULL) && (dataSrc->Values.count("origin") == 0))
 			throw std::exception(("origin could not be resolved for entity ID: " + dataSrc->Values["id"]).c_str());
 
@@ -661,21 +559,16 @@ public:
 			this->m_origin = glm::vec3(-this->m_origin.x, this->m_origin.z, this->m_origin.y);
 		}
 		else {
-			for (auto && s : dataSrc->GetAllByName("solid")) {
+			// Process brush entities
+			for (auto&& s: dataSrc->GetAllByName("solid")) {
 				this->m_internal_solids.push_back(solid(s));
 			}
 
 			// Calculate origin
 			glm::vec3 NWU = this->m_internal_solids[0].NWU;
 			glm::vec3 SEL = this->m_internal_solids[0].SEL;
-			for (auto && i : this->m_internal_solids) {
-				NWU.z = glm::max(NWU.z, i.NWU.z);
-				NWU.y = glm::max(NWU.y, i.NWU.y);
-				NWU.x = glm::max(NWU.x, i.NWU.x);
-				SEL.z = glm::min(SEL.z, i.SEL.z);
-				SEL.y = glm::min(SEL.y, i.SEL.y);
-				SEL.x = glm::min(SEL.x, i.SEL.x);
-			}
+			for (auto&& i: this->m_internal_solids)
+				boundary_extend(&NWU, &SEL, i.NWU, i.SEL);
 
 			this->m_origin = (NWU + SEL) * 0.5f;
 		}
@@ -685,17 +578,15 @@ public:
 struct BoundingBox {
 	glm::vec3 NWU;
 	glm::vec3 SEL;
+
+	BoundingBox() {}
+	BoundingBox(glm::vec3 _nwu, glm::vec3 _sel) : NWU(_nwu), SEL(_sel) {}
+
+	// Create an inverted bounding box to push bounds to
+	static BoundingBox inverted_maxs(){
+		return BoundingBox(glm::vec3(-99999.9f, -99999.9f, -99999.9f), glm::vec3(99999.9f, 99999.9f, 99999.9f));
+	}
 };
-
-bool check_in_whitelist(std::vector<unsigned int>* visgroups_in, std::set<unsigned int> filter) {
-	if (filter.count(0xBEEEEEEE)) return true;
-
-	for (auto && vgroup : *visgroups_in)
-		if (filter.count(vgroup))
-			return true;
-
-	return false;
-}
 
 class vmf {
 private:
@@ -721,172 +612,97 @@ public:
 	
 	static std::map<std::string, Mesh*> s_model_dict;
 
-	void LinkVisgroupFlagTranslations(std::map<std::string, TAR_MIBUFFER_FLAGS> map) {
-		for (auto && translation : map) {
-			if (this->m_visgroups.count(translation.first)) {
-				g_visgroup_flag_translations.insert({ this->m_visgroups[translation.first], translation.second });
-			}
-		}
-	}
-
-	static vmf* from_file(const std::string& path, std::map<std::string, TAR_MIBUFFER_FLAGS> translations = {}) {
+	static vmf* from_file(const std::string& path) {
+		LOG_SCOPE_FUNCTION(1);
 		vmf* v = new vmf();
-		prefix = "vmf [" + path + "] ";
-		use_verbose = true;
-		debug("Opening");
 
 		std::ifstream ifs(path);
-		if (!ifs) throw std::exception("355 VMF File read error.");
+		if (!ifs) throw std::exception("VMF File read error.");
 
 		std::string file_str((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
 
-		debug("Processing VMF data");
+		LOG_F(1, "loading filedata");
 		kv::FileData file_kv(file_str);
 
-		debug("Processing visgroups");
+		LOG_F(1, "Processing visgroups");
 		// Process visgroup list
 		for (auto && vg : file_kv.headNode->GetFirstByName("visgroups")->GetAllByName("visgroup")) {
 			v->m_visgroups.insert({ vg->Values["name"], std::stoi(vg->Values["visgroupid"]) });
-			std::cout << "'" << vg->Values["name"] << "': " << std::stoi(vg->Values["visgroupid"]) << "\n";
 		}
-		v->LinkVisgroupFlagTranslations(translations);
 
-		debug("Processing solids");
+		LOG_F(1, "Processing solids");
 		// Solids
 		for (auto && kv_solid : file_kv.headNode->GetFirstByName("world")->GetAllByName("solid")) {
 			v->m_solids.push_back(solid(kv_solid));
 		}
 
-		debug("Processing entities");
+		LOG_F(1, "Processing entities");
 		// Entities
 		for (auto && kv_entity : file_kv.headNode->GetAllByName("entity")) {
 			try {
 				entity ent = entity(kv_entity);
 				v->m_entities.push_back(ent);
 			} catch (std::exception e) {
-				debug("374 ENTITY::EXCEPTION ( ", e.what(), ") ");
+				LOG_F(WARNING, "Entity exception: %s", e.what());
 			}
 		}
 
-		debug("Done!");
+		LOG_F(1, "VMF loaded");
 		return v;
 	}
 
-	void InitModelDict() {
-		for (auto && i : this->m_entities) {
-			switch (hash(i.m_classname.c_str())) {
-			case hash("prop_static"):
-			case hash("prop_dynamic"):
-			case hash("prop_physics"):
-
-				std::string modelName = kv::tryGetStringValue(i.m_keyvalues, "model", "error.mdl");
-				std::string baseName = split(modelName, ".")[0];
-				if (vmf::s_model_dict.count(modelName)) continue; // Skip already defined models
-
-				vtx_mesh* vtx = vmf::s_fileSystem->get_resource_handle<vtx_mesh>(baseName + ".dx90.vtx");
-				vvd_data* vvd = vmf::s_fileSystem->get_resource_handle<vvd_data>(baseName + ".vvd");
-
-				if (vvd == NULL || vtx == NULL) {
-					debug( "Failed to load resource: ", baseName, "\n");
-					continue;
-				}
-
-				// GENERATE MESH TING
-				std::vector<float> meshData;
-				for (auto && vert : vtx->vertexSequence) {
-					meshData.push_back(vvd->verticesLOD0[vert].m_vecPosition.x);
-					meshData.push_back(vvd->verticesLOD0[vert].m_vecPosition.y);
-					meshData.push_back(vvd->verticesLOD0[vert].m_vecPosition.z);
-					meshData.push_back(-vvd->verticesLOD0[vert].m_vecNormal.x);
-					meshData.push_back(vvd->verticesLOD0[vert].m_vecNormal.z);
-					meshData.push_back(vvd->verticesLOD0[vert].m_vecNormal.y);
-				}
-
-				vmf::s_model_dict.insert({ modelName, new Mesh(meshData, MeshMode::POS_XYZ_NORMAL_XYZ) }); // Add to our list
-				break;
-			}
-		}
-	}
-
-	void SetFilters(std::set<std::string> visgroups, std::set<std::string> classnames){
-		this->m_whitelist_visgroups = std::set<unsigned int>{};
-		if (visgroups.size() == 0) this->m_whitelist_visgroups.insert(0xBEEEEEEE);
-		
-		for (auto && vname : visgroups)
-			if (this->m_visgroups.count(vname))
-				this->m_whitelist_visgroups.insert(this->m_visgroups[vname]);
-
-		this->m_whitelist_classnames = classnames;
-	}
-
-	void SetMinMax(float min, float max) {
-		this->m_render_h_min = min;
-		this->m_render_h_max = max;
-	}
-
-	void DrawWorld(Shader* shader, std::vector<glm::mat4> transform_stack = {}, unsigned int infoFlags = 0x00) {
+	void DrawWorld(Shader* shader) {
 		glm::mat4 model = glm::mat4();
-		shader->setMatrix("model", model);
-		shader->setUnsigned("Info", infoFlags);
+		//shader->setMatrix("model", model);
 
 		// Draw solids
 		for (auto && solid : this->m_solids) {
-			if (solid.NWU.y < this->m_render_h_max || solid.NWU.y > this->m_render_h_min) continue;
+			//if (solid.NWU.y < this->m_render_h_max || solid.NWU.y > this->m_render_h_min) continue;
 
-			if (check_in_whitelist(&solid.m_editorvalues.m_visgroups, this->m_whitelist_visgroups)) {
-				shader->setUnsigned("Info", infoFlags);
-				glm::vec2 orgin = glm::vec2(solid.NWU.x + solid.SEL.x, solid.NWU.z + solid.SEL.z) / 2.0f;
-				shader->setVec2("origin", glm::vec2(orgin.x, orgin.y));
-				solid.Draw(shader);
-			}
+			glm::vec2 orgin = glm::vec2(solid.NWU.x + solid.SEL.x, solid.NWU.z + solid.SEL.z) / 2.0f;
+			//shader->setVec2("origin", glm::vec2(orgin.x, orgin.y));
+			solid.Draw(shader);
 		}
 
 		model = glm::mat4();
-		shader->setMatrix("model", model);
+		//shader->setMatrix("model", model);
 		// Draw 
 	}
 
-	void DrawEntities(Shader* shader, std::vector<glm::mat4> transform_stack = {}, unsigned int infoFlags = 0x00) {
+	void DrawEntities(Shader* shader, glm::mat4 transformMatrix, glm::mat4 matrixFinalApplyTransform) {
 		glm::mat4 model = glm::mat4();
 		shader->setMatrix("model", model);
-		shader->setUnsigned("Info", infoFlags);
 
 		// Draw props
 		for (auto && ent : this->m_entities) {
-			// Visgroup pre-check
-			if (check_in_whitelist(&ent.m_editorvalues.m_visgroups, this->m_whitelist_visgroups)) {
-				if (this->m_whitelist_classnames.count(ent.m_classname)) {
-					if (ent.m_classname == "prop_static" ||
-						ent.m_classname == "prop_dynamic" ||
-						ent.m_classname == "prop_physics" ) {
-						if (ent.m_origin.y > this->m_render_h_min || ent.m_origin.y < this->m_render_h_max) continue;
+			// Check if we can actually draw this object currently :)
+			if (ent.m_classname == "prop_static" ||
+				ent.m_classname == "prop_dynamic" ||
+				ent.m_classname == "prop_physics" ) {
+				if (ent.m_origin.y > this->m_render_h_min || ent.m_origin.y < this->m_render_h_max) continue;
 
-						model = glm::mat4();
-						model = glm::translate(model, ent.m_origin);
-						glm::vec3 rot;
-						vmf_parse::Vector3f(kv::tryGetStringValue(ent.m_keyvalues, "angles", "0 0 0"), &rot);
-						model = glm::rotate(model, glm::radians(rot.y), glm::vec3(0, 1, 0)); // Yaw 
-						model = glm::rotate(model, glm::radians(rot.x), glm::vec3(0, 0, 1)); // ROOOOOLLLLL
-						model = glm::rotate(model, -glm::radians(rot.z), glm::vec3(1, 0, 0)); // Pitch 
-						model = glm::scale(model, glm::vec3(::atof(kv::tryGetStringValue(ent.m_keyvalues, "uniformscale", "1").c_str())));
-						shader->setMatrix("model", model);
-						shader->setUnsigned("Info", infoFlags);
-						shader->setVec2("origin", glm::vec2(ent.m_origin.x, ent.m_origin.z));
+				model = glm::mat4();
+				model = glm::translate(model, ent.m_origin);
+				glm::vec3 rot;
+				vmf_parse::Vector3f(kv::tryGetStringValue(ent.m_keyvalues, "angles", "0 0 0"), &rot);
+				model = glm::rotate(model, glm::radians(rot.y), glm::vec3(0, 1, 0)); // Yaw 
+				model = glm::rotate(model, glm::radians(rot.x), glm::vec3(0, 0, 1)); // ROOOOOLLLLL
+				model = glm::rotate(model, -glm::radians(rot.z), glm::vec3(1, 0, 0)); // Pitch 
+				model = glm::scale(model, glm::vec3(::atof(kv::tryGetStringValue(ent.m_keyvalues, "uniformscale", "1").c_str())));
+				shader->setMatrix("model", model);
+				shader->setVec2("origin", glm::vec2(ent.m_origin.x, ent.m_origin.z));
 
-						if(vmf::s_model_dict.count(kv::tryGetStringValue(ent.m_keyvalues, "model", "error.mdl")))
-							vmf::s_model_dict[kv::tryGetStringValue(ent.m_keyvalues, "model", "error.mdl")]->Draw();
-					}
-					else {
-						model = glm::mat4();
-						shader->setMatrix("model", model);
-						shader->setUnsigned("Info", infoFlags);
+				if(vmf::s_model_dict.count(kv::tryGetStringValue(ent.m_keyvalues, "model", "error.mdl")))
+					vmf::s_model_dict[kv::tryGetStringValue(ent.m_keyvalues, "model", "error.mdl")]->Draw();
+			}
+			else {
+				model = glm::mat4();
+				shader->setMatrix("model", model);
 
-						for (auto && s : ent.m_internal_solids) {
-							if (s.NWU.y > this->m_render_h_min || s.NWU.y < this->m_render_h_max) continue;
-							shader->setVec2("origin", glm::vec2(ent.m_origin.x, ent.m_origin.z));
-							s.Draw(shader);
-						}
-					}
+				for (auto && s : ent.m_internal_solids) {
+					if (s.NWU.y > this->m_render_h_min || s.NWU.y < this->m_render_h_max) continue;
+					shader->setVec2("origin", glm::vec2(ent.m_origin.x, ent.m_origin.z));
+					s.Draw(shader);
 				}
 			}
 		}
@@ -894,42 +710,20 @@ public:
 		// Resets 
 		model = glm::mat4();
 		shader->setMatrix("model", model);
-		shader->setUnsigned("Info", infoFlags);
 	}
 
+	// Calculate boundaries of a visgroup
 	BoundingBox getVisgroupBounds(const std::string& visgroup) {
-		BoundingBox bounds;
+		BoundingBox bounds = BoundingBox::inverted_maxs();
 		if (!this->m_visgroups.count(visgroup)) return bounds;
 
 		unsigned int vgroup = this->m_visgroups[visgroup];
-
-		bounds.NWU = glm::vec3(
-			-999999.0f,
-			-999999.0f,
-			-999999.0f);
-
-		bounds.SEL = glm::vec3(
-			999999.0f,
-			999999.0f,
-			999999.0f);
-
-		for (auto && iSolid : this->m_solids) {
-			if (!check_in_whitelist(&iSolid.m_editorvalues.m_visgroups, std::set<unsigned int>{ vgroup })) continue;
-			if (iSolid.NWU.z > bounds.NWU.z) bounds.NWU.z = iSolid.NWU.z;
-			if (iSolid.NWU.y > bounds.NWU.y) bounds.NWU.y = iSolid.NWU.y;
-			if (iSolid.NWU.x > bounds.NWU.x) bounds.NWU.x = iSolid.NWU.x;
-
-			if (iSolid.SEL.z < bounds.SEL.z) bounds.SEL.z = iSolid.SEL.z;
-			if (iSolid.SEL.y < bounds.SEL.y) bounds.SEL.y = iSolid.SEL.y;
-			if (iSolid.SEL.x < bounds.SEL.x) bounds.SEL.x = iSolid.SEL.x;
-		}
-
-		std::cout << "Bounds MAXY: " << bounds.NWU.y << "\n";
-		std::cout << "Bounds MINY: " << bounds.SEL.y << "\n";
+		for (auto && iSolid : this->m_solids) boundary_extend(&bounds.NWU, &bounds.SEL, iSolid.NWU, iSolid.SEL);
 
 		return bounds;
 	}
 
+	// Calculate spawn points average location, based on the highest(0 high) priority group
 	glm::vec3* calculateSpawnAVG_PMIN(const std::string& classname) {
 		std::vector<entity*> spawns = this->get_entities_by_classname(classname);
 
@@ -937,15 +731,15 @@ public:
 
 		//Find lowest priority (highest)
 		int lowest = kv::tryGetValue<int>(spawns[0]->m_keyvalues, "priority", 0);
-		for (auto && s : spawns) {
+		for (auto&& s: spawns) {
 			int l = kv::tryGetValue<int>(s->m_keyvalues, "priority", 0);
-			lowest = l < lowest ? l : lowest;
+			lowest = l < lowest? l: lowest;
 		}
 
 		//Collect all spawns with that priority
 		glm::vec3* location = new glm::vec3();
 		int c = 0;
-		for (auto && s : spawns) {
+		for (auto&& s: spawns) {
 			if (kv::tryGetValue<int>(s->m_keyvalues, "priority", 0) == lowest) {
 				*location += s->m_origin; c++;
 			}

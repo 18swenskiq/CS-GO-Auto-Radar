@@ -9,6 +9,7 @@
 #include <chrono>
 
 #include "Util.h"
+#include "loguru.hpp"
 
 #define _USE_REGEX
 
@@ -161,21 +162,15 @@ namespace kv{
 	public:
 		DataBlock* headNode;
 
-		FileData(std::string filestring)
-		{
+		FileData(std::string filestring){
+			LOG_SCOPE_FUNCTION(1);
+			LOG_F(1, "Reading VDF");
+
 			std::istringstream sr(filestring);
-
-			auto start = std::chrono::high_resolution_clock::now();
-
 			this->headNode = new DataBlock(&sr, "");
-
-			auto elapsed = std::chrono::high_resolution_clock::now() - start;
-			long long milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
-			std::cout << "KV Read time: " << milliseconds << "ms" << std::endl;
 		}
 
-		FileData()
-		{
+		FileData(){
 
 		}
 

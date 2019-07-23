@@ -68,17 +68,18 @@ public:
 		this->searchPaths.push_back(this->dir_gamedir);
 
 		// Look for pak01_dir.vpk in all search paths
-		for (auto && sp : this->searchPaths) {
+		for (auto&& sp: this->searchPaths) {
 			if (fs::checkFileExist((sp + "pak01_dir.vpk").c_str())) {
+				LOG_F(INFO, "Loading vpk index");
 				this->vpkIndex = new vpk::index(sp + "pak01_dir.vpk");
 				goto IL_FOUND;
 			}
 		}
 
-		std::cout << "Warning: could not find pak01_dir.vpk...\n";
+		LOG_F(WARNING, "Could not find pak01_dir.vpk");
 
 	IL_FOUND:
-		std::cout << "Finished setting up filesystem.\n";
+		LOG_F(INFO, "Filesystem initialized");
 	}
 
 	/* Create a file handle on an existing resource file. Could be from vpk, could be from custom. Returns null if not found */

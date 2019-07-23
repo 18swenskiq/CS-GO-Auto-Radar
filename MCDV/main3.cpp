@@ -9,6 +9,7 @@
 // Source SDK
 #include "vfilesys.hpp"
 #include "studiomdl.hpp"
+#include "vmf_new.hpp"
 
 #include <glad\glad.h>
 #include <GLFW\glfw3.h>
@@ -20,11 +21,14 @@
 #include <glm\gtc\matrix_transform.hpp>
 #include <glm\gtc\type_ptr.hpp>
 
+void opengl_dbgMsg_callback(GLenum src, GLenum type, GLenum id, GLenum severity, GLsizei length, const GLchar* msg, void* userParam);
+
 int g_renderWidth = 1024;
 int g_renderHeight = 1024;
 
 // Source sdk config
 std::string g_game_path = "D:/SteamLibrary/steamapps/common/Counter-Strike Global Offensive/csgo";
+std::string g_mapfile_path = "sample_stuff/de_tavr_test";
 
 void setupconsole();
 
@@ -47,6 +51,7 @@ int app(int argc, char** argv) {
 #pragma region Source_SDK_setup
 
 	vfilesys* filesys = new vfilesys(g_game_path + "/gameinfo.txt");
+	vmf* g_vmf_file = vmf::from_file(g_mapfile_path + ".vmf");
 
 #pragma endregion
 
@@ -85,6 +90,8 @@ int app(int argc, char** argv) {
 	
 	LOG_F(1, "OpenGL context: ", glver);
 
+	
+
 #pragma endregion
 
 #pragma region Opengl_setup2
@@ -109,6 +116,7 @@ int app(int argc, char** argv) {
 	
 	glm::mat4 sourcesdk_transform = glm::mat4(1.0f);
 	sourcesdk_transform = glm::rotate(sourcesdk_transform, glm::radians(-90.0f), glm::vec3(1, 0, 0));
+	sourcesdk_transform = glm::scale(sourcesdk_transform, glm::vec3(0.03f));
 
 	g_shader_test->use();
 	g_shader_test->setMatrix("projection", projm);
@@ -127,6 +135,8 @@ int app(int argc, char** argv) {
 
 		testmdl->Bind();
 		testmdl->Draw();
+
+		g_vmf_file->DrawWorld(g_shader_test);
 
 		glfwPollEvents();
 		glfwSwapBuffers(window);
@@ -159,6 +169,10 @@ void setupconsole() {
 // NVIDIA Optimus systems
 extern "C" {
 	_declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
+}
+
+void opengl_dbgMsg_callback(GLenum src, GLenum type, GLenum id, GLenum severity, GLsizei length, const GLchar* msg, void* userParam) {
+	LOG_F(WARNING, "OpenGL message: %s", msg);
 }
 
 #endif

@@ -7,16 +7,13 @@
 
 class IRenderable {
 public:
-	glm::vec3 position;
-	glm::vec3 eulerAngles;
+	bool isGen = false;
 
-	Mesh* m_mesh = NULL;
-
-	virtual void _Draw(Shader* shader, std::vector<glm::mat4> transform_stack = {}) = 0;
-	virtual void SetupDrawable() = 0;
+	virtual void _Draw(Shader* shader) = 0;
+	virtual void _Init() = 0;
 
 	void Draw(Shader* shader) {
-		if (this->m_mesh == NULL) SetupDrawable();
+		if (!this->isGen) { this->_Init(); this->isGen = true; };
 		this->_Draw(shader);
 	}
 };

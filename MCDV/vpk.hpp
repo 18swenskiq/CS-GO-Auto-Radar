@@ -4,10 +4,10 @@
 #include <iostream>
 #include <vector>
 #include "util.h"
+#include "loguru.hpp"
 
 #pragma pack(push, 1)
-namespace vpk
-{
+namespace vpk{
 	std::string get_sz(std::ifstream* stream) {
 		std::string out = "";
 		while (true) {
@@ -72,6 +72,8 @@ namespace vpk
 		std::vector<vEntry> entries;
 
 		index(std::string path) {
+			LOG_SCOPE_FUNCTION(1);
+
 			//Create main file handle
 			std::ifstream reader(path, std::ios::in | std::ios::binary);
 
@@ -82,15 +84,10 @@ namespace vpk
 			//Read header
 			reader.read((char*)&this->header, sizeof(this->header));
 
-			std::cout << "Version: " << this->header.Version << "\n";
-			std::cout << "TreeSize: " << this->header.TreeSize << "\n";
-
-			//std::ofstream f;
-			//f.open("vpk.txt");
+			LOG_F(1, "VPK Index Version: %u, treesize: %u", this->header.Version, this->header.TreeSize);
 
 			while (true) {
 				std::string extension = get_sz(&reader);
-				std::cout << "   *." << extension << "\n";
 				if (extension == "") break;
 
 				while (true) {
@@ -114,27 +111,21 @@ namespace vpk
 						}
 
 						entry.entryString = folder + "/" + filename + "." + extension;
-						//f << folder + "/" + filename + "." + extension << "\n";
-
 						this->entries.push_back(entry);
 					}
 				}
 			}
 
 		IL_EXIT:
-
-			//f.close();
-
-			std::cout << "Done reading\n";
-			std::cout << this->entries.size() << " entries read\n";
-
+			LOG_F(1, "Done reading %u entries", this->entries.size());
+			
 			reader.close();
 		}
 
 		vEntry* find(std::string name) {
 			// All files in vpk are stored in lowercase.
 			std::string search = sutil::to_lower(name);
-			for (auto && v : this->entries) {
+			for (auto&& v: this->entries) {
 				if (v.entryString == search) {
 					return &v;
 				}

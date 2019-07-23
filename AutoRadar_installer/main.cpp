@@ -12,6 +12,9 @@
 
 #include "FileSystemHelper.h"
 
+#include "..\MCDV\loguru.hpp"
+#include "..\MCDV\loguru.cpp"
+
 std::string steam_install_path = "C:\\Program Files (x86)\\Steam\\";
 std::string csgo_sdk_bin_path = "";
 
@@ -83,7 +86,7 @@ std::vector<std::string> get_library_folders_from_vdf(std::string vdf) {
 		std::string str((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
 		kv::FileData libFolders(str);
 
-		kv::DataBlock* libFoldersDB = libFolders.headNode.GetFirstByName("\"LibraryFolders\"");
+		kv::DataBlock* libFoldersDB = libFolders.headNode->GetFirstByName("\"LibraryFolders\"");
 
 		if (libFoldersDB != NULL) {
 			int index = 0;
@@ -151,7 +154,7 @@ int main(int argc, const char** argv) {
 	
 	std::string vinfo_str((std::istreambuf_iterator<char>(ifs_vinfo)), std::istreambuf_iterator<char>());
 	kv::FileData vinfo(vinfo_str);
-	kv::DataBlock* vinfodata = vinfo.headNode.SubBlocks[0];
+	kv::DataBlock* vinfodata = vinfo.headNode->SubBlocks[0];
 
 	cc::fancy(); std::cout << "Installing version: " << vinfodata->Values["version"] << "\n";
 	cc::reset();
@@ -312,7 +315,7 @@ IL_PRE_INSTALL:
 		std::string str_gameconfig((std::istreambuf_iterator<char>(ifs_gameconfig)), std::istreambuf_iterator<char>());
 		kv::FileData gameConfig(str_gameconfig);
 
-		kv::DataBlock* hammerBlock = gameConfig.headNode.SubBlocks[0]->GetFirstByName("\"Games\"")->GetFirstByName("\"Counter-Strike: Global Offensive\"")->GetFirstByName("\"Hammer\"");
+		kv::DataBlock* hammerBlock = gameConfig.headNode->SubBlocks[0]->GetFirstByName("\"Games\"")->GetFirstByName("\"Counter-Strike: Global Offensive\"")->GetFirstByName("\"Hammer\"");
 		int freeIndex = -1;
 
 		for (auto && newEntry : vinfodata->GetAllByName("HammerVGDRegistry")){
@@ -334,7 +337,7 @@ IL_PRE_INSTALL:
 
 		std::cout << "Saving GameConfig.cfg\n";
 		std::ofstream out(std::string(csgo_sdk_bin_path + "GameConfig.txt").c_str());
-		gameConfig.headNode.SubBlocks[0]->Serialize(out);
+		gameConfig.headNode->SubBlocks[0]->Serialize(out);
 	}
 
 #pragma endregion
