@@ -226,7 +226,7 @@ public:
 
 		// Match 'starting point'
 		std::map<float, glm::vec3*> distancesToStart;
-		for (auto && p : this->m_source_side->m_vertices)
+		for (auto&& p: this->m_source_side->m_vertices)
 			distancesToStart.insert({ glm::distance(this->startposition, p), &p });
 
 		// The corners of displacement
@@ -234,7 +234,7 @@ public:
 
 		// Find what point in vector it was
 		int pos = 0;
-		for (auto && point : this->m_source_side->m_vertices)
+		for (auto&& point: this->m_source_side->m_vertices)
 			if (&point == SW) break; else pos++;
 
 		// Get the rest of the points, in clockwise order (they should already be sorted by polytope generation)
@@ -250,10 +250,10 @@ public:
 		std::vector<glm::vec3> finalPoints;
 		std::vector<glm::vec3> finalNormals;
 
+		// Iterate points
 		for (int row = 0; row < points; row++) {
 			for (int col = 0; col < points; col++) {
 				//Generate original base points
-
 				float dx = (float)col / (float)(points - 1); //Time values for linear interpolation
 				float dy = (float)row / (float)(points - 1);
 
@@ -268,25 +268,33 @@ public:
 			}
 		}
 
+		// Just because.. 
+		finalNormals.reserve(finalPoints.size());
+
+		// Computing smooth normals from points
 		for (int row = 0; row < points; row++) {
 			for (int col = 0; col < points; col++) {
 				std::vector<glm::vec3*> kernalpts = { NULL, NULL, NULL, NULL };
 
+				// Gather kernal (NESW points)
 				if((row + 1) < points)	kernalpts[0] = &finalPoints[((row + 1) * points) + (col + 0)];
 				if((col - 1) >= 0)		kernalpts[1] = &finalPoints[((row + 0) * points) + (col - 1)];
 				
 				if((row - 1) >= 0)		kernalpts[2] = &finalPoints[((row - 1) * points) + (col + 0)];
 				if((col + 1) < points)	kernalpts[3] = &finalPoints[((row + 0) * points) + (col + 1)];
 
+				// This point.
 				glm::vec3* A = &finalPoints[((row + 0) * points) + (col + 0)];
 				glm::vec3 cNorm = glm::vec3(0, 0, 0);
 
 				int c = 0;
+				// Iterate kernel
 				for (int t = 0; t < 4; t++) {
 					glm::vec3* B = kernalpts[(t + 0) % 4];
 					glm::vec3* C = kernalpts[(t + 1) % 4];
 
 					if ((B != NULL) && (C != NULL)) {
+						// calculate surface normal for respective tri.
 						glm::vec3 v0 = *A - *C;
 						glm::vec3 v1 = *B - *C;
 						glm::vec3 n = glm::cross(v0, v1);
@@ -295,11 +303,13 @@ public:
 					}
 				}
 
+				// average normal & push.
 				cNorm /= c;
 				finalNormals.push_back(glm::vec3(-cNorm.x, -cNorm.y, -cNorm.z));
 			}
 		}
 
+		// Build mesh data from point & normal arrays
 		int i_condition = 0;
 		for (int row = 0; row < points - 1; row++) {
 			for (int col = 0; col < points - 1; col++) {
