@@ -110,13 +110,16 @@ int app(int argc, char** argv) {
 
 	if (testmdl == NULL) throw std::exception("Model not loadey");
 
+	glm::vec3 pos = glm::vec3(0.0, 4224.0, -4224.0);
+	glm::vec3 dir = glm::normalize(glm::vec3(0.0, -1.0, 1.0));
+
 	// Create test camera
 	glm::mat4 projm = glm::perspective(glm::radians(45.0f / 2.0f), (float)1024 / (float)1024, 32.0f, 100000.0f);
-	glm::mat4 viewm = glm::lookAt(glm::vec3(0.0, 32.0, -256.0), glm::vec3(0, 32.0, -255.0), glm::vec3(0, 1, 0));
+	glm::mat4 viewm = glm::lookAt(pos, pos+dir, glm::vec3(0, 1, 0));
 	
 	glm::mat4 sourcesdk_transform = glm::mat4(1.0f);
 	sourcesdk_transform = glm::rotate(sourcesdk_transform, glm::radians(-90.0f), glm::vec3(1, 0, 0));
-	sourcesdk_transform = glm::scale(sourcesdk_transform, glm::vec3(0.03f));
+	//sourcesdk_transform = glm::scale(sourcesdk_transform, glm::vec3(0.03f));
 
 	g_shader_test->use();
 	g_shader_test->setMatrix("projection", projm);
@@ -136,7 +139,7 @@ int app(int argc, char** argv) {
 		testmdl->Bind();
 		testmdl->Draw();
 
-		g_vmf_file->DrawWorld(g_shader_test);
+		g_vmf_file->DrawWorld(g_shader_test, glm::mat4(1.0f), sourcesdk_transform);
 
 		glfwPollEvents();
 		glfwSwapBuffers(window);

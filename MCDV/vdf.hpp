@@ -23,13 +23,13 @@ namespace kv{
 		return static_cast<T>(::atof(map[key].c_str()));
 	}
 
-	std::string tryGetStringValue(std::map<std::string, std::string> map, const char* key, std::string defaultValue = "") {
+	std::string tryGetStringValue(std::map<std::string, std::string>& map, const char* key, const std::string& defaultValue = "") {
 		if (!map.count(key)) return defaultValue;
 		return map[key];
 	}
 
 	/* Create list from map and key */
-	std::vector<std::string> getList(std::map<std::string, std::string> map, const char* key) {
+	std::vector<std::string> getList(std::map<std::string, std::string>& map, const char* key) {
 		std::vector<std::string> list;
 
 		int vc = -1;

@@ -4,6 +4,7 @@
 #include <fstream>
 #include <sstream>
 #include "vdf.hpp"
+#include <filesystem>
 
 // stl containers
 #include <vector>
@@ -442,13 +443,13 @@ public:
 					// Check if we are part of the solid using simple polarity checks
 					bool inbounds = true;
 					for (auto && m : this->m_sides) {
-						if (Plane::EvalPointPolarity(m->m_plane, p) < -0.01f) {
+						if (Plane::EvalPointPolarity(m->m_plane, p) < -0.15f) {
 							inbounds = false;
 							break;
 						}
 					} if (!inbounds) continue;
 
-					// Check if there is already a very similar vertex, and skip it
+					// Check if there is already a very similar vertex (within .5 u), and skip it
 					bool similar = false;
 					for (auto && v : intersecting) 
 						if (glm::distance(v, p) < 0.5f) {
@@ -509,6 +510,8 @@ public:
 		}
 	}
 
+	// Lazy load OpenGL meshes. 
+	// (Since we are not time-critical and helpful to keep this function seperate)
 	void IRenderable::_Init() {
 		std::vector<float> verts;
 		for (auto && s : this->m_sides) {
@@ -556,7 +559,6 @@ public:
 		
 		if (dataSrc->GetFirstByName("solid") == NULL) {
 			vmf_parse::Vector3f(dataSrc->Values["origin"], &this->m_origin);
-			this->m_origin = glm::vec3(-this->m_origin.x, this->m_origin.z, this->m_origin.y);
 		}
 		else {
 			// Process brush entities
@@ -605,16 +607,16 @@ public:
 
 	std::map<std::string, unsigned int> m_visgroups;
 
-	std::set<unsigned int> m_whitelist_visgroups;
-	std::set<std::string> m_whitelist_classnames;
-	float m_render_h_max = 10000.0f;
-	float m_render_h_min = -10000.0f;
-	
-	static std::map<std::string, Mesh*> s_model_dict;
+	std::map<std::string, vmf*> m_sub_vmfs;
+
+	std::string folder = "";
 
 	static vmf* from_file(const std::string& path) {
 		LOG_SCOPE_FUNCTION(1);
 		vmf* v = new vmf();
+
+		// Get folder for relative paths
+		v->folder = std::filesystem::path(path).remove_filename().generic_string();
 
 		std::ifstream ifs(path);
 		if (!ifs) throw std::exception("VMF File read error.");
@@ -647,26 +649,66 @@ public:
 			}
 		}
 
+		LOG_F(1, "Pre-loading sub-vmfs");
+
+		// Preload Sub-VMFs (instances)
+		for(auto&& insEnt: v->get_entities_by_classname("func_instance")){
+			std::string filename = kv::tryGetStringValue(insEnt->m_keyvalues, "file", "");
+			if (v->m_sub_vmfs.count(filename)) continue; // skip defined sub-vmfs
+
+			if (filename == "") {
+				LOG_F(WARNING, "'file' attribute not set on entity: func_instance");
+				v->m_sub_vmfs.insert({ filename, NULL }); // so we dont miss map reads
+				continue;
+			}
+
+			// Try open the vmf
+			try {
+				vmf* vptr = vmf::from_file(v->folder + "/" + filename);
+				v->m_sub_vmfs.insert({ filename, vptr });
+			}
+			catch (const std::exception& e) {
+				LOG_F(WARNING, "Sub-vmf failed to load: '%s'", e.what());
+				v->m_sub_vmfs.insert({ filename, NULL });
+			}
+		}
+
 		LOG_F(1, "VMF loaded");
 		return v;
 	}
 
-	void DrawWorld(Shader* shader) {
-		glm::mat4 model = glm::mat4();
-		//shader->setMatrix("model", model);
+	void DrawWorld(Shader* shader, glm::mat4 transformMatrix, glm::mat4 matrixFinalApplyTransform) {
+		shader->setMatrix("model", transformMatrix * matrixFinalApplyTransform);
 
 		// Draw solids
 		for (auto && solid : this->m_solids) {
-			//if (solid.NWU.y < this->m_render_h_max || solid.NWU.y > this->m_render_h_min) continue;
-
-			glm::vec2 orgin = glm::vec2(solid.NWU.x + solid.SEL.x, solid.NWU.z + solid.SEL.z) / 2.0f;
+			//glm::vec2 orgin = glm::vec2(solid.NWU.x + solid.SEL.x, solid.NWU.z + solid.SEL.z) / 2.0f;
 			//shader->setVec2("origin", glm::vec2(orgin.x, orgin.y));
+
 			solid.Draw(shader);
 		}
 
-		model = glm::mat4();
-		//shader->setMatrix("model", model);
-		// Draw 
+		// Draw instances (recursive)
+		for(auto&& instance: this->get_entities_by_classname("func_instance")){
+			glm::mat4 tModel = glm::mat4(1.0f);
+
+			glm::vec3 rot;
+			vmf_parse::Vector3f(kv::tryGetStringValue(instance->m_keyvalues, "angles", "0 0 0"), &rot);
+
+			// OpenGL uses right handed (z negative is forwards). Y will be flipped to Z when drawing.
+			tModel = glm::translate(tModel, glm::vec3(instance->m_origin.x, instance->m_origin.z, -instance->m_origin.y)); 
+
+			// Yaw: Y
+			// Pitch: X
+			// Roll: Z
+			
+			tModel = glm::rotate(tModel, glm::radians(rot.y), glm::vec3(0, 1, 0)); // yaw
+			tModel = glm::rotate(tModel, glm::radians(-rot.x), glm::vec3(0, 0, 1)); // pitch
+			tModel = glm::rotate(tModel, glm::radians(rot.z), glm::vec3(1, 0, 0)); // rollzsd
+			
+			vmf* ptrvmf = this->m_sub_vmfs[kv::tryGetStringValue(instance->m_keyvalues, "file", "")];
+			if (ptrvmf != NULL) { ptrvmf->DrawWorld(shader, transformMatrix * tModel, matrixFinalApplyTransform); }
+		}
 	}
 
 	void DrawEntities(Shader* shader, glm::mat4 transformMatrix, glm::mat4 matrixFinalApplyTransform) {
@@ -679,7 +721,6 @@ public:
 			if (ent.m_classname == "prop_static" ||
 				ent.m_classname == "prop_dynamic" ||
 				ent.m_classname == "prop_physics" ) {
-				if (ent.m_origin.y > this->m_render_h_min || ent.m_origin.y < this->m_render_h_max) continue;
 
 				model = glm::mat4();
 				model = glm::translate(model, ent.m_origin);
@@ -691,16 +732,12 @@ public:
 				model = glm::scale(model, glm::vec3(::atof(kv::tryGetStringValue(ent.m_keyvalues, "uniformscale", "1").c_str())));
 				shader->setMatrix("model", model);
 				shader->setVec2("origin", glm::vec2(ent.m_origin.x, ent.m_origin.z));
-
-				if(vmf::s_model_dict.count(kv::tryGetStringValue(ent.m_keyvalues, "model", "error.mdl")))
-					vmf::s_model_dict[kv::tryGetStringValue(ent.m_keyvalues, "model", "error.mdl")]->Draw();
 			}
 			else {
 				model = glm::mat4();
 				shader->setMatrix("model", model);
 
 				for (auto && s : ent.m_internal_solids) {
-					if (s.NWU.y > this->m_render_h_min || s.NWU.y < this->m_render_h_max) continue;
 					shader->setVec2("origin", glm::vec2(ent.m_origin.x, ent.m_origin.z));
 					s.Draw(shader);
 				}
@@ -763,5 +800,4 @@ public:
 };
 
 vfilesys* vmf::s_fileSystem = NULL;
-std::map<std::string, Mesh*> vmf::s_model_dict;
 std::map<std::string, material*> material::m_index;
