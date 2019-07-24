@@ -72,9 +72,11 @@ public:
 				meshData.push_back(vert.m_vecPosition.x);
 				meshData.push_back(vert.m_vecPosition.y);
 				meshData.push_back(vert.m_vecPosition.z);
+
 				meshData.push_back(vert.m_vecNormal.x);
 				meshData.push_back(vert.m_vecNormal.y);
 				meshData.push_back(vert.m_vecNormal.z);
+
 				meshData.push_back(vert.m_vecTexCoord.x);
 				meshData.push_back(vert.m_vecTexCoord.y);
 			}

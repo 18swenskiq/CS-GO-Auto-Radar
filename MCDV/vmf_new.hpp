@@ -32,6 +32,7 @@
 
 // Source sdk
 #include "vfilesys.hpp"
+#include "studiomdl.hpp"
 
 #undef min
 #undef max
@@ -271,16 +272,17 @@ public:
 			for (int col = 0; col < points; col++) {
 				std::vector<glm::vec3*> kernalpts = { NULL, NULL, NULL, NULL };
 
-				if(row + 1 < points)	kernalpts[0] = &finalPoints[((row + 1) * points) + (col + 0)];
-				if(col - 1 > 0)			kernalpts[1] = &finalPoints[((row + 0) * points) + (col - 1)];
+				if((row + 1) < points)	kernalpts[0] = &finalPoints[((row + 1) * points) + (col + 0)];
+				if((col - 1) >= 0)		kernalpts[1] = &finalPoints[((row + 0) * points) + (col - 1)];
 				
-				if(row - 1 > 0)			kernalpts[2] = &finalPoints[((row - 1) * points) + (col + 0)];
-				if(col + 1 < points)	kernalpts[3] = &finalPoints[((row + 0) * points) + (col + 1)];
+				if((row - 1) >= 0)		kernalpts[2] = &finalPoints[((row - 1) * points) + (col + 0)];
+				if((col + 1) < points)	kernalpts[3] = &finalPoints[((row + 0) * points) + (col + 1)];
 
 				glm::vec3* A = &finalPoints[((row + 0) * points) + (col + 0)];
-				glm::vec3 cNorm = glm::vec3(1, 0, 0);
+				glm::vec3 cNorm = glm::vec3(0, 0, 0);
 
-				for (int t = 0; t < 1; t++) {
+				int c = 0;
+				for (int t = 0; t < 4; t++) {
 					glm::vec3* B = kernalpts[(t + 0) % 4];
 					glm::vec3* C = kernalpts[(t + 1) % 4];
 
@@ -289,10 +291,12 @@ public:
 						glm::vec3 v1 = *B - *C;
 						glm::vec3 n = glm::cross(v0, v1);
 						cNorm += glm::normalize(n);
+						c++;
 					}
 				}
 
-				finalNormals.push_back(glm::normalize(cNorm));
+				cNorm /= c;
+				finalNormals.push_back(glm::vec3(-cNorm.x, -cNorm.y, -cNorm.z));
 			}
 		}
 
@@ -315,44 +319,44 @@ public:
 				if (i_condition++ % 2 == 0) { //Condition 0
 					glm::vec3 n1 = get_normal(*SW, *NW, *NE);
 					push_vec3(*NE, &meshData);
-					push_vec3(n1,  &meshData);
+					push_vec3(*NE_N,  &meshData);
 
 					push_vec3(*NW, &meshData);
-					push_vec3(n1,  &meshData);
+					push_vec3(*NW_N,  &meshData);
 
 					push_vec3(*SW, &meshData);
-					push_vec3(n1,  &meshData);
+					push_vec3(*SW_N,  &meshData);
 
 					glm::vec3 n2 = get_normal(*SW, *NE, *SE);
 					push_vec3(*SE, &meshData);
-					push_vec3(n2,  &meshData);
+					push_vec3(*SE_N,  &meshData);
 
 					push_vec3(*NE, &meshData);
-					push_vec3(n2,  &meshData);
+					push_vec3(*NE_N,  &meshData);
 
 					push_vec3(*SW, &meshData);
-					push_vec3(n2,  &meshData);
+					push_vec3(*SW_N,  &meshData);
 				}
 				else { //Condition 1
 					glm::vec3 n1 = get_normal(*SW, *NW, *SE);
 					push_vec3(*SE, &meshData);
-					push_vec3(n1,  &meshData);
+					push_vec3(*SE_N,  &meshData);
 
 					push_vec3(*NW, &meshData);
-					push_vec3(n1,  &meshData);
+					push_vec3(*NW_N,  &meshData);
 
 					push_vec3(*SW, &meshData);
-					push_vec3(n1,  &meshData);
+					push_vec3(*SW_N,  &meshData);
 
 					glm::vec3 n2 = get_normal(*NW, *NE, *SE);
 					push_vec3(*SE, &meshData);
-					push_vec3(n2,  &meshData);
+					push_vec3(*SE_N,  &meshData);
 
 					push_vec3(*NE, &meshData);
-					push_vec3(n2,  &meshData);
+					push_vec3(*NE_N,  &meshData);
 
 					push_vec3(*NW, &meshData);
-					push_vec3(n2,  &meshData);
+					push_vec3(*NW_N,  &meshData);
 				}
 #pragma endregion
 			}
@@ -514,24 +518,29 @@ public:
 	// (Since we are not time-critical and helpful to keep this function seperate)
 	void IRenderable::_Init() {
 		std::vector<float> verts;
-		for (auto && s : this->m_sides) {
+		for (auto&& s: this->m_sides) {
 			if (s->m_dispinfo != NULL) continue;
 			if (s->m_vertices.size() < 3) continue;
 			if (!s->m_texture->draw) continue;
 
+			glm::vec3 nrm = glm::vec3(
+				-s->m_plane.normal.x,
+				-s->m_plane.normal.y,
+				-s->m_plane.normal.z);
+			
 			for (int j = 0; j < s->m_vertices.size() - 2; j++) {
 				glm::vec3* c = &s->m_vertices[0];
 				glm::vec3* b = &s->m_vertices[j + 1];
 				glm::vec3* a = &s->m_vertices[j + 2];
 
 				push_vec3(*a, &verts);
-				push_vec3(s->m_plane.normal, &verts);
+				push_vec3(nrm, &verts);
 
 				push_vec3(*b, &verts);
-				push_vec3(s->m_plane.normal, &verts);
+				push_vec3(nrm, &verts);
 
 				push_vec3(*c, &verts);
-				push_vec3(s->m_plane.normal, &verts);
+				push_vec3(nrm, &verts);
 			}
 		}
 
@@ -686,6 +695,46 @@ public:
 			//shader->setVec2("origin", glm::vec2(orgin.x, orgin.y));
 
 			solid.Draw(shader);
+		}
+
+		// Draw models
+		for (auto&& ent: this->m_entities) {
+			// Check if we can actually draw this object currently :)
+			if (ent.m_classname == "prop_static" ||
+				ent.m_classname == "prop_dynamic" ||
+				ent.m_classname == "prop_physics") {
+
+				glm::mat4 tModel = glm::mat4(1.0f);
+
+				tModel = glm::mat4();
+				tModel = glm::translate(tModel, glm::vec3(ent.m_origin.x, ent.m_origin.z, -ent.m_origin.y));
+
+				glm::vec3 rot;
+				vmf_parse::Vector3f(kv::tryGetStringValue(ent.m_keyvalues, "angles", "0 0 0"), &rot);
+				// Yaw: Y
+				// Pitch: X
+				// Roll: Z
+
+				tModel = glm::rotate(tModel, glm::radians(rot.y), glm::vec3(0, 1, 0)); // yaw
+				tModel = glm::rotate(tModel, glm::radians(-rot.x), glm::vec3(0, 0, 1)); // pitch
+				tModel = glm::rotate(tModel, glm::radians(rot.z), glm::vec3(1, 0, 0)); // rollzsd
+
+				tModel = glm::scale(tModel, glm::vec3(::atof(kv::tryGetStringValue(ent.m_keyvalues, "uniformscale", "1").c_str())));
+				shader->setMatrix("model", transformMatrix * tModel * matrixFinalApplyTransform);
+				
+				studiomdl* ptrmdl =studiomdl::getModel(kv::tryGetStringValue(ent.m_keyvalues, "model", "error.mdl"), s_fileSystem);
+				if (ptrmdl != NULL) {
+					ptrmdl->Bind();
+					ptrmdl->Draw();
+				}
+			}
+			else { // Solid entities
+				shader->setMatrix("model", transformMatrix * matrixFinalApplyTransform); // Reset model back to normal
+
+				for (auto&& s: ent.m_internal_solids) {
+					s.Draw(shader);
+				}
+			}
 		}
 
 		// Draw instances (recursive)

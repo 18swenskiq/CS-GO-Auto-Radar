@@ -21,7 +21,45 @@
 #include <glm\gtc\matrix_transform.hpp>
 #include <glm\gtc\type_ptr.hpp>
 
-void opengl_dbgMsg_callback(GLenum src, GLenum type, GLenum id, GLenum severity, GLsizei length, const GLchar* msg, void* userParam);
+void APIENTRY openglCallbackFunction(GLenum source,
+	GLenum type,
+	GLuint id,
+	GLenum severity,
+	GLsizei length,
+	const GLchar* message,
+	const void* userParam) {
+	if (type == GL_DEBUG_TYPE_OTHER) return; // We dont want general openGL spam.
+
+	LOG_F(WARNING, "--------------------------------------------------------- OPENGL ERROR ---------------------------------------------------------");
+	LOG_F(WARNING, "OpenGL message: %s", message);
+
+	switch (type) {
+	case GL_DEBUG_TYPE_ERROR:
+		LOG_F(ERROR, "Type: ERROR"); break;
+	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
+		LOG_F(WARNING, "Type: DEPRECATED_BEHAVIOR"); break;
+	case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
+		LOG_F(ERROR, "Type: UNDEFINED_BEHAVIOR"); break;
+	case GL_DEBUG_TYPE_PORTABILITY:
+		LOG_F(WARNING, "Type: PORTABILITY"); break;
+	case GL_DEBUG_TYPE_PERFORMANCE:
+		LOG_F(WARNING, "Type: PERFORMANCE"); break;
+	case GL_DEBUG_TYPE_OTHER:
+		LOG_F(WARNING, "Type: OTHER"); break;
+	}
+
+	LOG_F(WARNING, "ID: %u", id);
+	switch (severity) {
+	case GL_DEBUG_SEVERITY_LOW:
+		LOG_F(WARNING, "Severity: LOW"); break;
+	case GL_DEBUG_SEVERITY_MEDIUM:
+		LOG_F(WARNING, "Severity: MEDIUM"); break;
+	case GL_DEBUG_SEVERITY_HIGH:
+		LOG_F(WARNING, "Severity: HIGH"); break;
+	}
+
+	LOG_F(WARNING, "--------------------------------------------------------------------------------------------------------------------------------");
+}
 
 int g_renderWidth = 1024;
 int g_renderHeight = 1024;
@@ -52,6 +90,7 @@ int app(int argc, char** argv) {
 
 	vfilesys* filesys = new vfilesys(g_game_path + "/gameinfo.txt");
 	vmf* g_vmf_file = vmf::from_file(g_mapfile_path + ".vmf");
+	vmf::LinkVFileSystem(filesys);
 
 #pragma endregion
 
@@ -59,10 +98,11 @@ int app(int argc, char** argv) {
 	LOG_F(1, "Initializing GLFW");
 
 	glfwInit();
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
+	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
 
 	//glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
 
@@ -82,15 +122,28 @@ int app(int argc, char** argv) {
 
 	// Deal with GLAD
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-		printf("GLAD died\n");
+		LOG_F(ERROR, "Glad failed to initialize");
 		return -1;
 	}
 
 	const unsigned char* glver = glGetString(GL_VERSION);
 	
-	LOG_F(1, "OpenGL context: ", glver);
+	LOG_F(1, "OpenGL context: %s", glver);
 
-	
+	// Subscribe to error callbacks
+	if (glDebugMessageCallback) {
+		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+		glDebugMessageCallback(openglCallbackFunction, nullptr);
+		GLuint unusedIds = 0;
+		glDebugMessageControl(GL_DONT_CARE,
+			GL_DONT_CARE,
+			GL_DONT_CARE,
+			0,
+			&unusedIds,
+			true);
+	} else {
+		LOG_F(ERROR, "glDebugMessageCallback not availible");
+	}
 
 #pragma endregion
 
@@ -99,8 +152,6 @@ int app(int argc, char** argv) {
 	glEnable(GL_DEPTH_TEST);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	glFrontFace(GL_CW);
-
-	Shader* g_shader_test = new Shader("shaders/source/basic.vs", "shaders/source/basic.fs");
 
 #pragma endregion
 
@@ -115,12 +166,13 @@ int app(int argc, char** argv) {
 
 	// Create test camera
 	glm::mat4 projm = glm::perspective(glm::radians(45.0f / 2.0f), (float)1024 / (float)1024, 32.0f, 100000.0f);
-	glm::mat4 viewm = glm::lookAt(pos, pos+dir, glm::vec3(0, 1, 0));
+	glm::mat4 viewm = glm::lookAt(pos, glm::vec3(0.0f), glm::vec3(0, 1, 0));
 	
 	glm::mat4 sourcesdk_transform = glm::mat4(1.0f);
 	sourcesdk_transform = glm::rotate(sourcesdk_transform, glm::radians(-90.0f), glm::vec3(1, 0, 0));
 	//sourcesdk_transform = glm::scale(sourcesdk_transform, glm::vec3(0.03f));
 
+	Shader* g_shader_test = new Shader("shaders/source/basic.vs", "shaders/source/basic.fs");
 	g_shader_test->use();
 	g_shader_test->setMatrix("projection", projm);
 	g_shader_test->setMatrix("view", viewm);
@@ -135,6 +187,9 @@ int app(int argc, char** argv) {
 		
 		model *= sourcesdk_transform;
 		g_shader_test->setMatrix("model", model);
+
+		viewm = glm::lookAt(glm::vec3(glm::sin(glfwGetTime()) * 4222.0f, 4222.0f, glm::cos(glfwGetTime()) * 4222.0f), glm::vec3(0.0f), glm::vec3(0, 1, 0));
+		g_shader_test->setMatrix("view", viewm);
 
 		testmdl->Bind();
 		testmdl->Draw();
@@ -172,10 +227,6 @@ void setupconsole() {
 // NVIDIA Optimus systems
 extern "C" {
 	_declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
-}
-
-void opengl_dbgMsg_callback(GLenum src, GLenum type, GLenum id, GLenum severity, GLsizei length, const GLchar* msg, void* userParam) {
-	LOG_F(WARNING, "OpenGL message: %s", msg);
 }
 
 #endif

@@ -17,7 +17,6 @@ void main()
 
 	mat3 normalMatrix = transpose(inverse(mat3(model)));
     Normal = normalMatrix * aNormal;
-	Normal = aNormal;
 
 	TexCoords = aTexCoords;
 
