@@ -166,11 +166,9 @@
     <ClInclude Include="vdf.hpp" />
     <ClInclude Include="VectorOctTree.hpp" />
     <ClInclude Include="vfilesys.hpp" />
+    <ClInclude Include="vmf.h" />
     <ClInclude Include="vmf.hpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-    </ClInclude>
-    <ClInclude Include="vmf_new.hpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="vpk.hpp" />
     <ClInclude Include="vtx.hpp" />
@@ -184,19 +182,24 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="main2.cpp" />
     <ClCompile Include="main3.cpp" />
+    <ClCompile Include="vmf.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="mapinfo.fs" />
     <None Include="shaders\depth.fs" />
     <None Include="shaders\depth.vs" />
     <None Include="shaders\dev.fs" />
+    <None Include="shaders\engine\gb.preview.fs" />
+    <None Include="shaders\engine\screenbase.vs" />
     <None Include="shaders\fullscreenbase.fs" />
     <None Include="shaders\fullscreenbase.vs" />
     <None Include="shaders\gBuffer.fs" />
     <None Include="shaders\gBuffer.vs" />
     <None Include="shaders\iBuffer.fs" />
-    <None Include="shaders\source\basic.fs" />
-    <None Include="shaders\source\basic.vs" />
+    <None Include="shaders\source\se.gbuffer.fs" />
+    <None Include="shaders\source\se.gbuffer.vs" />
+    <None Include="shaders\source\se.shaded.solid.fs" />
+    <None Include="shaders\source\se.shaded.vs" />
     <None Include="shaders\ss_comp_main.fso" />
     <None Include="shaders\ss_comp_multilayer_blend.fs" />
     <None Include="shaders\ss_comp_multilayer_finalstage.fs" />

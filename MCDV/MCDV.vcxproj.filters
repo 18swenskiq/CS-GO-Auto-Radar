@@ -45,6 +45,9 @@
     <Filter Include="Source Files\Dependencies">
       <UniqueIdentifier>{72c933a8-4049-4058-9713-cd633da3113e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="OpenGL\Shader Files\engine">
+      <UniqueIdentifier>{3df4c472-b931-49be-94bf-fb0dba9435d4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="interpolation.h">
@@ -158,9 +161,6 @@
     <ClInclude Include="IRenderable.hpp">
       <Filter>OpenGL</Filter>
     </ClInclude>
-    <ClInclude Include="vmf_new.hpp">
-      <Filter>Header Files\valve</Filter>
-    </ClInclude>
     <ClInclude Include="vmf.hpp">
       <Filter>Header Files\valve</Filter>
     </ClInclude>
@@ -178,6 +178,9 @@
     </ClInclude>
     <ClInclude Include="loguru.hpp">
       <Filter>Source Files\Dependencies</Filter>
+    </ClInclude>
+    <ClInclude Include="vmf.h">
+      <Filter>Header Files\valve</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -198,6 +201,9 @@
     </ClCompile>
     <ClCompile Include="loguru.cpp">
       <Filter>Source Files\Dependencies</Filter>
+    </ClCompile>
+    <ClCompile Include="vmf.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -267,11 +273,23 @@
     <None Include="shaders\ss_msaa.fs">
       <Filter>OpenGL\Shader Files</Filter>
     </None>
-    <None Include="shaders\source\basic.fs">
+    <None Include="shaders\source\se.gbuffer.fs">
       <Filter>OpenGL\Shader Files\source</Filter>
     </None>
-    <None Include="shaders\source\basic.vs">
+    <None Include="shaders\source\se.gbuffer.vs">
       <Filter>OpenGL\Shader Files\source</Filter>
+    </None>
+    <None Include="shaders\source\se.shaded.solid.fs">
+      <Filter>OpenGL\Shader Files\source</Filter>
+    </None>
+    <None Include="shaders\source\se.shaded.vs">
+      <Filter>OpenGL\Shader Files\source</Filter>
+    </None>
+    <None Include="shaders\engine\gb.preview.fs">
+      <Filter>OpenGL\Shader Files\engine</Filter>
+    </None>
+    <None Include="shaders\engine\screenbase.vs">
+      <Filter>OpenGL\Shader Files\engine</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

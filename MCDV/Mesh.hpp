@@ -16,7 +16,7 @@
 enum MeshMode {
 	POS_XYZ_TEXCOORD_UV,
 	POS_XYZ_NORMAL_XYZ,
-	SCREEN_SPACE_UV
+	POS_XY_TEXOORD_UV
 };
 
 class Mesh {
@@ -76,9 +76,9 @@ public:
 			glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
 			glEnableVertexAttribArray(1);
 		}
-		else if (mode == MeshMode::SCREEN_SPACE_UV) {
+		else if (mode == MeshMode::POS_XY_TEXOORD_UV) {
 			this->vertices = vertices;
-			this->elementCount = vertices.size() / 2;
+			this->elementCount = vertices.size() / 4;
 
 			glGenVertexArrays(1, &this->VAO);
 			glGenBuffers(1, &this->VBO);
@@ -88,8 +88,8 @@ public:
 
 			glBindVertexArray(this->VAO);
 
-			// position attribute
-			glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+			// Everything
+			glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
 			glEnableVertexAttribArray(0);
 		}
 	}
@@ -126,6 +126,16 @@ public:
 
 	void Draw() {
 		glBindVertexArray(this->VAO);
+		glDrawArrays(GL_TRIANGLES, 0, this->elementCount);
+	}
+
+	// Binds mesh
+	void _Bind() {
+		glBindVertexArray(this->VAO);
+	}
+
+	// Draws mesh
+	void _Draw() {
 		glDrawArrays(GL_TRIANGLES, 0, this->elementCount);
 	}
 };

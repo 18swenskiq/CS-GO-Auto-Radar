@@ -1,5 +1,7 @@
 // io
-#pragma once
+#ifndef VMF_H
+#define VMF_H
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -28,6 +30,7 @@
 
 // other
 #include <limits>
+#include <functional>
 #include "loguru.hpp"
 
 // Source sdk
@@ -391,30 +394,99 @@ side* side::create(kv::DataBlock* dataSrc) {
 
 class vmf;
 
+// Interface for drawing to different channels by uint mask (default 32 channels)
+#define TAR_CHANNEL_0 0x1
+#define TAR_CHANNEL_1 0x2
+#define TAR_CHANNEL_2 0x4
+#define TAR_CHANNEL_3 0x8
+#define TAR_CHANNEL_4 0x10
+#define TAR_CHANNEL_5 0x20
+#define TAR_CHANNEL_6 0x40
+#define TAR_CHANNEL_7 0x80
+#define TAR_CHANNEL_8 0x100
+#define TAR_CHANNEL_9 0x200
+#define TAR_CHANNEL_10 0x400
+#define TAR_CHANNEL_11 0x800
+#define TAR_CHANNEL_12 0x1000
+#define TAR_CHANNEL_13 0x2000
+#define TAR_CHANNEL_14 0x4000
+#define TAR_CHANNEL_15 0x8000
+#define TAR_CHANNEL_16 0x10000
+#define TAR_CHANNEL_17 0x20000
+#define TAR_CHANNEL_18 0x40000
+#define TAR_CHANNEL_19 0x80000
+#define TAR_CHANNEL_20 0x100000
+#define TAR_CHANNEL_21 0x200000
+#define TAR_CHANNEL_22 0x400000
+#define TAR_CHANNEL_23 0x800000
+#define TAR_CHANNEL_24 0x1000000
+#define TAR_CHANNEL_25 0x2000000
+#define TAR_CHANNEL_26 0x4000000
+#define TAR_CHANNEL_27 0x8000000
+#define TAR_CHANNEL_28 0x10000000
+#define TAR_CHANNEL_29 0x20000000
+#define TAR_CHANNEL_30 0x40000000
+#define TAR_CHANNEL_31 0x80000000
+
+// Standard channels
+#define TAR_CHANNEL_ALL 0xFFFFFFFF
+#define TAR_CHANNEL_NONE 0x00
+
+// Lower and upper layers (for crossing paths)
+#define TAR_CHANNEL_LAYOUT_0 TAR_CHANNEL_0
+#define TAR_CHANNEL_LAYOUT_1 TAR_CHANNEL_1
+#define TAR_CHANNEL_LAYOUT TAR_CHANNEL_0 | TAR_CHANNEL_1
+
+#define TAR_CHANNEL_NONRESERVE ~(TAR_CHANNEL_LAYOUT)
+
+class TARChannel {
+public:
+	uint32_t m_visibility = TAR_CHANNEL_NONRESERVE; // Draw by default
+
+	inline static uint32_t s_rendermask = TAR_CHANNEL_ALL; // The static rendermask
+
+	// Enables/Disables drawing to channel (index) by val
+	inline static void _setChannel(uint32_t* flags, const unsigned int& index, const bool& val = true) { *flags = (*flags & ~(0x1U << index)) | ((val? 0x1U: 0x0U) << index);}
+	inline static void setChannel(const unsigned int& index, const bool& val = true) { TARChannel::_setChannel(&TARChannel::s_rendermask, index, val); }
+	inline void m_setChannel(const unsigned int& index, const bool& val = true) { TARChannel::_setChannel(&this->m_visibility, index, val); }
+
+	// Just set channels (with inversion option)
+	inline static void _setChannels(uint32_t* flags, const uint32_t& channels, const bool& inverse = false) { *flags = inverse? ~channels: channels; }
+	inline static void setChannels(const uint32_t& channels, const bool& inverse = false) { TARChannel::_setChannels(&TARChannel::s_rendermask, channels, inverse); }
+	inline void m_setChannels(const uint32_t& channels, const bool& inverse = false) { TARChannel::_setChannels(&this->m_visibility, channels, inverse); }
+
+	// Disables drawing on all channels
+	inline static void _hideAll(uint32_t* flags) { *flags = TAR_CHANNEL_NONE; }
+	inline static void hideAll() { TARChannel::_hideAll(&TARChannel::s_rendermask); }
+	inline void m_hideAll() { TARChannel::_hideAll(&this->m_visibility); }
+
+	// Enables drawing on all channels
+	inline static void _unHideAll(uint32_t* flags) { *flags = TAR_CHANNEL_ALL; }
+	inline static void unHideAll() { TARChannel::_unHideAll(&TARChannel::s_rendermask); }
+	inline void m_unHideAll() { TARChannel::_unHideAll(&this->m_visibility); }
+	
+	// Sets channels or hides channels
+	inline static void _appendChannels(uint32_t* flags, const uint32_t& channels, const bool& inverse = false) { *flags = (*flags & ~(channels)) | (inverse? ~channels: channels); }
+	inline static void appendChannels(const uint32_t& channels, const bool& inverse = false) { TARChannel::_appendChannels(&TARChannel::s_rendermask, channels, inverse); }
+	inline void m_appendChannels(const uint32_t& channels, const bool& inverse = false) { TARChannel::_appendChannels(&this->m_visibility, channels, inverse); }
+
+	// Compares the draw mask by this visibility
+	inline static bool _compFlags(uint32_t* flags, const uint32_t& mask) { return (*flags) & mask; }
+	inline bool isShown(const uint32_t& mask) { return TARChannel::_compFlags(&this->m_visibility, mask); }
+	inline bool m_isShown() { return TARChannel::_compFlags(&this->m_visibility, TARChannel::s_rendermask); }
+};
+
 class editorvalues {
 public:
 	std::vector<unsigned int> m_visgroups;
+	std::set<unsigned int> m_hashed_visgroups;
 	glm::vec3 m_editorcolor;
 
-	editorvalues(){}
-	editorvalues(kv::DataBlock* dataSrc) {
-		if (dataSrc == NULL) return;
-
-		for (auto && vgroup : kv::getList(dataSrc->Values, "visgroupid")) {
-			unsigned int vgroupid = std::stoi(vgroup);
-			this->m_visgroups.push_back(vgroupid);
-		}
-
-#ifdef VMF_READ_SOLID_COLORS
-		if (vmf_parse::Vector3f(dataSrc->Values["color"], &this->m_editorcolor))
-			this->m_editorcolor = this->m_editorcolor / 255.0f;
-		else
-			this->m_editorcolor = glm::vec3(1, 0, 0);
-#endif
-	}
+	editorvalues() {}
+	editorvalues(kv::DataBlock* dataSrc, vmf* ptrVmf);
 };
 
-class solid: public IRenderable {
+class solid: public IRenderable, public TARChannel {
 public:
 	std::vector<side*> m_sides;
 	editorvalues m_editorvalues;
@@ -423,9 +495,9 @@ public:
 
 	Mesh* m_mesh;
 
-	solid(kv::DataBlock* dataSrc) {
+	solid(kv::DataBlock* dataSrc, vmf* ptrVmf) {
 		// Read editor values
-		this->m_editorvalues = editorvalues(dataSrc->GetFirstByName("editor"));
+		this->m_editorvalues = editorvalues(dataSrc->GetFirstByName("editor"), ptrVmf);
 
 		// Read solids
 		for (auto && s : dataSrc->GetAllByName("side")) {
@@ -436,8 +508,8 @@ public:
 		std::vector<glm::vec3> intersecting;
 
 		float x, _x, y, _y, z, _z;
-		x = _y = _z = 99999.0f;// std::numeric_limits<float>::max();
-		_x = y = z = -99999.0f;// std::numeric_limits<float>::min();
+		_x = _y = _z = 99999.0f;// std::numeric_limits<float>::max();
+		x = y = z = -99999.0f;// std::numeric_limits<float>::min();
 
 		for (int i = 0; i < m_sides.size(); i++) {
 			for (int j = 0; j < m_sides.size(); j++) {
@@ -465,7 +537,7 @@ public:
 
 					// Check if there is already a very similar vertex (within .5 u), and skip it
 					bool similar = false;
-					for (auto && v : intersecting) 
+					for (auto&& v: intersecting) 
 						if (glm::distance(v, p) < 0.5f) {
 							similar = true; break;
 					}
@@ -479,10 +551,10 @@ public:
 					intersecting.push_back(p);
 
 					// Calculate bounds
-					_x = glm::round(glm::max(_x, p.x));
+					_x = glm::round(glm::min(_x, p.x));
 					_y = glm::round(glm::min(_y, p.y));
 					_z = glm::round(glm::min(_z, p.z));
-					x =  glm::round(glm::min(x,  p.x));
+					x =  glm::round(glm::max(x,  p.x));
 					y =  glm::round(glm::max(y,  p.y));
 					z =  glm::round(glm::max(z,  p.z));
 				}
@@ -495,8 +567,8 @@ public:
 		}
 
 		// Append bounds data
-		this->NWU = glm::vec3(-x, z, y);
-		this->SEL = glm::vec3(-_x, _z, _y);
+		this->NWU = glm::vec3(x, y, z);
+		this->SEL = glm::vec3(_x, _y, _z);
 	}
 
 	/* Check if this solid contains any displacement infos. */
@@ -558,7 +630,7 @@ public:
 	}
 };
 
-class entity {
+class entity: public TARChannel {
 public:
 	std::string m_classname;
 	int m_id;
@@ -567,14 +639,14 @@ public:
 	std::vector<solid> m_internal_solids;
 	glm::vec3 m_origin;
 
-	entity (kv::DataBlock* dataSrc) {
+	entity (kv::DataBlock* dataSrc, vmf* ptrVmf) {
 		if ((dataSrc->GetFirstByName("solid") == NULL) && (dataSrc->Values.count("origin") == 0))
 			throw std::exception(("origin could not be resolved for entity ID: " + dataSrc->Values["id"]).c_str());
 
 		this->m_classname = dataSrc->Values["classname"];
 		this->m_id = (int)::atof(dataSrc->Values["id"].c_str());
 		this->m_keyvalues = dataSrc->Values;
-		this->m_editorvalues = editorvalues(dataSrc->GetFirstByName("editor"));
+		this->m_editorvalues = editorvalues(dataSrc->GetFirstByName("editor"), ptrVmf);
 		
 		if (dataSrc->GetFirstByName("solid") == NULL) {
 			vmf_parse::Vector3f(dataSrc->Values["origin"], &this->m_origin);
@@ -582,7 +654,7 @@ public:
 		else {
 			// Process brush entities
 			for (auto&& s: dataSrc->GetAllByName("solid")) {
-				this->m_internal_solids.push_back(solid(s));
+				this->m_internal_solids.push_back(solid(s, ptrVmf));
 			}
 
 			// Calculate origin
@@ -625,6 +697,7 @@ public:
 	std::vector<entity> m_entities;
 
 	std::map<std::string, unsigned int> m_visgroups;
+	std::map<unsigned int, std::string> m_visgroups_reverse;
 
 	std::map<std::string, vmf*> m_sub_vmfs;
 
@@ -649,19 +722,20 @@ public:
 		// Process visgroup list
 		for (auto && vg : file_kv.headNode->GetFirstByName("visgroups")->GetAllByName("visgroup")) {
 			v->m_visgroups.insert({ vg->Values["name"], std::stoi(vg->Values["visgroupid"]) });
+			v->m_visgroups_reverse.insert({ std::stoi(vg->Values["visgroupid"]), vg->Values["name"] });
 		}
 
 		LOG_F(1, "Processing solids");
 		// Solids
 		for (auto && kv_solid : file_kv.headNode->GetFirstByName("world")->GetAllByName("solid")) {
-			v->m_solids.push_back(solid(kv_solid));
+			v->m_solids.push_back(solid(kv_solid, v));
 		}
 
 		LOG_F(1, "Processing entities");
 		// Entities
 		for (auto && kv_entity : file_kv.headNode->GetAllByName("entity")) {
 			try {
-				entity ent = entity(kv_entity);
+				entity ent = entity(kv_entity, v);
 				v->m_entities.push_back(ent);
 			} catch (std::exception e) {
 				LOG_F(WARNING, "Entity exception: %s", e.what());
@@ -696,24 +770,28 @@ public:
 		return v;
 	}
 
-	void DrawWorld(Shader* shader, glm::mat4 transformMatrix, glm::mat4 matrixFinalApplyTransform) {
+	void DrawWorld(Shader* shader, glm::mat4 transformMatrix, glm::mat4 matrixFinalApplyTransform, std::function<void(solid*, entity*)> stateChange) {
 		shader->setMatrix("model", transformMatrix * matrixFinalApplyTransform);
 
 		// Draw solids
-		for (auto && solid : this->m_solids) {
+		for (auto&& solid: this->m_solids) {
 			//glm::vec2 orgin = glm::vec2(solid.NWU.x + solid.SEL.x, solid.NWU.z + solid.SEL.z) / 2.0f;
 			//shader->setVec2("origin", glm::vec2(orgin.x, orgin.y));
+			if (!solid.m_isShown()) continue;
 
+			stateChange(&solid, NULL);
 			solid.Draw(shader);
 		}
 
 		// Draw models
 		for (auto&& ent: this->m_entities) {
+			if (!ent.m_isShown()) continue;
+
 			// Check if we can actually draw this object currently :)
 			if (ent.m_classname == "prop_static" ||
 				ent.m_classname == "prop_dynamic" ||
 				ent.m_classname == "prop_physics") {
-
+				stateChange(NULL, &ent);
 				glm::mat4 tModel = glm::mat4(1.0f);
 
 				tModel = glm::mat4();
@@ -739,8 +817,8 @@ public:
 				}
 			}
 			else { // Solid entities
+				stateChange(NULL, &ent);
 				shader->setMatrix("model", transformMatrix * matrixFinalApplyTransform); // Reset model back to normal
-
 				for (auto&& s: ent.m_internal_solids) {
 					s.Draw(shader);
 				}
@@ -766,46 +844,20 @@ public:
 			tModel = glm::rotate(tModel, glm::radians(rot.z), glm::vec3(1, 0, 0)); // rollzsd
 			
 			vmf* ptrvmf = this->m_sub_vmfs[kv::tryGetStringValue(instance->m_keyvalues, "file", "")];
-			if (ptrvmf != NULL) { ptrvmf->DrawWorld(shader, transformMatrix * tModel, matrixFinalApplyTransform); }
+			if (ptrvmf != NULL) { ptrvmf->DrawWorld(shader, transformMatrix * tModel, matrixFinalApplyTransform, stateChange); }
 		}
 	}
 
-	void DrawEntities(Shader* shader, glm::mat4 transformMatrix, glm::mat4 matrixFinalApplyTransform) {
-		glm::mat4 model = glm::mat4();
-		shader->setMatrix("model", model);
+	// Iterate solids
+	void IterSolids(std::function<void(solid*)> stateChange) {
+		for(auto&& i: this->m_solids) stateChange(&i);
+		for(auto&& svmf: this->m_sub_vmfs) if(svmf.second) svmf.second->IterSolids(stateChange); // recurse into sub-vmfs
+	}
 
-		// Draw props
-		for (auto && ent : this->m_entities) {
-			// Check if we can actually draw this object currently :)
-			if (ent.m_classname == "prop_static" ||
-				ent.m_classname == "prop_dynamic" ||
-				ent.m_classname == "prop_physics" ) {
-
-				model = glm::mat4();
-				model = glm::translate(model, ent.m_origin);
-				glm::vec3 rot;
-				vmf_parse::Vector3f(kv::tryGetStringValue(ent.m_keyvalues, "angles", "0 0 0"), &rot);
-				model = glm::rotate(model, glm::radians(rot.y), glm::vec3(0, 1, 0)); // Yaw 
-				model = glm::rotate(model, glm::radians(rot.x), glm::vec3(0, 0, 1)); // ROOOOOLLLLL
-				model = glm::rotate(model, -glm::radians(rot.z), glm::vec3(1, 0, 0)); // Pitch 
-				model = glm::scale(model, glm::vec3(::atof(kv::tryGetStringValue(ent.m_keyvalues, "uniformscale", "1").c_str())));
-				shader->setMatrix("model", model);
-				shader->setVec2("origin", glm::vec2(ent.m_origin.x, ent.m_origin.z));
-			}
-			else {
-				model = glm::mat4();
-				shader->setMatrix("model", model);
-
-				for (auto && s : ent.m_internal_solids) {
-					shader->setVec2("origin", glm::vec2(ent.m_origin.x, ent.m_origin.z));
-					s.Draw(shader);
-				}
-			}
-		}
-
-		// Resets 
-		model = glm::mat4();
-		shader->setMatrix("model", model);
+	// Iterate entities
+	void IterEntities(std::function<void(entity*, const std::string&)> stateChange) {
+		for(auto&& i: this->m_entities) stateChange(&i, i.m_classname);
+		for(auto&& svmf: this->m_sub_vmfs) if(svmf.second) svmf.second->IterEntities(stateChange);
 	}
 
 	// Calculate boundaries of a visgroup
@@ -858,5 +910,4 @@ public:
 	}
 };
 
-vfilesys* vmf::s_fileSystem = NULL;
-std::map<std::string, material*> material::m_index;
+#endif

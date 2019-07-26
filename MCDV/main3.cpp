@@ -9,18 +9,20 @@
 // Source SDK
 #include "vfilesys.hpp"
 #include "studiomdl.hpp"
-#include "vmf_new.hpp"
+#include "vmf.hpp"
 
 #include <glad\glad.h>
 #include <GLFW\glfw3.h>
 
 // Opengl
 #include "Shader.hpp"
+#include "GBuffer.hpp"
 
 #include <glm\glm.hpp>
 #include <glm\gtc\matrix_transform.hpp>
 #include <glm\gtc\type_ptr.hpp>
 
+// OpenGL error callback.
 void APIENTRY openglCallbackFunction(GLenum source,
 	GLenum type,
 	GLuint id,
@@ -92,6 +94,17 @@ int app(int argc, char** argv) {
 	vmf* g_vmf_file = vmf::from_file(g_mapfile_path + ".vmf");
 	vmf::LinkVFileSystem(filesys);
 
+	g_vmf_file->IterSolids([](solid* s) {
+		if (s->m_editorvalues.m_hashed_visgroups.count(hash("tar_layout"))) s->m_setChannels( TAR_CHANNEL_LAYOUT );
+	});
+
+	g_vmf_file->IterEntities([](entity* e, const std::string& classname) {
+		if (e->m_editorvalues.m_hashed_visgroups.count(hash("tar_layout"))) e->m_setChannels( TAR_CHANNEL_LAYOUT );
+	});
+
+	// Just draw layout
+	TARChannel::setChannels(TAR_CHANNEL_LAYOUT);
+
 #pragma endregion
 
 #pragma region opengl_setup
@@ -153,6 +166,10 @@ int app(int argc, char** argv) {
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	glFrontFace(GL_CW);
 
+	// Initialize Gbuffer functions & create one
+	GBuffer::INIT();
+	GBuffer* testBuffer = new GBuffer(g_renderWidth, g_renderHeight);
+
 #pragma endregion
 
 	// Get test model.
@@ -172,29 +189,49 @@ int app(int argc, char** argv) {
 	sourcesdk_transform = glm::rotate(sourcesdk_transform, glm::radians(-90.0f), glm::vec3(1, 0, 0));
 	//sourcesdk_transform = glm::scale(sourcesdk_transform, glm::vec3(0.03f));
 
-	Shader* g_shader_test = new Shader("shaders/source/basic.vs", "shaders/source/basic.fs");
+	// Init gbuffer shader
+	GBuffer::s_gbufferwriteShader->use();
+	GBuffer::s_gbufferwriteShader->setMatrix("projection", projm);
+
+	Shader* g_shader_test = new Shader("shaders/source/se.shaded.vs", "shaders/source/se.shaded.solid.fs");
 	g_shader_test->use();
 	g_shader_test->setMatrix("projection", projm);
 	g_shader_test->setMatrix("view", viewm);
 
 	while (!glfwWindowShouldClose(window)) {
+		viewm = glm::lookAt(glm::vec3(glm::sin(glfwGetTime()) * 4222.0f, 4222.0f, glm::cos(glfwGetTime()) * 4222.0f), glm::vec3(0.0f), glm::vec3(0, 1, 0));
+
+		// G buffer pass =================================================================================================================
+		testBuffer->Bind();
+		GBuffer::s_gbufferwriteShader->use();
+		GBuffer::s_gbufferwriteShader->setMatrix("view", viewm);
+
+		glClearColor(0.00, 0.00, 0.00, 0.00);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		g_vmf_file->DrawWorld(GBuffer::s_gbufferwriteShader, glm::mat4(1.0f), sourcesdk_transform, [](solid* ptrSolid, entity* ptrEnt) {
+			if (ptrSolid) {
+				glm::vec3 orig = (ptrSolid->NWU + ptrSolid->SEL) * 0.5f;
+				GBuffer::s_gbufferwriteShader->setVec3("srcOrigin", glm::vec3(orig.x, orig.y, orig.z));
+			}
+			if (ptrEnt)
+				GBuffer::s_gbufferwriteShader->setVec3("srcOrigin", glm::vec3(0, 0, 0));
+		});
+
+		GBuffer::Unbind();
+
+		// Standard pass =================================================================================================================
+		g_shader_test->use();
+		g_shader_test->setMatrix("view", viewm);
+
 		glClearColor(0.07, 0.07, 0.07, 0.0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		glm::mat4 model = glm::mat4(1.0f);
-		model = glm::translate(model, glm::vec3(glm::sin(glfwGetTime()), 0, glm::cos(glfwGetTime())) * 43.0f);
-		model = glm::rotate(model, (float)glfwGetTime() * 4.0f, glm::vec3(0, 1, 0));
-		
-		model *= sourcesdk_transform;
-		g_shader_test->setMatrix("model", model);
+		g_vmf_file->DrawWorld(g_shader_test, glm::mat4(1.0f), sourcesdk_transform, [g_shader_test](solid* ptrSolid, entity* ptrEnt) {
+		});
 
-		viewm = glm::lookAt(glm::vec3(glm::sin(glfwGetTime()) * 4222.0f, 4222.0f, glm::cos(glfwGetTime()) * 4222.0f), glm::vec3(0.0f), glm::vec3(0, 1, 0));
-		g_shader_test->setMatrix("view", viewm);
+		testBuffer->DrawPreview();
 
-		testmdl->Bind();
-		testmdl->Draw();
-
-		g_vmf_file->DrawWorld(g_shader_test, glm::mat4(1.0f), sourcesdk_transform);
 
 		glfwPollEvents();
 		glfwSwapBuffers(window);

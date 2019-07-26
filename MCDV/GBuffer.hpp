@@ -4,27 +4,31 @@
 #include <glad\glad.h>
 #include <GLFW\glfw3.h>
 
+#include "loguru.hpp"
 
+#include "Mesh.hpp"
+#include "Shader.hpp"
+
+// Buffer for drawing Gbuffer
 class GBuffer {
 	unsigned int gBuffer;
 	unsigned int rBuffer;
 
 	unsigned int gPosition;
 	unsigned int gNormal;
-	unsigned int gMapInfo;
 	unsigned int gOrigin;
-
-	unsigned int gMask;
 
 	int width;
 	int height;
 
+	inline static Mesh* s_previewMesh;
+	inline static Shader* s_previewShader;
 public:
+	inline static Shader* s_gbufferwriteShader;
+
 	// 14 byte/px
 	// 14 megabyte @ 1024x1024
-	GBuffer(int window_width, int window_height) {
-		this->width = window_width;
-		this->height = window_height;
+	GBuffer(const int& window_width, const int& window_height): width(window_width), height(window_height) {
 		glGenFramebuffers(1, &this->gBuffer);
 		glBindFramebuffer(GL_FRAMEBUFFER, this->gBuffer);
 
@@ -40,36 +44,26 @@ public:
 		glGenTextures(1, &this->gNormal);
 		glBindTexture(GL_TEXTURE_2D, this->gNormal);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, window_width, window_height, 0, GL_RGB, GL_FLOAT, NULL);
-		
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, this->gNormal, 0);
 
-		// Map info buffer uint16 (16bpp)
-		glGenTextures(1, &this->gMapInfo);
-		glBindTexture(GL_TEXTURE_2D, this->gMapInfo);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, window_width, window_height, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, NULL);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, this->gMapInfo, 0);
-
 		// Brush/model origin whatever
 		glGenTextures(1, &this->gOrigin);
 		glBindTexture(GL_TEXTURE_2D, this->gOrigin);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RG16F, window_width, window_height, 0, GL_RG, GL_FLOAT, NULL);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, window_width, window_height, 0, GL_RGB, GL_FLOAT, NULL);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, this->gOrigin, 0);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, this->gOrigin, 0);
 
 		// Announce attachments
-		unsigned int attachments[4] = { 
+		unsigned int attachments[3] = { 
 			GL_COLOR_ATTACHMENT0, 
 			GL_COLOR_ATTACHMENT1, 
-			GL_COLOR_ATTACHMENT2,
-			GL_COLOR_ATTACHMENT3
+			GL_COLOR_ATTACHMENT2
 		};
 
-		glDrawBuffers(4, attachments);
+		glDrawBuffers(3, attachments);
 
 		// Create and test render buffer
 		glGenRenderbuffers(1, &this->rBuffer);
@@ -80,15 +74,8 @@ public:
 		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, this->rBuffer);
 
 		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-			std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+			LOG_F(ERROR, "(GBuffer) Framebuffer did not complete");
 	}
-
-	/*
-	void BindRTtoTexSlot(int slot = 0) {
-		glActiveTexture(GL_TEXTURE0 + slot);
-		glBindTexture(GL_TEXTURE_2D, this->gBuffer);
-		glActiveTexture(GL_TEXTURE0);
-	}*/
 
 	void BindPositionBufferToTexSlot(int slot = 0) {
 		glActiveTexture(GL_TEXTURE0 + slot);
@@ -99,12 +86,6 @@ public:
 	void BindNormalBufferToTexSlot(int slot = 0) {
 		glActiveTexture(GL_TEXTURE0 + slot);
 		glBindTexture(GL_TEXTURE_2D, this->gNormal);
-		glActiveTexture(GL_TEXTURE0);
-	}
-
-	void BindInfoBufferToTexSlot(int slot = 0) {
-		glActiveTexture(GL_TEXTURE0 + slot);
-		glBindTexture(GL_TEXTURE_2D, this->gMapInfo);
 		glActiveTexture(GL_TEXTURE0);
 	}
 
@@ -120,13 +101,69 @@ public:
 	}
 
 	static void Unbind() {
-		glViewport(0, 0, 1024, 1024);
+		//glViewport(0, 0, 1024, 1024);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0); //Revert to default framebuffer
 
 	}
 
 	~GBuffer() {
 		glDeleteFramebuffers(1, &this->gBuffer);
+	}
+
+	// Initialize any OPENGL stuff
+	static void INIT() {
+		// Basic quad.
+		GBuffer::s_previewMesh = new Mesh({
+			0.0, 0.0, 0.0, 0.0, // bottom left
+			1.0, 0.0, 1.0, 0.0, // bottom right
+			1.0, 1.0, 1.0, 1.0, // top right
+
+			0.0, 0.0, 0.0, 0.0, // bottom left
+			1.0, 1.0, 1.0, 1.0, // top right
+			0.0, 1.0, 0.0, 1.0  // top left
+			}, MeshMode::POS_XY_TEXOORD_UV);
+
+		// Shader
+		GBuffer::s_previewShader = new Shader("shaders/engine/screenbase.vs","shaders/engine/gb.preview.fs");
+		GBuffer::s_gbufferwriteShader = new Shader("shaders/source/se.gbuffer.vs", "shaders/source/se.gbuffer.fs");
+	}
+
+	// Binds shader, mesh etc..
+	static void _BindPreviewData() {
+		GBuffer::s_previewMesh->_Bind();
+		GBuffer::s_previewShader->use();
+	}
+
+	// Draws the preview mesh
+	static void _DrawPreview(const glm::vec2& screenPos, const float& scale) {
+		// Set model matrix
+		glm::mat4 model = glm::mat4(1.0f);
+		model = glm::translate(model, glm::vec3(screenPos.x - 1.0, screenPos.y - 1.0, 0.0));
+		model = glm::scale(model, glm::vec3(scale));
+		GBuffer::s_previewShader->setMatrix("model", model);
+
+		// Draw mesh
+		GBuffer::s_previewMesh->_Draw();
+	}
+
+	// Draws a preview of this gBuffer on screen.
+	void DrawPreview() {
+		GBuffer::_BindPreviewData();
+		glDisable(GL_DEPTH_TEST);
+
+		// Draw previews
+		GBuffer::s_previewShader->setFloat("NormalizeScale", 1.0f);
+		this->BindNormalBufferToTexSlot(0);
+		GBuffer::_DrawPreview(glm::vec2(0.0, 1.5), 0.5f);
+
+		GBuffer::s_previewShader->setFloat("NormalizeScale", 0.001f);
+		this->BindPositionBufferToTexSlot(0);
+		GBuffer::_DrawPreview(glm::vec2(0.5, 1.5), 0.5f);
+
+		this->BindOriginBufferToTexSlot(0);
+		GBuffer::_DrawPreview(glm::vec2(1.0, 1.5), 0.5f);
+
+		glEnable(GL_DEPTH_TEST);
 	}
 };
 
