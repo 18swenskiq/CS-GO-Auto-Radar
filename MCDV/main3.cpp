@@ -68,7 +68,7 @@ int g_renderHeight = 1024;
 
 // Source sdk config
 std::string g_game_path = "D:/SteamLibrary/steamapps/common/Counter-Strike Global Offensive/csgo";
-std::string g_mapfile_path = "sample_stuff/de_tavr_test";
+std::string g_mapfile_path = "sample_stuff/map_01";
 
 void setupconsole();
 
@@ -104,13 +104,13 @@ int app(int argc, char** argv) {
 
 	LOG_F(1, "Pre-processing visgroups into bit masks");
 	g_vmf_file->IterSolids([](solid* s) {
-		if (s->m_editorvalues.m_hashed_visgroups.count(hash("tar_layout"))) s->m_setChannels( TAR_CHANNEL_LAYOUT_0 );
-		if (s->m_editorvalues.m_hashed_visgroups.count(hash("tar_overlap"))) s->m_setChannels( TAR_CHANNEL_LAYOUT_1 );
+		if (s->m_editorvalues.m_hashed_visgroups.count(hash("tavr_layout"))) s->m_setChannels( TAR_CHANNEL_LAYOUT_0 );
+		if (s->m_editorvalues.m_hashed_visgroups.count(hash("tavr_overlap"))) s->m_setChannels( TAR_CHANNEL_LAYOUT_1 );
 	});
 
 	g_vmf_file->IterEntities([](entity* e, const std::string& classname) {
-		if (e->m_editorvalues.m_hashed_visgroups.count(hash("tar_layout"))) e->m_setChannels( TAR_CHANNEL_LAYOUT_0 );
-		if (e->m_editorvalues.m_hashed_visgroups.count(hash("tar_overlap"))) e->m_setChannels( TAR_CHANNEL_LAYOUT_1 );
+		if (e->m_editorvalues.m_hashed_visgroups.count(hash("tavr_layout"))) e->m_setChannels( TAR_CHANNEL_LAYOUT_0 );
+		if (e->m_editorvalues.m_hashed_visgroups.count(hash("tavr_overlap"))) e->m_setChannels( TAR_CHANNEL_LAYOUT_1 );
 	});
 
 #pragma endregion
@@ -178,6 +178,7 @@ int app(int argc, char** argv) {
 	GBuffer testBuffer = GBuffer(g_renderWidth, g_renderHeight);
 	GBuffer layoutBuf2 = GBuffer(g_renderWidth, g_renderHeight);
 
+	// Compile shaders block.
 	SHADER_COMPILE_START
 
 		GBuffer::compile_shaders();

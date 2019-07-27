@@ -13,6 +13,8 @@
 #include <glm\gtc\matrix_transform.hpp>
 #include <glm\gtc\type_ptr.hpp>
 
+#include "loguru.hpp"
+
 enum MeshMode {
 	POS_XYZ_TEXCOORD_UV,
 	POS_XYZ_NORMAL_XYZ,
@@ -95,8 +97,10 @@ public:
 	}
 
 	Mesh(std::vector<float> vertices) {
-		if (vertices.size() <= 0)
+		if (vertices.size() <= 0) {
+			LOG_F(WARNING, "Recieved vertex buffer with 0 elements...");
 			return;
+		}
 
 		this->vertices = vertices;
 		this->elementCount = vertices.size() / 6;
@@ -125,6 +129,7 @@ public:
 	}
 
 	void Draw() {
+		if (this->elementCount <= 0) return;
 		glBindVertexArray(this->VAO);
 		glDrawArrays(GL_TRIANGLES, 0, this->elementCount);
 	}
