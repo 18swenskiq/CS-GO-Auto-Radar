@@ -95,15 +95,22 @@ public:
 		glActiveTexture(GL_TEXTURE0);
 	}
 
+	// Bind this frame buffer as the draw target
 	void Bind() {
 		glViewport(0, 0, this->width, this->height);
 		glBindFramebuffer(GL_FRAMEBUFFER, this->gBuffer ); //Set as active draw target
 	}
 
-	static void Unbind() {
-		//glViewport(0, 0, 1024, 1024);
-		glBindFramebuffer(GL_FRAMEBUFFER, 0); //Revert to default framebuffer
+	// GL Clear functions
+	static void clear() {
+		glClearColor(0.00, 0.00, 0.00, 0.00);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	}
 
+	// Unbind frame buffer
+	static void Unbind() {
+		glViewport(0, 0, 1024, 1024);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0); //Revert to default framebuffer
 	}
 
 	~GBuffer() {
@@ -122,10 +129,12 @@ public:
 			1.0, 1.0, 1.0, 1.0, // top right
 			0.0, 1.0, 0.0, 1.0  // top left
 			}, MeshMode::POS_XY_TEXOORD_UV);
+	}
 
+	static void compile_shaders() {
 		// Shader
-		GBuffer::s_previewShader = new Shader("shaders/engine/screenbase.vs","shaders/engine/gb.preview.fs");
-		GBuffer::s_gbufferwriteShader = new Shader("shaders/source/se.gbuffer.vs", "shaders/source/se.gbuffer.fs");
+		GBuffer::s_previewShader = new Shader("shaders/engine/screenbase.vs", "shaders/engine/gb.preview.fs", "shader.gbuffer.preview");
+		GBuffer::s_gbufferwriteShader = new Shader("shaders/source/se.gbuffer.vs", "shaders/source/se.gbuffer.fs", "shader.gbuffer.write");
 	}
 
 	// Binds shader, mesh etc..
@@ -147,21 +156,21 @@ public:
 	}
 
 	// Draws a preview of this gBuffer on screen.
-	void DrawPreview() {
+	void DrawPreview(glm::vec2 offset) {
 		GBuffer::_BindPreviewData();
 		glDisable(GL_DEPTH_TEST);
 
 		// Draw previews
 		GBuffer::s_previewShader->setFloat("NormalizeScale", 1.0f);
 		this->BindNormalBufferToTexSlot(0);
-		GBuffer::_DrawPreview(glm::vec2(0.0, 1.5), 0.5f);
+		GBuffer::_DrawPreview(glm::vec2(0.0, 1.5) + offset, 0.5f);
 
 		GBuffer::s_previewShader->setFloat("NormalizeScale", 0.001f);
 		this->BindPositionBufferToTexSlot(0);
-		GBuffer::_DrawPreview(glm::vec2(0.5, 1.5), 0.5f);
+		GBuffer::_DrawPreview(glm::vec2(0.5, 1.5) + offset, 0.5f);
 
 		this->BindOriginBufferToTexSlot(0);
-		GBuffer::_DrawPreview(glm::vec2(1.0, 1.5), 0.5f);
+		GBuffer::_DrawPreview(glm::vec2(1.0, 1.5) + offset, 0.5f);
 
 		glEnable(GL_DEPTH_TEST);
 	}
@@ -333,3 +342,12 @@ public:
 		glDeleteFramebuffers(1, &this->gBuffer);
 	}
 };
+
+// Macro that will attach frame buffer, clear, set shader uniforms
+#define GBUFFER_WRITE_START(buffer, viewm) buffer.Bind();\
+GBuffer::clear();\
+GBuffer::s_gbufferwriteShader->use();\
+GBuffer::s_gbufferwriteShader->setMatrix("view", viewm);
+
+// Macro that defines the end of a 'frame buffer write'
+#define GBUFFER_WRITE_END GBuffer::Unbind();

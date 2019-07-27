@@ -72,6 +72,13 @@ std::string g_mapfile_path = "sample_stuff/de_tavr_test";
 
 void setupconsole();
 
+// Terminate safely
+int safe_terminate() {
+	SHADER_CLEAR_ALL
+	glfwTerminate();
+	return 0;
+}
+
 int app(int argc, char** argv) {
 #pragma region loguru
 	setupconsole();
@@ -80,6 +87,7 @@ int app(int argc, char** argv) {
 	loguru::g_preamble_date = false;
 	loguru::g_preamble_time = false;
 	loguru::g_preamble_uptime = false;
+	loguru::g_preamble_thread = false;
 
 	loguru::init(argc, argv);
 	loguru::add_file("log.log0", loguru::FileMode::Truncate, loguru::Verbosity_MAX);
@@ -94,16 +102,16 @@ int app(int argc, char** argv) {
 	vmf* g_vmf_file = vmf::from_file(g_mapfile_path + ".vmf");
 	vmf::LinkVFileSystem(filesys);
 
+	LOG_F(1, "Pre-processing visgroups into bit masks");
 	g_vmf_file->IterSolids([](solid* s) {
-		if (s->m_editorvalues.m_hashed_visgroups.count(hash("tar_layout"))) s->m_setChannels( TAR_CHANNEL_LAYOUT );
+		if (s->m_editorvalues.m_hashed_visgroups.count(hash("tar_layout"))) s->m_setChannels( TAR_CHANNEL_LAYOUT_0 );
+		if (s->m_editorvalues.m_hashed_visgroups.count(hash("tar_overlap"))) s->m_setChannels( TAR_CHANNEL_LAYOUT_1 );
 	});
 
 	g_vmf_file->IterEntities([](entity* e, const std::string& classname) {
-		if (e->m_editorvalues.m_hashed_visgroups.count(hash("tar_layout"))) e->m_setChannels( TAR_CHANNEL_LAYOUT );
+		if (e->m_editorvalues.m_hashed_visgroups.count(hash("tar_layout"))) e->m_setChannels( TAR_CHANNEL_LAYOUT_0 );
+		if (e->m_editorvalues.m_hashed_visgroups.count(hash("tar_overlap"))) e->m_setChannels( TAR_CHANNEL_LAYOUT_1 );
 	});
-
-	// Just draw layout
-	TARChannel::setChannels(TAR_CHANNEL_LAYOUT);
 
 #pragma endregion
 
@@ -125,8 +133,7 @@ int app(int argc, char** argv) {
 
 	if (window == NULL) {
 		printf("GLFW died\n");
-		glfwTerminate();
-		return -1;
+		return safe_terminate();
 	}
 
 	glfwMakeContextCurrent(window);
@@ -136,7 +143,7 @@ int app(int argc, char** argv) {
 	// Deal with GLAD
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
 		LOG_F(ERROR, "Glad failed to initialize");
-		return -1;
+		return safe_terminate();
 	}
 
 	const unsigned char* glver = glGetString(GL_VERSION);
@@ -168,7 +175,15 @@ int app(int argc, char** argv) {
 
 	// Initialize Gbuffer functions & create one
 	GBuffer::INIT();
-	GBuffer* testBuffer = new GBuffer(g_renderWidth, g_renderHeight);
+	GBuffer testBuffer = GBuffer(g_renderWidth, g_renderHeight);
+	GBuffer layoutBuf2 = GBuffer(g_renderWidth, g_renderHeight);
+
+	SHADER_COMPILE_START
+
+		GBuffer::compile_shaders();
+		Shader* g_shader_test = new Shader("shaders/source/se.shaded.vs", "shaders/source/se.shaded.solid.fs", "shader.test");
+
+	if( !SHADER_COMPILE_END ) return safe_terminate();
 
 #pragma endregion
 
@@ -193,7 +208,6 @@ int app(int argc, char** argv) {
 	GBuffer::s_gbufferwriteShader->use();
 	GBuffer::s_gbufferwriteShader->setMatrix("projection", projm);
 
-	Shader* g_shader_test = new Shader("shaders/source/se.shaded.vs", "shaders/source/se.shaded.solid.fs");
 	g_shader_test->use();
 	g_shader_test->setMatrix("projection", projm);
 	g_shader_test->setMatrix("view", viewm);
@@ -202,23 +216,34 @@ int app(int argc, char** argv) {
 		viewm = glm::lookAt(glm::vec3(glm::sin(glfwGetTime()) * 4222.0f, 4222.0f, glm::cos(glfwGetTime()) * 4222.0f), glm::vec3(0.0f), glm::vec3(0, 1, 0));
 
 		// G buffer pass =================================================================================================================
-		testBuffer->Bind();
-		GBuffer::s_gbufferwriteShader->use();
-		GBuffer::s_gbufferwriteShader->setMatrix("view", viewm);
+		GBUFFER_WRITE_START(testBuffer, viewm)
 
-		glClearColor(0.00, 0.00, 0.00, 0.00);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			TARChannel::setChannels(TAR_CHANNEL_LAYOUT_0);
+			g_vmf_file->DrawWorld(GBuffer::s_gbufferwriteShader, glm::mat4(1.0f), sourcesdk_transform, [](solid* ptrSolid, entity* ptrEnt) {
+				if (ptrSolid) {
+					glm::vec3 orig = (ptrSolid->NWU + ptrSolid->SEL) * 0.5f;
+					GBuffer::s_gbufferwriteShader->setVec3("srcOrigin", glm::vec3(orig.x, orig.y, orig.z));
+				}
+				if (ptrEnt)
+					GBuffer::s_gbufferwriteShader->setVec3("srcOrigin", glm::vec3(0, 0, 0));
+			});
 
-		g_vmf_file->DrawWorld(GBuffer::s_gbufferwriteShader, glm::mat4(1.0f), sourcesdk_transform, [](solid* ptrSolid, entity* ptrEnt) {
+		GBUFFER_WRITE_END
+
+		// G buffer pass =================================================================================================================
+		GBUFFER_WRITE_START(layoutBuf2, viewm)
+
+			TARChannel::setChannels(TAR_CHANNEL_LAYOUT_1);
+			g_vmf_file->DrawWorld(GBuffer::s_gbufferwriteShader, glm::mat4(1.0f), sourcesdk_transform, [](solid* ptrSolid, entity* ptrEnt) {
 			if (ptrSolid) {
 				glm::vec3 orig = (ptrSolid->NWU + ptrSolid->SEL) * 0.5f;
 				GBuffer::s_gbufferwriteShader->setVec3("srcOrigin", glm::vec3(orig.x, orig.y, orig.z));
 			}
 			if (ptrEnt)
 				GBuffer::s_gbufferwriteShader->setVec3("srcOrigin", glm::vec3(0, 0, 0));
-		});
+			});
 
-		GBuffer::Unbind();
+		GBUFFER_WRITE_END
 
 		// Standard pass =================================================================================================================
 		g_shader_test->use();
@@ -227,15 +252,18 @@ int app(int argc, char** argv) {
 		glClearColor(0.07, 0.07, 0.07, 0.0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+		TARChannel::setChannels(TAR_CHANNEL_ALL);
 		g_vmf_file->DrawWorld(g_shader_test, glm::mat4(1.0f), sourcesdk_transform, [g_shader_test](solid* ptrSolid, entity* ptrEnt) {
 		});
 
-		testBuffer->DrawPreview();
-
+		testBuffer.DrawPreview(glm::vec2(0,0));
+		layoutBuf2.DrawPreview(glm::vec2(0, -0.5));
 
 		glfwPollEvents();
 		glfwSwapBuffers(window);
 	}
+
+	return safe_terminate();
 }
 
 // Entry point
