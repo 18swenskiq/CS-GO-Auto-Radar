@@ -48,6 +48,27 @@
     <Filter Include="OpenGL\Shader Files\engine">
       <UniqueIdentifier>{3df4c472-b931-49be-94bf-fb0dba9435d4}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Imgui">
+      <UniqueIdentifier>{02261eeb-1a5b-419b-bd75-54305d509b72}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Imgui">
+      <UniqueIdentifier>{9e2ed91c-ca75-4a63-aaab-33071c6a27e9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Imgui\impl">
+      <UniqueIdentifier>{98e6ea6a-13ab-43cf-ad2e-51b4f5cad2cf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Imgui\impl">
+      <UniqueIdentifier>{501c20ec-f29d-4572-9ae0-7511d2dbfc76}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Imgui\galloscript">
+      <UniqueIdentifier>{1c50767e-10dc-47f6-8a72-af6d62c45472}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Imgui\galloscript">
+      <UniqueIdentifier>{fadf3146-0c51-48f0-b5bc-afacd4e26819}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Imgui\theme">
+      <UniqueIdentifier>{cecd1131-fee0-4178-adba-4bb378bfd32f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="interpolation.h">
@@ -182,6 +203,42 @@
     <ClInclude Include="vmf.h">
       <Filter>Header Files\valve</Filter>
     </ClInclude>
+    <ClInclude Include="imconfig.h">
+      <Filter>Header Files\Imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui.h">
+      <Filter>Header Files\Imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui_internal.h">
+      <Filter>Header Files\Imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="imstb_textedit.h">
+      <Filter>Header Files\Imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="imstb_truetype.h">
+      <Filter>Header Files\Imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="imstb_rectpack.h">
+      <Filter>Header Files\Imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui_impl_glfw.h">
+      <Filter>Header Files\Imgui\impl</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui_impl_opengl3.h">
+      <Filter>Header Files\Imgui\impl</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui_color_gradient.h">
+      <Filter>Header Files\Imgui\galloscript</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui_themes.h">
+      <Filter>Header Files\Imgui\theme</Filter>
+    </ClInclude>
+    <ClInclude Include="strings.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui_color_gradient_presets.h">
+      <Filter>Header Files\Imgui\galloscript</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -204,6 +261,27 @@
     </ClCompile>
     <ClCompile Include="vmf.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui.cpp">
+      <Filter>Source Files\Imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui_draw.cpp">
+      <Filter>Source Files\Imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui_widgets.cpp">
+      <Filter>Source Files\Imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui_impl_glfw.cpp">
+      <Filter>Source Files\Imgui\impl</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui_impl_opengl3.cpp">
+      <Filter>Source Files\Imgui\impl</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui_demo.cpp">
+      <Filter>Source Files\Imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui_color_gradient.cpp">
+      <Filter>Source Files\Imgui\galloscript</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

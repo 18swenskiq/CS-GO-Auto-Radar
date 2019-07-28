@@ -1,5 +1,5 @@
 #pragma once
-//#include "vmf_new.hpp"
+#include "vmf.hpp"
 
 #include <vector>
 #include <map>
@@ -12,6 +12,8 @@
 #include "Texture.hpp"
 #include "GradientMap.hpp"
 #include "dds.hpp"
+
+#include "imgui_color_gradient.h"
 
 struct tar_config_layer {
 	float layer_max;
@@ -36,6 +38,12 @@ enum sampling_mode {
 };
 
 class tar_config {
+private:
+	vmf* v;
+	std::map<std::string, std::string> kvs;
+
+	unsigned int m_gradient_texture;
+
 public:
 	std::vector<tar_config_layer> layers;
 
@@ -55,6 +63,8 @@ public:
 	bool			m_ao_enable;
 	float			m_ao_scale;
 	bool			m_shadows_enable;
+	float			m_shadows_tracelength = 1024.0f;
+	int				m_shadows_samplecount = 128;
 
 	// Outline settings
 	bool			m_outline_enable;
@@ -79,32 +89,13 @@ public:
 	std::string		m_visgroup_cover;
 	std::string		m_visgroup_overlap;
 
-	tar_config(vmf* v) {
+	tar_config(vmf* v): v(v) {
+		LOG_F(1, "Loading config entity");
+
 		// Search for tar_config entity
-		std::map<std::string, std::string> kvs;
 		std::vector<entity*> cfgs = v->get_entities_by_classname("tar_config");
 		if (cfgs.size() != 0) kvs = cfgs[0]->m_keyvalues;
 
-		// Load color scheme gradient
-		// TODO: Entity based gradients
-		std::string schemeNum = kv::tryGetStringValue(kvs, "colorScheme", "0");
-		if (schemeNum == "-1") {
-			this->m_texture_gradient = new GradientTexture(
-				kv::tryGetStringValue(kvs, "customCol0", "39  56  79  255"),
-				kv::tryGetStringValue(kvs, "customCol1", "77  74  72  255"),
-				kv::tryGetStringValue(kvs, "customCol2", "178 113 65  255")
-			);
-		}
-		else if (schemeNum == "-2") {
-			// Do thi thening
-			this->m_texture_gradient = new WGradientTexture(v->get_entities_by_classname("tar_color"));
-		}
-		else {
-			this->m_texture_gradient = new Texture("textures/gradients/gradientmap_" + schemeNum + ".png", true);
-		}
-
-		this->m_texture_background = new Texture("textures/" + kv::tryGetStringValue(kvs, "background", "grid.png"), true);
-		
 		// Load the rest of the config options
 		this->m_ao_enable				= (kv::tryGetStringValue(kvs, "enableAO", "1") == "1");
 		this->m_ao_scale				= kv::tryGetValue(kvs, "aoSize", 1000.0f);
@@ -170,11 +161,12 @@ public:
 			break;
 		}
 
+		LOG_F(INFO, "DDS Write: %s", (this->m_write_dds? "ON": "OFF"));
+		LOG_F(INFO, "TXT Write: %s", (this->m_write_txt? "ON": "OFF"));
+		LOG_F(INFO, "PNG Write: %s", (this->m_write_png? "ON": "OFF"));
+
 		// Configure camera setup
 		this->m_map_bounds = v->getVisgroupBounds(this->m_visgroup_layout);
-
-		std::cout << -this->m_map_bounds.NWU.x << "," << this->m_map_bounds.NWU.y << "," << this->m_map_bounds.NWU.z << "\n";
-		std::cout << -this->m_map_bounds.SEL.x << "," << this->m_map_bounds.SEL.y << "," << this->m_map_bounds.SEL.z << "\n";
 
 		for (auto && min : v->get_entities_by_classname("tar_min"))
 			this->m_map_bounds.SEL.y = glm::max(min->m_origin.y, this->m_map_bounds.SEL.y);
@@ -220,5 +212,60 @@ public:
 			this->layers.push_back(tar_config_layer(splits[i], splits[i + 1]));
 
 		this->layers.push_back(tar_config_layer(splits.back(), -10000.0f));
+	}
+
+	void gen_textures() {
+		// Load color scheme gradient
+		// TODO: Entity based gradients
+		std::string schemeNum = kv::tryGetStringValue(kvs, "colorScheme", "0");
+		if (schemeNum == "-1") {
+			this->m_texture_gradient = new GradientTexture(
+				kv::tryGetStringValue(kvs, "customCol0", "39  56  79  255"),
+				kv::tryGetStringValue(kvs, "customCol1", "77  74  72  255"),
+				kv::tryGetStringValue(kvs, "customCol2", "178 113 65  255")
+			);
+		}
+		else if (schemeNum == "-2") {
+			// Do thi thening
+			this->m_texture_gradient = new WGradientTexture(v->get_entities_by_classname("tar_color"));
+		}
+		else {
+			this->m_texture_gradient = new Texture("textures/gradients/gradientmap_" + schemeNum + ".png", true);
+		}
+
+		this->m_texture_background = new Texture("textures/" + kv::tryGetStringValue(kvs, "background", "grid.png"), true);
+
+		unsigned char temp_data[256*3*sizeof(float)];
+
+		glGenTextures(1, &this->m_gradient_texture);
+		glBindTexture(GL_TEXTURE_2D, this->m_gradient_texture);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 256, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, temp_data);
+	}
+
+	// Update the gradient texture with ImGradient
+	void update_gradient(const ImGradient& grad) {
+		glBindTexture(GL_TEXTURE_2D, this->m_gradient_texture);
+		glTexSubImage2D(
+			GL_TEXTURE_2D,
+			0,
+			0,
+			0,
+			256,
+			1,
+			GL_RGB,
+			GL_UNSIGNED_BYTE,
+			grad.cache_ptr()
+		);
+	}
+
+	// Update the gradient texture via presets
+	void update_gradient(const int& presetID) {
+
+	}
+
+	// Bind gradient texture to slot
+	void bind_gradient_texture(const unsigned int& slot = 0) {
+		glActiveTexture(GL_TEXTURE0 + slot);
+		glBindTexture(GL_TEXTURE_2D, this->m_gradient_texture);
 	}
 };

@@ -1,15 +1,30 @@
 #include "globals.h"
 #ifdef entry_point_revis
+// Credits etc...
+#include "strings.h"
 
+// Imgui
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+#include "imgui_color_gradient.h"
+#include "imgui_color_gradient_presets.h"
+#include "imgui_themes.h"
+
+// STL
+#include <stdio.h>
+
+// CXXOpts
 #include "cxxopts.hpp"
 
-//Loguru
+// Loguru
 #include "loguru.hpp"
 
 // Source SDK
 #include "vfilesys.hpp"
 #include "studiomdl.hpp"
 #include "vmf.hpp"
+#include "tar_config.hpp"
 
 #include <glad\glad.h>
 #include <GLFW\glfw3.h>
@@ -63,6 +78,10 @@ void APIENTRY openglCallbackFunction(GLenum source,
 	LOG_F(WARNING, "--------------------------------------------------------------------------------------------------------------------------------");
 }
 
+static void glfw_error_callback(int error, const char* description) {
+	LOG_F(ERROR, "GLFW Error %d: %s", error, description);
+}
+
 int g_renderWidth = 1024;
 int g_renderHeight = 1024;
 
@@ -74,6 +93,10 @@ void setupconsole();
 
 // Terminate safely
 int safe_terminate() {
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
+
 	SHADER_CLEAR_ALL
 	glfwTerminate();
 	return 0;
@@ -99,18 +122,21 @@ int app(int argc, char** argv) {
 #pragma region Source_SDK_setup
 
 	vfilesys* filesys = new vfilesys(g_game_path + "/gameinfo.txt");
-	vmf* g_vmf_file = vmf::from_file(g_mapfile_path + ".vmf");
 	vmf::LinkVFileSystem(filesys);
 
+
+	vmf* g_vmf_file = vmf::from_file(g_mapfile_path + ".vmf");
+	tar_config* g_tar_config = new tar_config(g_vmf_file); // Create config
+
 	LOG_F(1, "Pre-processing visgroups into bit masks");
-	g_vmf_file->IterSolids([](solid* s) {
-		if (s->m_editorvalues.m_hashed_visgroups.count(hash("tavr_layout"))) s->m_setChannels( TAR_CHANNEL_LAYOUT_0 );
-		if (s->m_editorvalues.m_hashed_visgroups.count(hash("tavr_overlap"))) s->m_setChannels( TAR_CHANNEL_LAYOUT_1 );
+	g_vmf_file->IterSolids([g_tar_config](solid* s) {
+		if (s->m_editorvalues.m_hashed_visgroups.count(hash(g_tar_config->m_visgroup_layout.c_str()))) s->m_setChannels( TAR_CHANNEL_LAYOUT_0 );
+		if (s->m_editorvalues.m_hashed_visgroups.count(hash(g_tar_config->m_visgroup_overlap.c_str()))) s->m_setChannels( TAR_CHANNEL_LAYOUT_1 );
 	});
 
-	g_vmf_file->IterEntities([](entity* e, const std::string& classname) {
-		if (e->m_editorvalues.m_hashed_visgroups.count(hash("tavr_layout"))) e->m_setChannels( TAR_CHANNEL_LAYOUT_0 );
-		if (e->m_editorvalues.m_hashed_visgroups.count(hash("tavr_overlap"))) e->m_setChannels( TAR_CHANNEL_LAYOUT_1 );
+	g_vmf_file->IterEntities([g_tar_config](entity* e, const std::string& classname) {
+		if (e->m_editorvalues.m_hashed_visgroups.count(hash(g_tar_config->m_visgroup_layout.c_str()))) e->m_setChannels( TAR_CHANNEL_LAYOUT_0 );
+		if (e->m_editorvalues.m_hashed_visgroups.count(hash(g_tar_config->m_visgroup_overlap.c_str()))) e->m_setChannels( TAR_CHANNEL_LAYOUT_1 );
 	});
 
 #pragma endregion
@@ -118,17 +144,18 @@ int app(int argc, char** argv) {
 #pragma region opengl_setup
 	LOG_F(1, "Initializing GLFW");
 
+	// Setup window
+	glfwSetErrorCallback(glfw_error_callback);
 	glfwInit();
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
+	//glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
 
 	//glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
 
-	GLFWwindow* window = glfwCreateWindow(g_renderWidth, g_renderHeight, "Ceci n'est pas une window", NULL, NULL);
-
+	GLFWwindow* window = glfwCreateWindow(800, 600, "Terri00's Auto Radar V3.0.0", NULL, NULL);
 	LOG_F(1, "Window created");
 
 	if (window == NULL) {
@@ -136,7 +163,9 @@ int app(int argc, char** argv) {
 		return safe_terminate();
 	}
 
+	glfwMaximizeWindow(window);
 	glfwMakeContextCurrent(window);
+	glfwSwapInterval(1);
 
 	LOG_F(1, "Loading GLAD");
 
@@ -167,6 +196,24 @@ int app(int argc, char** argv) {
 
 #pragma endregion
 
+#pragma region Imgui_setup
+
+	// Setup Imgui context
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+
+	// Theme
+	ImGui::theme_apply_psui();
+	ImGui::theme_apply_eu4();
+
+	// Setup platform / renderer bindings
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init("#version 330 core");
+
+#pragma endregion
+
 #pragma region Opengl_setup2
 
 	glEnable(GL_DEPTH_TEST);
@@ -187,6 +234,8 @@ int app(int argc, char** argv) {
 	if( !SHADER_COMPILE_END ) return safe_terminate();
 
 #pragma endregion
+
+	g_tar_config->gen_textures();
 
 	// Get test model.
 	//studiomdl* testmdl = studiomdl::getModel("models/props/de_nuke/car_nuke.mdl", filesys);
@@ -212,6 +261,35 @@ int app(int argc, char** argv) {
 	g_shader_test->use();
 	g_shader_test->setMatrix("projection", projm);
 	g_shader_test->setMatrix("view", viewm);
+
+	glm::vec4 test_color = glm::vec4(0, 0, 0, 1);
+	ImGradient gradient;
+	bool showgrad = false;
+
+	bool show_window_about = false;
+
+	int gradient_selection = 0;
+	int gradient_selection_last = gradient_selection;
+
+	static ImGradientMark* draggingMark = nullptr;
+	static ImGradientMark* selectedMark = nullptr;
+
+	float color[3];
+	gradient.getColorAt(0.3f, color); //position from 0 to 1
+
+	gradient.getMarks().clear();
+	gradient.addMark(0.0f, ImColor(0.2f, 0.1f, 0.0f));
+	gradient.addMark(0.7f, ImColor(120, 200, 255));
+
+	gradient.getMarks().clear();
+	gradient.addMark(0.0f, ImColor(0xA0, 0x79, 0x3D));
+	gradient.addMark(0.2f, ImColor(0xAA, 0x83, 0x47));
+	gradient.addMark(0.3f, ImColor(0xB4, 0x8D, 0x51));
+	gradient.addMark(0.4f, ImColor(0xBE, 0x97, 0x5B));
+	gradient.addMark(0.6f, ImColor(0xC8, 0xA1, 0x65));
+	gradient.addMark(0.7f, ImColor(0xD2, 0xAB, 0x6F));
+	gradient.addMark(0.8f, ImColor(0xDC, 0xB5, 0x79));
+	gradient.addMark(1.0f, ImColor(0xE6, 0xBF, 0x83));
 
 	while (!glfwWindowShouldClose(window)) {
 		viewm = glm::lookAt(glm::vec3(glm::sin(glfwGetTime()) * 4222.0f, 4222.0f, glm::cos(glfwGetTime()) * 4222.0f), glm::vec3(0.0f), glm::vec3(0, 1, 0));
@@ -261,6 +339,137 @@ int app(int argc, char** argv) {
 		layoutBuf2.DrawPreview(glm::vec2(0, -0.5));
 
 		glfwPollEvents();
+
+#pragma region ImGui
+
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
+		// ============================= FILE MENU =====================================
+		if (ImGui::BeginMainMenuBar()){
+			if (ImGui::BeginMenu("File")) {
+				ImGui::MenuItem("(dummy menu)", NULL, false, false);
+				if (ImGui::MenuItem("New")) {}
+				ImGui::EndMenu();
+			}
+			if (ImGui::BeginMenu("Help")) {
+				if (ImGui::MenuItem("Documentation")) {
+					// Open documentation
+				}
+				if (ImGui::MenuItem("About TAR")) {
+					show_window_about = true;
+				}
+				ImGui::EndMenu();
+			}
+
+			ImGui::EndMainMenuBar();
+		}
+
+		// ============================= ABOUT TAR ======================================
+		if (show_window_about) {
+			ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x / 2, io.DisplaySize.y / 2), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+			ImGui::SetNextWindowSize(ImVec2(600, -1), ImGuiCond_Always);
+			ImGui::Begin("About TAR", &show_window_about, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
+
+			ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.4f), "Version: %s", tar_version);
+			ImGui::TextWrapped("%s", tar_credits_about);
+			ImGui::Separator();
+			ImGui::TextWrapped("Super mega cool donators:\n%s", tar_credits_donators);
+			ImGui::Separator();
+			ImGui::TextWrapped("Free software used:\n%s", tar_credits_freesoft);
+
+			if (ImGui::Button("                                       Close                                      ")) {
+				show_window_about = false;
+			}
+
+			ImGui::End();
+		}
+
+		ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x, 19), ImGuiCond_FirstUseEver, ImVec2(1.0f, 0.0f));
+		//ImGui::Begin("Editor", (bool*)0, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
+		ImGui::Begin("Editor", (bool*)0);
+
+		// ============================= LIGHTING TAB ==========================================
+		ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
+		if (ImGui::CollapsingHeader("Lighting Options")) {
+			if (ImGui::BeginTabBar("Lighting")) {
+				if (ImGui::BeginTabItem("Occlusion"))
+				{
+					ImGui::Checkbox("Enable AO", &g_tar_config->m_ao_enable);
+					if (g_tar_config->m_ao_enable) {
+						ImGui::SliderFloat("AO Scale", &g_tar_config->m_ao_scale, 1.0f, 1500.0f, "%.1f");
+						//ImGui::ColorPicker4("AO Color", glm::value_ptr(g_tar_config->m_color_ao), ImGuiColorEditFlags_NoPicker);
+
+						ImGui::Text("AO Color: ");
+						ImGui::SameLine();
+						ImGui::ColorEdit4("AO Color", glm::value_ptr(g_tar_config->m_color_ao), ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_AlphaBar);
+					}
+
+					ImGui::EndTabItem();
+				}
+
+				if (ImGui::BeginTabItem("Sun Light"))
+				{
+					ImGui::Checkbox("Shadows", &g_tar_config->m_shadows_enable);
+					if (g_tar_config->m_shadows_enable) {
+						ImGui::SliderFloat("Trace length", &g_tar_config->m_shadows_tracelength, 1.0f, 2048.0f, "%.1f");
+						ImGui::SliderInt("Sample Count", &g_tar_config->m_shadows_samplecount, 1, 512, "%d");
+					}
+
+					ImGui::EndTabItem();
+				}
+
+				ImGui::EndTabBar();
+			}
+		}
+
+		// =============================== COLORS TAB ============================================
+		ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
+		if (ImGui::CollapsingHeader("Color Options")) {
+			ImGui::Text("Heightmap Colors:");
+
+			if (ImGui::GradientButton(&gradient)) {
+				showgrad = !showgrad;
+			}
+			
+			if (showgrad) {
+				ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
+				ImGui::Begin("Editing gradient: 'Heightmap Colors'", &showgrad, ImGuiWindowFlags_NoCollapse);
+				bool updated = ImGui::GradientEditor(&gradient, draggingMark, selectedMark);
+				if (updated) {
+					// Routine update gradient ... 
+					g_tar_config->update_gradient(gradient);
+				}
+
+				ImGui::Separator();
+
+				ImGui::Text("Presets:");
+				if (ImGui::Button("Dust2")) { gradpreset::load_dust_2(&gradient); } ImGui::SameLine();
+				if (ImGui::Button("Mirage")) { gradpreset::load_mirage(&gradient); } ImGui::SameLine();
+				if (ImGui::Button("Overpass")) { gradpreset::load_overpass(&gradient); } ImGui::SameLine();
+				if (ImGui::Button("Cache")) { gradpreset::load_cache(&gradient); } ImGui::SameLine();
+				if (ImGui::Button("Inferno")) { gradpreset::load_inferno(&gradient); } ImGui::SameLine();
+				if (ImGui::Button("Train")) { gradpreset::load_train(&gradient); } ImGui::SameLine();
+				if (ImGui::Button("Nuke")) { gradpreset::load_nuke(&gradient); } ImGui::SameLine();
+				if (ImGui::Button("Vertigo")) { gradpreset::load_vertigo(&gradient); }
+				ImGui::End();
+			}
+		} else {
+			showgrad = false;
+		}
+
+		ImGui::End();
+
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+#pragma endregion
+
+		int display_w, display_h;
+		glfwGetFramebufferSize(window, &display_w, &display_h);
+		glViewport(0, 0, display_w, display_h);
+
 		glfwSwapBuffers(window);
 	}
 

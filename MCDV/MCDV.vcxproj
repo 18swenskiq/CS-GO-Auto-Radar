@@ -139,6 +139,17 @@
     <ClInclude Include="GBuffer.hpp" />
     <ClInclude Include="globals.h" />
     <ClInclude Include="GradientMap.hpp" />
+    <ClInclude Include="imconfig.h" />
+    <ClInclude Include="imgui.h" />
+    <ClInclude Include="imgui_color_gradient.h" />
+    <ClInclude Include="imgui_color_gradient_presets.h" />
+    <ClInclude Include="imgui_impl_glfw.h" />
+    <ClInclude Include="imgui_impl_opengl3.h" />
+    <ClInclude Include="imgui_internal.h" />
+    <ClInclude Include="imgui_themes.h" />
+    <ClInclude Include="imstb_rectpack.h" />
+    <ClInclude Include="imstb_textedit.h" />
+    <ClInclude Include="imstb_truetype.h" />
     <ClInclude Include="interpolation.h" />
     <ClInclude Include="generic.hpp" />
     <ClInclude Include="IRenderable.hpp" />
@@ -156,6 +167,7 @@
     <ClInclude Include="stb_dxt.h" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="stb_image_write.h" />
+    <ClInclude Include="strings.h" />
     <ClInclude Include="studiomdl.hpp" />
     <ClInclude Include="tar_config.hpp" />
     <ClInclude Include="tbsp.hpp" />
@@ -178,6 +190,13 @@
   <ItemGroup>
     <ClCompile Include="glad.c" />
     <ClCompile Include="GLFWUtil.hpp" />
+    <ClCompile Include="imgui.cpp" />
+    <ClCompile Include="imgui_color_gradient.cpp" />
+    <ClCompile Include="imgui_demo.cpp" />
+    <ClCompile Include="imgui_draw.cpp" />
+    <ClCompile Include="imgui_impl_glfw.cpp" />
+    <ClCompile Include="imgui_impl_opengl3.cpp" />
+    <ClCompile Include="imgui_widgets.cpp" />
     <ClCompile Include="loguru.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="main2.cpp" />
