@@ -250,6 +250,7 @@ public:
 	}
 
 	uint32_t pick_normalized_pixel(const double& mouse_x, const double& mouse_y, const int& window_w, const int& window_h) {
+		glBindFramebuffer(GL_FRAMEBUFFER, this->gBuffer); //Set as active draw target
 		float norm_x = (float)mouse_x / (float)window_w; // get normalized coords
 		float norm_y = (float)mouse_y / (float)window_h;
 
@@ -261,7 +262,7 @@ public:
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
 		glReadPixels(px, py, 1, 1, GL_RED_INTEGER, GL_UNSIGNED_INT, &id);
-
+		UIBuffer::Unbind();
 		return id;
 	}
 

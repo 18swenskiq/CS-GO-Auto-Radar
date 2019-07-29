@@ -60,6 +60,7 @@ public:
 	}
 
 	void Bind() {
+		glViewport(0, 0, this->width, this->height);
 		glBindFramebuffer(GL_FRAMEBUFFER, this->fbo); //Set as active draw target
 	}
 

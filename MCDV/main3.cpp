@@ -35,6 +35,7 @@
 // Opengl
 #include "Shader.hpp"
 #include "GBuffer.hpp"
+#include "FrameBuffer.hpp"
 
 #include <glm\glm.hpp>
 #include <glm\gtc\matrix_transform.hpp>
@@ -91,7 +92,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 
 // Source sdk config
 std::string g_game_path = "D:/SteamLibrary/steamapps/common/Counter-Strike Global Offensive/csgo";
-std::string g_mapfile_path = "sample_stuff/de_tavr_test";
+std::string g_mapfile_path = "sample_stuff/map_01";
 
 // shaders
 Shader* g_shader_color;
@@ -101,11 +102,13 @@ Shader* g_shader_id;
 Camera* g_camera_main;
 ImGuiIO* io;
 UIBuffer* g_buff_selection;
+FrameBuffer* g_buff_maskpreview;
 
 glm::vec3 g_debug_line_orig;
 glm::vec3 g_debug_line_point;
 
 vmf* g_vmf_file;
+tar_config* g_tar_config;
 
 int display_w, display_h;
 
@@ -120,6 +123,223 @@ int safe_terminate() {
 	SHADER_CLEAR_ALL
 	glfwTerminate();
 	return 0;
+}
+
+uint32_t g_group_write = TAR_CHANNEL_LAYOUT_0;
+uint32_t g_group_lock = TAR_CHANNEL_NONE;
+
+Texture* tex_ui_padlock;
+Texture* tex_ui_unpadlock;
+Texture* tex_ui_rubbish;
+
+void clear_channel(vmf* vmf, uint32_t channels) {
+	for (auto&& i : vmf->m_solids) { i.m_visibility = (i.m_visibility & ~channels); if(i.m_visibility == TAR_CHANNEL_NONE) i.m_visibility |= TAR_CHANNEL_DEFAULT; }
+	for (auto&& i : vmf->m_entities) { i.m_visibility = (i.m_visibility & ~channels); if(i.m_visibility == TAR_CHANNEL_NONE) i.m_visibility |= TAR_CHANNEL_DEFAULT; }
+}
+
+void ui_clear_conf(const char* id, uint32_t clearChannel) {
+	if (ImGui::BeginPopupModal(id, NULL, ImGuiWindowFlags_AlwaysAutoResize)){
+		ImGui::Text("This operation cannot be undone!\n\n");
+		ImGui::Separator();
+
+		if (ImGui::Button("OK", ImVec2(120, 0))) { ImGui::CloseCurrentPopup(); clear_channel(g_vmf_file, clearChannel); }
+		ImGui::SetItemDefaultFocus();
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel", ImVec2(120, 0))) { ImGui::CloseCurrentPopup(); }
+		ImGui::EndPopup();
+	}
+}
+
+void ui_sub_vgroup(const char* name, const ImVec4& color, const uint32_t& groupid) {
+	ImGui::PushID((std::string(name) + "_lock").c_str());
+	if (ImGui::ImageButton((void*)((g_group_lock & groupid) ? tex_ui_padlock->texture_id : tex_ui_unpadlock->texture_id), ImVec2(18, 18), ImVec2(1, 1), ImVec2(0, 0), 0, ImVec4(0.0f, 0.0f, 0.0f, 1.0f)))
+	{ g_group_lock ^= groupid; }
+	ImGui::PopID();
+	ImGui::SameLine();
+	ImGui::PushID((std::string(name) + "_delete").c_str());
+	if (ImGui::ImageButton((void*)tex_ui_rubbish->texture_id, ImVec2(18, 18), ImVec2(1, 1), ImVec2(0, 0), 0, ImVec4(0.0f, 0.0f, 0.0f, 1.0f)))
+	{ ImGui::OpenPopup(("Clear " + std::string(name) + " group?").c_str()); std::cout << "YEET\n";}
+	ui_clear_conf(("Clear " + std::string(name) + " group?").c_str(), groupid);
+	ImGui::PopID();
+	ImGui::SameLine();
+
+	if (TARChannel::_compFlags(&g_group_lock, groupid)) { ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.6f); }
+	ImGui::PushStyleColor(ImGuiCol_Button,			ImVec4(color.x * 0.5, color.y * 0.5, color.z * 0.5, color.w));
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered,	ImVec4(color.x * 0.8, color.y * 0.8, color.z * 0.8, color.w));
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive,	color);
+	if (ImGui::Button(name)) { g_group_write = groupid; }
+	ImGui::PopStyleColor(3);
+	if (TARChannel::_compFlags(&g_group_lock, groupid)) ImGui::PopStyleVar();
+
+	
+}
+
+// UI voids
+void ui_render_vgroup_edit() {
+	ImGui::Begin("Editor", (bool*)0);
+
+	ImGui::Text("Edit group:");
+
+	ui_sub_vgroup("layout", ImVec4(0.7f, 0.8f, 0.9f, 1.0f), TAR_CHANNEL_LAYOUT_0);
+	ui_sub_vgroup("overlap", ImVec4(0.3f, 0.6f, 0.9f, 1.0f), TAR_CHANNEL_LAYOUT_1);
+	ui_sub_vgroup("mask", ImVec4(0.9f, 0.0f, 0.0f, 1.0f), TAR_CHANNEL_MASK);
+	ui_sub_vgroup("cover", ImVec4(0.3f, 0.9f, 0.0f, 1.0f), TAR_CHANNEL_COVER);
+
+	ImGui::Separator();
+
+	ImGui::Text("Mask preview:");
+	ImGui::Image((void*)g_buff_maskpreview->texColorBuffer, ImVec2(256, 256), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1,1,1,1), ImVec4(0,0,0,1));
+}
+
+// Main menu and related 'main' windows
+void ui_render_main() {
+	static bool s_ui_window_about = false;
+
+	// ============================= FILE MENU =====================================
+	if (ImGui::BeginMainMenuBar()) {
+		if (ImGui::BeginMenu("File")) {
+			ImGui::MenuItem("(dummy menu)", NULL, false, false);
+			if (ImGui::MenuItem("New")) {}
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Help")) {
+			if (ImGui::MenuItem("Documentation")) {
+				// Open documentation
+			}
+			if (ImGui::MenuItem("About TAR")) {
+				s_ui_window_about = true;
+			}
+			ImGui::EndMenu();
+		}
+
+		ImGui::EndMainMenuBar();
+	}
+
+	// ============================= ABOUT TAR ======================================
+	if (s_ui_window_about) {
+		ImGui::SetNextWindowPos(ImVec2(io->DisplaySize.x / 2, io->DisplaySize.y / 2), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+		ImGui::SetNextWindowSize(ImVec2(600, -1), ImGuiCond_Always);
+		ImGui::Begin("About TAR", &s_ui_window_about, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
+
+		ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.4f), "Version: %s", tar_version);
+		ImGui::TextWrapped("%s", tar_credits_about);
+		ImGui::Separator();
+		ImGui::TextWrapped("Super mega cool donators:\n%s", tar_credits_donators);
+		ImGui::Separator();
+		ImGui::TextWrapped("Free software used:\n%s", tar_credits_freesoft);
+
+		if (ImGui::Button("                                       Close                                      ")) {
+			s_ui_window_about = false;
+		}
+
+		ImGui::End();
+	}
+}
+
+void vmf_render_mask_preview(vmf* v, FrameBuffer* fb, const glm::mat4& viewm, const glm::mat4& projm) {
+	fb->Bind();
+	glClearColor(0.1, 0.1, 0.1, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	static std::map<uint32_t, glm::vec3> color_lookup = {
+		{ TAR_CHANNEL_LAYOUT_0, glm::vec3(0.8f, 0.8f, 0.8f) },
+		{ TAR_CHANNEL_LAYOUT_1, glm::vec3(0.9f, 0.9f, 0.9f) },
+		{ TAR_CHANNEL_COVER,	glm::vec3(0.5f, 0.5f, 0.5f) },
+		{ TAR_CHANNEL_MASK,		glm::vec3(0.1f, 0.1f, 0.1f) }
+	};
+
+	TARChannel::setChannels( TAR_CHANNEL_LAYOUT | TAR_CHANNEL_COVER | TAR_CHANNEL_MASK );
+	g_shader_color->use();
+	g_shader_color->setMatrix("view", viewm);
+	g_shader_color->setMatrix("projection", projm);
+	g_vmf_file->DrawWorld(g_shader_color, glm::mat4(1.0f), [](solid* ptrSolid, entity* ptrEnt) {
+		if(ptrSolid) g_shader_color->setVec3("color", color_lookup[ptrSolid->m_visibility] );
+		if(ptrEnt) g_shader_color->setVec3("color", color_lookup[ptrEnt->m_visibility]);
+	});
+
+	FrameBuffer::Unbind();
+}
+
+ImGradient gradient;
+
+void ui_render_dev() {
+	static bool s_ui_show_gradient = false;
+
+	static ImGradientMark* draggingMark = nullptr;
+	static ImGradientMark* selectedMark = nullptr;
+
+	ImGui::SetNextWindowPos(ImVec2(io->DisplaySize.x, 19), ImGuiCond_FirstUseEver, ImVec2(1.0f, 0.0f));
+	//ImGui::Begin("Editor", (bool*)0, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
+	ImGui::Begin("Editor", (bool*)0);
+
+	// ============================= LIGHTING TAB ==========================================
+	ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
+	if (ImGui::CollapsingHeader("Lighting Options")) {
+		if (ImGui::BeginTabBar("Lighting")) {
+			if (ImGui::BeginTabItem("Occlusion"))
+			{
+				ImGui::Checkbox("Enable AO", &g_tar_config->m_ao_enable);
+				if (g_tar_config->m_ao_enable) {
+					ImGui::SliderFloat("AO Scale", &g_tar_config->m_ao_scale, 1.0f, 1500.0f, "%.1f");
+					//ImGui::ColorPicker4("AO Color", glm::value_ptr(g_tar_config->m_color_ao), ImGuiColorEditFlags_NoPicker);
+
+					ImGui::Text("AO Color: ");
+					ImGui::SameLine();
+					ImGui::ColorEdit4("AO Color", glm::value_ptr(g_tar_config->m_color_ao), ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_AlphaBar);
+				}
+
+				ImGui::EndTabItem();
+			}
+
+			if (ImGui::BeginTabItem("Sun Light"))
+			{
+				ImGui::Checkbox("Shadows", &g_tar_config->m_shadows_enable);
+				if (g_tar_config->m_shadows_enable) {
+					ImGui::SliderFloat("Trace length", &g_tar_config->m_shadows_tracelength, 1.0f, 2048.0f, "%.1f");
+					ImGui::SliderInt("Sample Count", &g_tar_config->m_shadows_samplecount, 1, 512, "%d");
+				}
+
+				ImGui::EndTabItem();
+			}
+
+			ImGui::EndTabBar();
+		}
+	}
+
+	// =============================== COLORS TAB ============================================
+	ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
+	if (ImGui::CollapsingHeader("Color Options")) {
+		ImGui::Text("Heightmap Colors:");
+
+		if (ImGui::GradientButton(&gradient)) {
+			s_ui_show_gradient = !s_ui_show_gradient;
+		}
+			
+		if (s_ui_show_gradient) {
+			ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
+			ImGui::Begin("Editing gradient: 'Heightmap Colors'", &s_ui_show_gradient, ImGuiWindowFlags_NoCollapse);
+			bool updated = ImGui::GradientEditor(&gradient, draggingMark, selectedMark);
+			if (updated) {
+				// Routine update gradient ... 
+				g_tar_config->update_gradient(gradient);
+			}
+
+			ImGui::Separator();
+
+			ImGui::Text("Presets:");
+			if (ImGui::Button("Dust2")) { gradpreset::load_dust_2(&gradient); } ImGui::SameLine();
+			if (ImGui::Button("Mirage")) { gradpreset::load_mirage(&gradient); } ImGui::SameLine();
+			if (ImGui::Button("Overpass")) { gradpreset::load_overpass(&gradient); } ImGui::SameLine();
+			if (ImGui::Button("Cache")) { gradpreset::load_cache(&gradient); } ImGui::SameLine();
+			if (ImGui::Button("Inferno")) { gradpreset::load_inferno(&gradient); } ImGui::SameLine();
+			if (ImGui::Button("Train")) { gradpreset::load_train(&gradient); } ImGui::SameLine();
+			if (ImGui::Button("Nuke")) { gradpreset::load_nuke(&gradient); } ImGui::SameLine();
+			if (ImGui::Button("Vertigo")) { gradpreset::load_vertigo(&gradient); }
+			ImGui::End();
+		}
+	} else {
+		s_ui_show_gradient = false;
+	}
 }
 
 int app(int argc, char** argv) {
@@ -146,15 +366,15 @@ int app(int argc, char** argv) {
 
 
 	g_vmf_file = vmf::from_file(g_mapfile_path + ".vmf");
-	tar_config* g_tar_config = new tar_config(g_vmf_file); // Create config
+	g_tar_config = new tar_config(g_vmf_file); // Create config
 
 	LOG_F(1, "Pre-processing visgroups into bit masks");
-	g_vmf_file->IterSolids([g_tar_config](solid* s) {
+	g_vmf_file->IterSolids([](solid* s) {
 		if (s->m_editorvalues.m_hashed_visgroups.count(hash(g_tar_config->m_visgroup_layout.c_str()))) s->m_setChannels( TAR_CHANNEL_LAYOUT_0 );
 		if (s->m_editorvalues.m_hashed_visgroups.count(hash(g_tar_config->m_visgroup_overlap.c_str()))) s->m_setChannels( TAR_CHANNEL_LAYOUT_1 );
 	});
 
-	g_vmf_file->IterEntities([g_tar_config](entity* e, const std::string& classname) {
+	g_vmf_file->IterEntities([](entity* e, const std::string& classname) {
 		if (e->m_editorvalues.m_hashed_visgroups.count(hash(g_tar_config->m_visgroup_layout.c_str()))) e->m_setChannels( TAR_CHANNEL_LAYOUT_0 );
 		if (e->m_editorvalues.m_hashed_visgroups.count(hash(g_tar_config->m_visgroup_overlap.c_str()))) e->m_setChannels( TAR_CHANNEL_LAYOUT_1 );
 	});
@@ -249,6 +469,7 @@ int app(int argc, char** argv) {
 	GBuffer testBuffer = GBuffer(256, 256);
 	GBuffer layoutBuf2 = GBuffer(256, 256);
 	g_buff_selection = new UIBuffer(512, 512);
+	g_buff_maskpreview = new FrameBuffer(256, 256);
 
 	// Compile shaders block.
 	SHADER_COMPILE_START
@@ -260,6 +481,11 @@ int app(int argc, char** argv) {
 		g_shader_id = new Shader("shaders/engine/line.vs", "shaders/engine/id.fs");
 
 	if( !SHADER_COMPILE_END ) return safe_terminate();
+
+	// Load textures
+	tex_ui_padlock = new Texture("textures/ui/lock_locked.png", false);
+	tex_ui_unpadlock = new Texture("textures/ui/lock_unlocked.png", false);
+	tex_ui_rubbish = new Texture("textures/ui/rubbish.png", false);
 
 	g_camera_main = new Camera(glm::vec3(0, 0, 0), glm::vec3(0, 0, 1));
 
@@ -295,22 +521,11 @@ int app(int argc, char** argv) {
 	GBuffer::s_gbufferwriteShader->use();
 	GBuffer::s_gbufferwriteShader->setMatrix("projection", projm);
 
-	glm::vec4 test_color = glm::vec4(0, 0, 0, 1);
-	ImGradient gradient;
-	bool showgrad = false;
-
-	bool show_window_about = false;
-
-	int gradient_selection = 0;
-	int gradient_selection_last = gradient_selection;
-
-	static ImGradientMark* draggingMark = nullptr;
-	static ImGradientMark* selectedMark = nullptr;
-
 	gradpreset::load_vertigo(&gradient);
 
-	float time_last = 0.0f;
+	vmf_render_mask_preview(g_vmf_file, g_buff_maskpreview, glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, -1, 0), glm::vec3(0, 0, 1)), glm::ortho(0, 5000, -5000, 0, -4000, 4000));
 
+	float time_last = 0.0f;
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
 
@@ -365,11 +580,18 @@ int app(int argc, char** argv) {
 		glClearColor(0.07, 0.07, 0.07, 0.0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+		static  std::map<uint32_t, glm::vec4> color_lookup = {
+			{ TAR_CHANNEL_LAYOUT_0, glm::vec4(0.4f, 0.5f, 0.6f, 1.0f) },
+			{ TAR_CHANNEL_LAYOUT_1, glm::vec4(0.1f, 0.3f, 0.6f, 1.0f) },
+			{ TAR_CHANNEL_COVER,	glm::vec4(0.1f, 0.6f, 0.0f, 1.0f) },
+			{ TAR_CHANNEL_MASK,		glm::vec4(0.6f, 0.0f, 0.0f, 1.0f) }
+		};
+
 		TARChannel::setChannels(TAR_CHANNEL_ALL);
 		g_vmf_file->DrawWorld(g_shader_test, glm::mat4(1.0f), [g_shader_test](solid* ptrSolid, entity* ptrEnt) {
-			g_shader_test->setVec4("color", glm::vec4(1, 1, 1, 1));
-			if(ptrSolid) if(ptrSolid->temp_marked) g_shader_test->setVec4("color", glm::vec4(1,0,0,1));
-			if(ptrEnt) if(ptrEnt->temp_marked) g_shader_test->setVec4("color", glm::vec4(1,0.4,0,1));
+			g_shader_test->setVec4("color", glm::vec4(0.2, 0.2, 0.2, 0.2));
+			if(ptrSolid) if(color_lookup.count(ptrSolid->m_visibility)) g_shader_test->setVec4("color", color_lookup[ptrSolid->m_visibility] );
+			if(ptrEnt) if (color_lookup.count(ptrEnt->m_visibility)) g_shader_test->setVec4("color", color_lookup[ptrEnt->m_visibility]);
 		});
 
 		//testBuffer.DrawPreview(glm::vec2(0,0));
@@ -394,118 +616,9 @@ int app(int argc, char** argv) {
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
-		// ============================= FILE MENU =====================================
-		if (ImGui::BeginMainMenuBar()){
-			if (ImGui::BeginMenu("File")) {
-				ImGui::MenuItem("(dummy menu)", NULL, false, false);
-				if (ImGui::MenuItem("New")) {}
-				ImGui::EndMenu();
-			}
-			if (ImGui::BeginMenu("Help")) {
-				if (ImGui::MenuItem("Documentation")) {
-					// Open documentation
-				}
-				if (ImGui::MenuItem("About TAR")) {
-					show_window_about = true;
-				}
-				ImGui::EndMenu();
-			}
-
-			ImGui::EndMainMenuBar();
-		}
-
-		// ============================= ABOUT TAR ======================================
-		if (show_window_about) {
-			ImGui::SetNextWindowPos(ImVec2(io->DisplaySize.x / 2, io->DisplaySize.y / 2), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-			ImGui::SetNextWindowSize(ImVec2(600, -1), ImGuiCond_Always);
-			ImGui::Begin("About TAR", &show_window_about, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
-
-			ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.4f), "Version: %s", tar_version);
-			ImGui::TextWrapped("%s", tar_credits_about);
-			ImGui::Separator();
-			ImGui::TextWrapped("Super mega cool donators:\n%s", tar_credits_donators);
-			ImGui::Separator();
-			ImGui::TextWrapped("Free software used:\n%s", tar_credits_freesoft);
-
-			if (ImGui::Button("                                       Close                                      ")) {
-				show_window_about = false;
-			}
-
-			ImGui::End();
-		}
-
-		ImGui::SetNextWindowPos(ImVec2(io->DisplaySize.x, 19), ImGuiCond_FirstUseEver, ImVec2(1.0f, 0.0f));
-		//ImGui::Begin("Editor", (bool*)0, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
-		ImGui::Begin("Editor", (bool*)0);
-
-		// ============================= LIGHTING TAB ==========================================
-		ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
-		if (ImGui::CollapsingHeader("Lighting Options")) {
-			if (ImGui::BeginTabBar("Lighting")) {
-				if (ImGui::BeginTabItem("Occlusion"))
-				{
-					ImGui::Checkbox("Enable AO", &g_tar_config->m_ao_enable);
-					if (g_tar_config->m_ao_enable) {
-						ImGui::SliderFloat("AO Scale", &g_tar_config->m_ao_scale, 1.0f, 1500.0f, "%.1f");
-						//ImGui::ColorPicker4("AO Color", glm::value_ptr(g_tar_config->m_color_ao), ImGuiColorEditFlags_NoPicker);
-
-						ImGui::Text("AO Color: ");
-						ImGui::SameLine();
-						ImGui::ColorEdit4("AO Color", glm::value_ptr(g_tar_config->m_color_ao), ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_AlphaBar);
-					}
-
-					ImGui::EndTabItem();
-				}
-
-				if (ImGui::BeginTabItem("Sun Light"))
-				{
-					ImGui::Checkbox("Shadows", &g_tar_config->m_shadows_enable);
-					if (g_tar_config->m_shadows_enable) {
-						ImGui::SliderFloat("Trace length", &g_tar_config->m_shadows_tracelength, 1.0f, 2048.0f, "%.1f");
-						ImGui::SliderInt("Sample Count", &g_tar_config->m_shadows_samplecount, 1, 512, "%d");
-					}
-
-					ImGui::EndTabItem();
-				}
-
-				ImGui::EndTabBar();
-			}
-		}
-
-		// =============================== COLORS TAB ============================================
-		ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
-		if (ImGui::CollapsingHeader("Color Options")) {
-			ImGui::Text("Heightmap Colors:");
-
-			if (ImGui::GradientButton(&gradient)) {
-				showgrad = !showgrad;
-			}
-			
-			if (showgrad) {
-				ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
-				ImGui::Begin("Editing gradient: 'Heightmap Colors'", &showgrad, ImGuiWindowFlags_NoCollapse);
-				bool updated = ImGui::GradientEditor(&gradient, draggingMark, selectedMark);
-				if (updated) {
-					// Routine update gradient ... 
-					g_tar_config->update_gradient(gradient);
-				}
-
-				ImGui::Separator();
-
-				ImGui::Text("Presets:");
-				if (ImGui::Button("Dust2")) { gradpreset::load_dust_2(&gradient); } ImGui::SameLine();
-				if (ImGui::Button("Mirage")) { gradpreset::load_mirage(&gradient); } ImGui::SameLine();
-				if (ImGui::Button("Overpass")) { gradpreset::load_overpass(&gradient); } ImGui::SameLine();
-				if (ImGui::Button("Cache")) { gradpreset::load_cache(&gradient); } ImGui::SameLine();
-				if (ImGui::Button("Inferno")) { gradpreset::load_inferno(&gradient); } ImGui::SameLine();
-				if (ImGui::Button("Train")) { gradpreset::load_train(&gradient); } ImGui::SameLine();
-				if (ImGui::Button("Nuke")) { gradpreset::load_nuke(&gradient); } ImGui::SameLine();
-				if (ImGui::Button("Vertigo")) { gradpreset::load_vertigo(&gradient); }
-				ImGui::End();
-			}
-		} else {
-			showgrad = false;
-		}
+		ui_render_main();
+		ui_render_vgroup_edit();
+		//ui_render_dev();
 
 		ImGui::End();
 
@@ -518,6 +631,23 @@ int app(int argc, char** argv) {
 	}
 
 	return safe_terminate();
+}
+
+void render_idmap() {
+	g_shader_id->use();
+	g_shader_id->setMatrix("projection", g_camera_main->getProjectionMatrix(display_w, display_h));
+	g_shader_id->setMatrix("view", g_camera_main->getViewMatrix());
+
+	g_buff_selection->Bind();
+	g_buff_selection->clear();
+
+	g_vmf_file->DrawWorld(g_shader_id, glm::mat4(1.0f), [](solid* solidPtr, entity* entPtr) {
+		if (solidPtr) g_shader_id->setUnsigned("id", solidPtr->_id);
+		if (entPtr) g_shader_id->setUnsigned("id", entPtr->_id);
+	}, false);
+
+	// Read pixels
+	UIBuffer::Unbind();
 }
 
 // Entry point
@@ -544,8 +674,43 @@ void setupconsole() {
 }
 
 bool g_is_clicking = false;
+bool g_is_rightclick = false;
 double g_mouse_x = 0;
 double g_mouse_y = 0;
+
+void selection_update(GLFWwindow* hWindow) {
+	if (g_is_rightclick) {
+		if (!io->WantCaptureMouse) {
+			g_debug_line_orig = g_camera_main->cameraPos;
+			g_debug_line_point = g_camera_main->getViewRay(g_mouse_x, g_mouse_y, display_w, display_h);
+
+			if (g_camera_main->isDirty) {
+				render_idmap(); g_camera_main->startFrame();
+			}
+
+			bool mod = glfwGetKey(hWindow, GLFW_KEY_LEFT_ALT);
+
+			unsigned int uid = g_buff_selection->pick_normalized_pixel(g_mouse_x, display_h - g_mouse_y, display_w, display_h);
+			for (auto&& i : g_vmf_file->m_solids) { if (i._id == uid) { if(i.m_visibility & ~g_group_lock) { i.m_setChannels(mod? TAR_CHANNEL_DEFAULT: g_group_write); } goto IL_FOUND; } }
+			for (auto&& i : g_vmf_file->m_entities) { if (i._id == uid) { if(i.m_visibility & ~g_group_lock) { i.m_setChannels(mod? TAR_CHANNEL_DEFAULT: g_group_write); } goto IL_FOUND; } }
+
+			//vmf_render_mask_preview(g_vmf_file, g_buff_maskpreview, glm::lookAt(glm::vec3(0,0,0), glm::vec3(0,-1,0), glm::vec3(0,0,1)), glm::ortho(0, 5000, -5000, 0, -4000, 4000));
+			
+			return;
+
+		IL_FOUND:
+			vmf_render_mask_preview(g_vmf_file, g_buff_maskpreview, glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, -1, 0), glm::vec3(0, 0, 1)), glm::ortho(
+				g_tar_config->m_view_origin.x,										// -X
+				g_tar_config->m_view_origin.x + g_tar_config->m_render_ortho_scale,	// +X
+				g_tar_config->m_view_origin.y - g_tar_config->m_render_ortho_scale,	// -Y
+				g_tar_config->m_view_origin.y,										// +Y
+				-10000.0f,  // NEARZ
+				10000.0f));	// FARZ);
+			//vmf_render_mask_preview(g_vmf_file, g_buff_maskpreview, g_tar_config., g_camera_main->getProjectionMatrix(display_w, display_h));
+			return;
+		}
+	}
+}
 
 // GLFW callback definitions
 void mouse_callback(GLFWwindow* window, double xpos, double ypos){
@@ -554,6 +719,8 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos){
 
 	g_mouse_x = xpos;
 	g_mouse_y = ypos;
+
+	selection_update(window);
 }
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods){
@@ -568,49 +735,11 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 		g_is_clicking = false;
 	}
 
-	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
-		if (!io->WantCaptureMouse) {
-			g_debug_line_orig = g_camera_main->cameraPos;
-			g_debug_line_point = g_camera_main->getViewRay(g_mouse_x, g_mouse_y, display_w, display_h);
-
-			// Precompute click objects via ray-aabb selection
-			std::vector<solid*> solid_picks;
-			g_vmf_file->IterSolids([&solid_picks](solid* s) {
-				s->temp_marked = false;
-				bool pick = (s->m_bounds.rayBoxIntersect(g_debug_line_orig, g_debug_line_point) > 0.0f);
-				s->m_appendChannels(TAR_CHANNEL_PRESELECTION, !pick);
-				if (pick) solid_picks.push_back(s);
-			}, false);
-
-			std::vector<entity*> ent_picks;
-			g_vmf_file->IterEntities([&ent_picks](entity* e, const std::string& classname) {
-				e->temp_marked = false;
-				bool pick = (e->m_bounds.rayBoxIntersect(g_debug_line_orig, g_debug_line_point) > 0.0f);
-				e->m_appendChannels(TAR_CHANNEL_PRESELECTION, !pick);
-				if (pick) ent_picks.push_back(e);
-			}, false);
-
-			TARChannel::setChannels(TAR_CHANNEL_PRESELECTION);
-			g_shader_id->use();
-			g_shader_id->setMatrix("projection", g_camera_main->getProjectionMatrix(display_w, display_h));
-			g_shader_id->setMatrix("view", g_camera_main->getViewMatrix());
-
-			g_buff_selection->Bind();
-			g_buff_selection->clear();
-
-			g_vmf_file->DrawWorld(g_shader_id, glm::mat4(1.0f), [](solid* solidPtr, entity* entPtr) {
-				if(solidPtr) g_shader_id->setUnsigned("id", solidPtr->_id);
-				if(entPtr) g_shader_id->setUnsigned("id", entPtr->_id);
-			}, false);
-
-			// Read pixels
-			unsigned int uid = g_buff_selection->pick_normalized_pixel(g_mouse_x, display_h- g_mouse_y, display_w, display_h);
-			UIBuffer::Unbind();
-
-			for (auto&& i: solid_picks) if (i->_id == uid) { i->temp_marked = true; return; }
-			for (auto&& i: ent_picks) if (i->_id == uid) { i->temp_marked = true; return; }
-			
-		}
+	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
+		g_is_rightclick = true;
+		selection_update(window);
+	} else {
+		g_is_rightclick = false;
 	}
 }
 

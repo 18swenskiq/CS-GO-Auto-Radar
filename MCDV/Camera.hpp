@@ -36,6 +36,8 @@ public:
 	float pitch_max = 89.0f;
 	float pitch_min = -89.0f;
 
+	bool isDirty = true;
+
 	// Process movement from GLFW
 	void handleInput(GLFWwindow* hWindow, float deltaTime){
 		if (glfwGetKey(hWindow, GLFW_KEY_LEFT_SHIFT))
@@ -54,6 +56,8 @@ public:
 
 		if (glfwGetKey(hWindow, GLFW_KEY_D))
 			cameraPos += glm::normalize(glm::cross(this->cameraFront, cameraUp)) * speed * deltaTime;
+
+		if (glfwGetKey(hWindow, GLFW_KEY_W) || glfwGetKey(hWindow, GLFW_KEY_S) || glfwGetKey(hWindow, GLFW_KEY_A) || glfwGetKey(hWindow, GLFW_KEY_D)) this->isDirty = true;
 	}
 
 	void mouseUpdate(const double& xpos, const double& ypos, const bool& isClicking = true){
@@ -66,6 +70,8 @@ public:
 
 		if (!isClicking)
 			return;
+
+		this->isDirty = true;
 
 		//Removes first movement skips
 		if (firstMouse){
@@ -101,6 +107,10 @@ public:
 
 		//Update class vectors
 		this->cameraFront = glm::normalize(front);
+	}
+
+	void startFrame() {
+		this->isDirty = false;
 	}
 
 	// Create view matrix from current state

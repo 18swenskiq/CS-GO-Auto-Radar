@@ -143,8 +143,10 @@ public:
 
 	material(const std::string& materialname) {
 		this->name = materialname;
-		if (this->name == "TOOLS/TOOLSSKYBOX" ||
-			this->name == "TOOLS/NODRAW")
+		if (this->name == "TOOLS/TOOLSSKYBOX" 
+			//|| this->name == "TOOLS/TOOLSNODRAW"
+			//|| this->name == "TOOLS/TOOLSSKIP"
+			)
 			this->draw = false;
 	}
 
@@ -439,9 +441,12 @@ class vmf;
 #define TAR_CHANNEL_LAYOUT_1 TAR_CHANNEL_1
 #define TAR_CHANNEL_LAYOUT TAR_CHANNEL_0 | TAR_CHANNEL_1
 
-#define TAR_CHANNEL_PRESELECTION TAR_CHANNEL_2
+#define TAR_CHANNEL_MASK TAR_CHANNEL_2
+#define TAR_CHANNEL_COVER TAR_CHANNEL_3
 
-#define TAR_CHANNEL_NONRESERVE ~(TAR_CHANNEL_LAYOUT | TAR_CHANNEL_PRESELECTION)
+#define TAR_CHANNEL_DEFAULT TAR_CHANNEL_31
+
+#define TAR_CHANNEL_NONRESERVE ~(TAR_CHANNEL_LAYOUT | TAR_CHANNEL_MASK | TAR_CHANNEL_COVER)
 
 class TARChannel {
 public:
