@@ -83,7 +83,7 @@ namespace vmf_parse {
 		}
 
 		if (pelems.size() == 3) {
-			*vec = glm::vec3(pelems[0], pelems[1], pelems[2]);
+			*vec = glm::vec3(pelems[0], pelems[2], -pelems[1]);
 			return true;
 		}
 
@@ -108,7 +108,7 @@ namespace vmf_parse {
 		}
 
 		if (pelems.size() == 3) {
-			*vec = glm::vec3(pelems[0], pelems[1], pelems[2]);
+			*vec = glm::vec3(pelems[0], pelems[2], -pelems[1]);
 			return true;
 		}
 
@@ -206,8 +206,8 @@ public:
 				this->normals[x].push_back(
 					glm::vec3(
 						list[xx * 3 + 0],
-						list[xx * 3 + 1],
-						list[xx * 3 + 2])
+						list[xx * 3 + 2],
+						-list[xx * 3 + 1])
 				);
 			}
 
@@ -439,7 +439,9 @@ class vmf;
 #define TAR_CHANNEL_LAYOUT_1 TAR_CHANNEL_1
 #define TAR_CHANNEL_LAYOUT TAR_CHANNEL_0 | TAR_CHANNEL_1
 
-#define TAR_CHANNEL_NONRESERVE ~(TAR_CHANNEL_LAYOUT)
+#define TAR_CHANNEL_PRESELECTION TAR_CHANNEL_2
+
+#define TAR_CHANNEL_NONRESERVE ~(TAR_CHANNEL_LAYOUT | TAR_CHANNEL_PRESELECTION)
 
 class TARChannel {
 public:
@@ -490,21 +492,80 @@ public:
 	editorvalues(kv::DataBlock* dataSrc, vmf* ptrVmf);
 };
 
+struct BoundingBox {
+	glm::vec3 MAX;
+	glm::vec3 MIN;
+
+	BoundingBox() {}
+	BoundingBox(glm::vec3 _max, glm::vec3 _min) : MAX(_max), MIN(_min) {}
+
+	// Create an inverted bounding box to push bounds to
+	static BoundingBox inverted_maxs() {
+		return BoundingBox(glm::vec3(-99999.9f, -99999.9f, -99999.9f), glm::vec3(99999.9f, 99999.9f, 99999.9f));
+	}
+
+	void set_inverted_maxs() {
+		this->MAX = glm::vec3(-99999.9f, -99999.9f, -99999.9f);
+		this->MIN = glm::vec3(99999.9f, 99999.9f, 99999.9f);
+	}
+
+	// Check if ray intersects box (optimized)
+	float rayBoxIntersect(const glm::vec3& rpos, const glm::vec3& rdir) const {
+		float t[10];
+		t[1] = (this->MIN.x - rpos.x) / rdir.x;
+		t[2] = (this->MAX.x - rpos.x) / rdir.x;
+		t[3] = (this->MIN.y - rpos.y) / rdir.y;
+		t[4] = (this->MAX.y - rpos.y) / rdir.y;
+		t[5] = (this->MIN.z - rpos.z) / rdir.z;
+		t[6] = (this->MAX.z - rpos.z) / rdir.z;
+
+		t[7] = fmax(fmax(fmin(t[1], t[2]), fmin(t[3], t[4])), fmin(t[5], t[6]));
+		t[8] = fmin(fmin(fmax(t[1], t[2]), fmax(t[3], t[4])), fmax(t[5], t[6]));
+		t[9] = (t[8] < 0 || t[7] > t[8])? -1.0f: t[7];
+		return t[9];
+	}
+
+	// Apply a transform to bounding box and update new mins/maxs
+	void apply_transform(const glm::mat4& transform) {
+		glm::vec3 corners[8];
+
+		corners[0] = this->MIN;
+		corners[1] = glm::vec3(this->MIN.x, this->MIN.y, this->MAX.z);
+		corners[2] = glm::vec3(this->MIN.x, this->MAX.y, this->MIN.z);
+		corners[3] = glm::vec3(this->MAX.x, this->MIN.y, this->MIN.z);
+		corners[4] = glm::vec3(this->MIN.x, this->MAX.y, this->MAX.z);
+		corners[5] = glm::vec3(this->MAX.x, this->MIN.y, this->MAX.z);
+		corners[6] = glm::vec3(this->MAX.x, this->MAX.y, this->MIN.z);
+		corners[7] = this->MAX;
+
+		this->set_inverted_maxs();
+		for(int i = 0; i < 8; i++){
+			glm::vec3 p = glm::vec3(transform * glm::vec4(corners[i], 1.0f));			
+			boundary_extend(&this->MAX, &this->MIN, p, p);
+		}
+	}
+};
+
+unsigned int __id_tracker = 1;
+
 class solid: public IRenderable, public TARChannel {
 public:
 	std::vector<side*> m_sides;
 	editorvalues m_editorvalues;
-	glm::vec3 NWU;
-	glm::vec3 SEL;
+	BoundingBox m_bounds;
 
 	Mesh* m_mesh;
+
+	bool temp_marked = false;
+
+	unsigned int _id = __id_tracker++;
 
 	solid(kv::DataBlock* dataSrc, vmf* ptrVmf) {
 		// Read editor values
 		this->m_editorvalues = editorvalues(dataSrc->GetFirstByName("editor"), ptrVmf);
 
 		// Read solids
-		for (auto && s : dataSrc->GetAllByName("side")) {
+		for (auto&& s: dataSrc->GetAllByName("side")) {
 			m_sides.push_back(side::create(s));
 		}
 
@@ -571,8 +632,8 @@ public:
 		}
 
 		// Append bounds data
-		this->NWU = glm::vec3(x, y, z);
-		this->SEL = glm::vec3(_x, _y, _z);
+		this->m_bounds.MAX = glm::vec3(x, y, z);
+		this->m_bounds.MIN = glm::vec3(_x, _y, _z);
 	}
 
 	/* Check if this solid contains any displacement infos. */
@@ -642,6 +703,12 @@ public:
 	editorvalues m_editorvalues;
 	std::vector<solid> m_internal_solids;
 	glm::vec3 m_origin;
+	glm::vec3 m_angles;
+	bool temp_marked = false;
+	BoundingBox m_bounds;
+	studiomdl* mdl;
+
+	unsigned int _id = __id_tracker++;
 
 	entity (kv::DataBlock* dataSrc, vmf* ptrVmf) {
 		if ((dataSrc->GetFirstByName("solid") == NULL) && (dataSrc->Values.count("origin") == 0))
@@ -651,6 +718,8 @@ public:
 		this->m_id = (int)::atof(dataSrc->Values["id"].c_str());
 		this->m_keyvalues = dataSrc->Values;
 		this->m_editorvalues = editorvalues(dataSrc->GetFirstByName("editor"), ptrVmf);
+
+		vmf_parse::Vector3f(kv::tryGetStringValue(this->m_keyvalues, "angles", "0 0 0"), &this->m_angles);
 		
 		if (dataSrc->GetFirstByName("solid") == NULL) {
 			vmf_parse::Vector3f(dataSrc->Values["origin"], &this->m_origin);
@@ -662,26 +731,38 @@ public:
 			}
 
 			// Calculate origin
-			glm::vec3 NWU = this->m_internal_solids[0].NWU;
-			glm::vec3 SEL = this->m_internal_solids[0].SEL;
+			glm::vec3 NWU = this->m_internal_solids[0].m_bounds.MAX;
+			glm::vec3 SEL = this->m_internal_solids[0].m_bounds.MIN;
 			for (auto&& i: this->m_internal_solids)
-				boundary_extend(&NWU, &SEL, i.NWU, i.SEL);
+				boundary_extend(&NWU, &SEL, i.m_bounds.MAX, i.m_bounds.MIN);
 
 			this->m_origin = (NWU + SEL) * 0.5f;
+			this->m_bounds = BoundingBox(NWU, SEL);
 		}
 	}
-};
 
-struct BoundingBox {
-	glm::vec3 NWU;
-	glm::vec3 SEL;
+	void post_init(vfilesys* filesys) {
+		if (this->m_classname == "prop_static" ||
+			this->m_classname == "prop_dynamic" ||
+			this->m_classname == "prop_physics") {
+			this->mdl = studiomdl::getModel(kv::tryGetStringValue(this->m_keyvalues, "model", "error.mdl"), filesys);
+			if (this->mdl) {
+				this->m_bounds = BoundingBox(glm::vec3(this->mdl->x, this->mdl->y, this->mdl->z), glm::vec3(this->mdl->_x, this->mdl->_y, this->mdl->_z));
 
-	BoundingBox() {}
-	BoundingBox(glm::vec3 _nwu, glm::vec3 _sel) : NWU(_nwu), SEL(_sel) {}
+				glm::mat4 transform = glm::mat4();
+				transform = glm::translate(transform, this->m_origin);
 
-	// Create an inverted bounding box to push bounds to
-	static BoundingBox inverted_maxs(){
-		return BoundingBox(glm::vec3(-99999.9f, -99999.9f, -99999.9f), glm::vec3(99999.9f, 99999.9f, 99999.9f));
+				// Yaw: Y
+				// Pitch: X
+				// Roll: Z
+
+				transform = glm::rotate(transform, glm::radians(-this->m_angles.z), glm::vec3(0, 1, 0)); // yaw
+				transform = glm::rotate(transform, glm::radians(-this->m_angles.x), glm::vec3(0, 0, 1)); // pitch
+				transform = glm::rotate(transform, glm::radians(this->m_angles.y), glm::vec3(1, 0, 0)); // rollzsd
+
+				this->m_bounds.apply_transform(transform);
+			}
+		}
 	}
 };
 
@@ -774,8 +855,8 @@ public:
 		return v;
 	}
 
-	void DrawWorld(Shader* shader, glm::mat4 transformMatrix, glm::mat4 matrixFinalApplyTransform, std::function<void(solid*, entity*)> stateChange) {
-		shader->setMatrix("model", transformMatrix * matrixFinalApplyTransform);
+	void DrawWorld(Shader* shader, glm::mat4 transformMatrix, std::function<void(solid*, entity*)> stateChange, const bool& stateChangeRecurse = true) {
+		shader->setMatrix("model", transformMatrix);
 
 		// Draw solids
 		for (auto&& solid: this->m_solids) {
@@ -799,30 +880,27 @@ public:
 				glm::mat4 tModel = glm::mat4(1.0f);
 
 				tModel = glm::mat4();
-				tModel = glm::translate(tModel, glm::vec3(ent.m_origin.x, ent.m_origin.z, -ent.m_origin.y));
+				tModel = glm::translate(tModel, ent.m_origin);
 
-				glm::vec3 rot;
-				vmf_parse::Vector3f(kv::tryGetStringValue(ent.m_keyvalues, "angles", "0 0 0"), &rot);
 				// Yaw: Y
 				// Pitch: X
 				// Roll: Z
 
-				tModel = glm::rotate(tModel, glm::radians(rot.y), glm::vec3(0, 1, 0)); // yaw
-				tModel = glm::rotate(tModel, glm::radians(-rot.x), glm::vec3(0, 0, 1)); // pitch
-				tModel = glm::rotate(tModel, glm::radians(rot.z), glm::vec3(1, 0, 0)); // rollzsd
+				tModel = glm::rotate(tModel, glm::radians(-ent.m_angles.z), glm::vec3(0, 1, 0)); // yaw
+				tModel = glm::rotate(tModel, glm::radians(-ent.m_angles.x), glm::vec3(0, 0, 1)); // pitch
+				tModel = glm::rotate(tModel, glm::radians(ent.m_angles.y), glm::vec3(1, 0, 0)); // rollzsd
 
 				tModel = glm::scale(tModel, glm::vec3(::atof(kv::tryGetStringValue(ent.m_keyvalues, "uniformscale", "1").c_str())));
-				shader->setMatrix("model", transformMatrix * tModel * matrixFinalApplyTransform);
-				
-				studiomdl* ptrmdl =studiomdl::getModel(kv::tryGetStringValue(ent.m_keyvalues, "model", "error.mdl"), s_fileSystem);
-				if (ptrmdl != NULL) {
-					ptrmdl->Bind();
-					ptrmdl->Draw();
+				shader->setMatrix("model", transformMatrix * tModel);
+
+				if (ent.mdl) {
+					ent.mdl->Bind();
+					ent.mdl->Draw();
 				}
 			}
 			else { // Solid entities
 				stateChange(NULL, &ent);
-				shader->setMatrix("model", transformMatrix * matrixFinalApplyTransform); // Reset model back to normal
+				shader->setMatrix("model", transformMatrix); // Reset model back to normal
 				for (auto&& s: ent.m_internal_solids) {
 					s.Draw(shader);
 				}
@@ -833,35 +911,39 @@ public:
 		for(auto&& instance: this->get_entities_by_classname("func_instance")){
 			glm::mat4 tModel = glm::mat4(1.0f);
 
-			glm::vec3 rot;
-			vmf_parse::Vector3f(kv::tryGetStringValue(instance->m_keyvalues, "angles", "0 0 0"), &rot);
-
 			// OpenGL uses right handed (z negative is forwards). Y will be flipped to Z when drawing.
-			tModel = glm::translate(tModel, glm::vec3(instance->m_origin.x, instance->m_origin.z, -instance->m_origin.y)); 
+			tModel = glm::translate(tModel, instance->m_origin); 
 
 			// Yaw: Y
 			// Pitch: X
 			// Roll: Z
 			
-			tModel = glm::rotate(tModel, glm::radians(rot.y), glm::vec3(0, 1, 0)); // yaw
-			tModel = glm::rotate(tModel, glm::radians(-rot.x), glm::vec3(0, 0, 1)); // pitch
-			tModel = glm::rotate(tModel, glm::radians(rot.z), glm::vec3(1, 0, 0)); // rollzsd
+			tModel = glm::rotate(tModel, glm::radians(-instance->m_angles.z), glm::vec3(0, 1, 0)); // yaw
+			tModel = glm::rotate(tModel, glm::radians(-instance->m_angles.x), glm::vec3(0, 0, 1)); // pitch
+			tModel = glm::rotate(tModel, glm::radians(instance->m_angles.y), glm::vec3(1, 0, 0)); // rollzsd
 			
 			vmf* ptrvmf = this->m_sub_vmfs[kv::tryGetStringValue(instance->m_keyvalues, "file", "")];
-			if (ptrvmf != NULL) { ptrvmf->DrawWorld(shader, transformMatrix * tModel, matrixFinalApplyTransform, stateChange); }
+			if (ptrvmf != NULL) { ptrvmf->DrawWorld(shader, transformMatrix * tModel, stateChangeRecurse? stateChange: [](solid* s, entity* e) {}); }
 		}
 	}
 
 	// Iterate solids
-	void IterSolids(std::function<void(solid*)> stateChange) {
+	void IterSolids(std::function<void(solid*)> stateChange, const bool& recurse = true) {
 		for(auto&& i: this->m_solids) stateChange(&i);
-		for(auto&& svmf: this->m_sub_vmfs) if(svmf.second) svmf.second->IterSolids(stateChange); // recurse into sub-vmfs
+		if(recurse) for(auto&& svmf: this->m_sub_vmfs) if(svmf.second) svmf.second->IterSolids(stateChange); // recurse into sub-vmfs
 	}
 
 	// Iterate entities
-	void IterEntities(std::function<void(entity*, const std::string&)> stateChange) {
+	void IterEntities(std::function<void(entity*, const std::string&)> stateChange, const bool& recurse = true) {
 		for(auto&& i: this->m_entities) stateChange(&i, i.m_classname);
-		for(auto&& svmf: this->m_sub_vmfs) if(svmf.second) svmf.second->IterEntities(stateChange);
+		if(recurse) for(auto&& svmf: this->m_sub_vmfs) if(svmf.second) svmf.second->IterEntities(stateChange);
+	}
+
+	// Init opengl
+	void InitOpenglData() {
+		this->IterEntities([](entity* e, const std::string& classname){
+			e->post_init(vmf::s_fileSystem);
+		}, true);
 	}
 
 	// Calculate boundaries of a visgroup
@@ -870,7 +952,7 @@ public:
 		if (!this->m_visgroups.count(visgroup)) return bounds;
 
 		unsigned int vgroup = this->m_visgroups[visgroup];
-		for (auto && iSolid : this->m_solids) boundary_extend(&bounds.NWU, &bounds.SEL, iSolid.NWU, iSolid.SEL);
+		for (auto && iSolid : this->m_solids) boundary_extend(&bounds.MAX, &bounds.MIN, iSolid.m_bounds.MAX, iSolid.m_bounds.MIN);
 
 		return bounds;
 	}

@@ -168,19 +168,19 @@ public:
 		// Configure camera setup
 		this->m_map_bounds = v->getVisgroupBounds(this->m_visgroup_layout);
 
-		for (auto && min : v->get_entities_by_classname("tar_min"))
-			this->m_map_bounds.SEL.y = glm::max(min->m_origin.y, this->m_map_bounds.SEL.y);
+		for (auto&& min: v->get_entities_by_classname("tar_min"))
+			this->m_map_bounds.MIN.y = glm::max(min->m_origin.y, this->m_map_bounds.MIN.y);
 
-		for(auto && max : v->get_entities_by_classname("tar_max"))
-			this->m_map_bounds.NWU.y = glm::min(max->m_origin.y, this->m_map_bounds.NWU.y);
+		for(auto&& max: v->get_entities_by_classname("tar_max"))
+			this->m_map_bounds.MAX.y = glm::min(max->m_origin.y, this->m_map_bounds.MAX.y);
 
 		float padding = 128.0f;
 
-		float x_bounds_min = -this->m_map_bounds.NWU.x - padding;
-		float x_bounds_max = -this->m_map_bounds.SEL.x + padding;
+		float x_bounds_min = -this->m_map_bounds.MAX.x - padding;
+		float x_bounds_max = -this->m_map_bounds.MIN.x + padding;
 
-		float y_bounds_min = this->m_map_bounds.SEL.z - padding;
-		float y_bounds_max = this->m_map_bounds.NWU.z + padding;
+		float y_bounds_min = this->m_map_bounds.MIN.z - padding;
+		float y_bounds_max = this->m_map_bounds.MAX.z + padding;
 
 		float dist_x = x_bounds_max - x_bounds_min;
 		float dist_y = y_bounds_max - y_bounds_min;

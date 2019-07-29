@@ -369,6 +369,18 @@
     <None Include="shaders\engine\screenbase.vs">
       <Filter>OpenGL\Shader Files\engine</Filter>
     </None>
+    <None Include="shaders\engine\line.fs">
+      <Filter>OpenGL\Shader Files\engine</Filter>
+    </None>
+    <None Include="shaders\engine\line.vs">
+      <Filter>OpenGL\Shader Files\engine</Filter>
+    </None>
+    <None Include="shaders\engine\id.fs">
+      <Filter>OpenGL\Shader Files\engine</Filter>
+    </None>
+    <None Include="shaders\engine\idpreview.fs">
+      <Filter>OpenGL\Shader Files\engine</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="fonts\dina-r.png">

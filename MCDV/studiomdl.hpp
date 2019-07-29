@@ -15,6 +15,9 @@ class studiomdl {
 	int elementCount;
 	unsigned int VBO, VAO, EBO;
 public:
+	float _x, _y, _z;
+	float x, y, z;
+
 	studiomdl(const std::vector<float>& v, const std::vector<unsigned short>& i){
 		this->elementCount = i.size();
 
@@ -62,6 +65,10 @@ public:
 		// If the file streams failed for some reason...
 		if (vvd == NULL || vtx == NULL) goto IL_RET;
 
+		float xx, yy, zz, _xx, _yy, _zz;
+		_xx = _yy = _zz = 99999999.9f; // mins
+		xx = yy = zz =   -99999999.9f; // maxs
+
 		// Mesh data (format XYZ:XYZ:UV)
 		{
 			std::vector<float> meshData;
@@ -73,6 +80,13 @@ public:
 				meshData.push_back(vert.m_vecPosition.y);
 				meshData.push_back(vert.m_vecPosition.z);
 
+				_xx = fmin(vert.m_vecPosition.x, _xx);
+				_yy = fmin(vert.m_vecPosition.y, _yy);
+				_zz = fmin(vert.m_vecPosition.z, _zz);
+				xx = fmax(vert.m_vecPosition.x, xx);
+				yy = fmax(vert.m_vecPosition.y, yy);
+				zz = fmax(vert.m_vecPosition.z, zz);
+
 				meshData.push_back(vert.m_vecNormal.x);
 				meshData.push_back(vert.m_vecNormal.y);
 				meshData.push_back(vert.m_vecNormal.z);
@@ -82,6 +96,7 @@ public:
 			}
 
 			ptr = new studiomdl(meshData, vtx->vertexSequence);
+			ptr->_x = _xx; ptr->_y = _yy; ptr->_z = _zz; ptr->x = xx; ptr->y = yy; ptr->z = zz;
 		}
 		// Delete memory from vtx/vvd and return pointer.
 IL_RET:	delete vvd; delete vtx;

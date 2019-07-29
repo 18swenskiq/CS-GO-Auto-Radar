@@ -21,9 +21,10 @@ class GBuffer {
 	int width;
 	int height;
 
-	inline static Mesh* s_previewMesh;
+	
 	inline static Shader* s_previewShader;
 public:
+	inline static Mesh* s_previewMesh;
 	inline static Shader* s_gbufferwriteShader;
 
 	// 14 byte/px
@@ -109,7 +110,6 @@ public:
 
 	// Unbind frame buffer
 	static void Unbind() {
-		glViewport(0, 0, 1024, 1024);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0); //Revert to default framebuffer
 	}
 
@@ -177,34 +177,34 @@ public:
 };
 
 /* Simple mask buffer... */
-class MBuffer {
+class UIBuffer {
 	unsigned int gBuffer;
 	unsigned int rBuffer;
 
-	unsigned int gMask;
+	unsigned int gUi;
 
+public:
 	int width;
 	int height;
 
-public:
 	// 14 byte/px
 	// 14 megabyte @ 1024x1024
-	MBuffer(int window_width, int window_height) {
+	UIBuffer(int window_width, int window_height) {
 		this->width = window_width;
 		this->height = window_height;
 		glGenFramebuffers(1, &this->gBuffer);
 		glBindFramebuffer(GL_FRAMEBUFFER, this->gBuffer);
 
 		// Map info buffer uint16 (16bpp)
-		glGenTextures(1, &this->gMask);
-		glBindTexture(GL_TEXTURE_2D, this->gMask);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, window_width, window_height, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, NULL);
+		glGenTextures(1, &this->gUi);
+		glBindTexture(GL_TEXTURE_2D, this->gUi);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, window_width, window_height, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, NULL);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->gMask, 0);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->gUi, 0);
 
 		// Announce attachments
-		unsigned int attachments[3] = {
+		unsigned int attachments[1] = {
 			GL_COLOR_ATTACHMENT0
 		};
 
@@ -213,19 +213,13 @@ public:
 		// Create and test render buffer
 		glGenRenderbuffers(1, &this->rBuffer);
 		glBindRenderbuffer(GL_RENDERBUFFER, this->rBuffer);
-		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, window_width, window_height);
+		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32, window_width, window_height);
 		glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
-		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, this->rBuffer);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->rBuffer);
 
 		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-			std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
-	}
-
-	void BindMaskBufferToTexSlot(int slot = 0) {
-		glActiveTexture(GL_TEXTURE0 + slot);
-		glBindTexture(GL_TEXTURE_2D, this->gMask);
-		glActiveTexture(GL_TEXTURE0);
+			LOG_F(ERROR, "(GBuffer) Framebuffer did not complete");
 	}
 
 	void Bind() {
@@ -233,13 +227,67 @@ public:
 		glBindFramebuffer(GL_FRAMEBUFFER, this->gBuffer); //Set as active draw target
 	}
 
+	void BindBufBufferToTexSlot(int slot = 0) {
+		glActiveTexture(GL_TEXTURE0 + slot);
+		glBindTexture(GL_TEXTURE_2D, this->gUi);
+		glActiveTexture(GL_TEXTURE0);
+	}
+
 	static void Unbind() {
-		glViewport(0, 0, 1024, 1024);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0); //Revert to default framebuffer
 	}
 
-	~MBuffer() {
+	~UIBuffer() {
 		glDeleteFramebuffers(1, &this->gBuffer);
+	}
+
+	const inline static unsigned int clearc = 0;
+
+	// GL Clear functions
+	void clear() {
+		glClearBufferuiv(GL_COLOR, 0, &UIBuffer::clearc);
+		glClear( GL_DEPTH_BUFFER_BIT);
+	}
+
+	uint32_t pick_normalized_pixel(const double& mouse_x, const double& mouse_y, const int& window_w, const int& window_h) {
+		float norm_x = (float)mouse_x / (float)window_w; // get normalized coords
+		float norm_y = (float)mouse_y / (float)window_h;
+
+		int px = this->width * norm_x;
+		int py = this->height * norm_y;
+
+		uint32_t id = 0;
+
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+		glReadPixels(px, py, 1, 1, GL_RED_INTEGER, GL_UNSIGNED_INT, &id);
+
+		return id;
+	}
+
+	inline static Shader* s_previewShader;
+
+	static void compile_shaders() {
+		// Shader
+		UIBuffer::s_previewShader = new Shader("shaders/engine/screenbase.vs", "shaders/engine/idpreview.fs", "shader.uibuffer.preview");
+	}
+
+	// Binds shader, mesh etc..
+	static void _BindPreviewData() {
+		GBuffer::s_previewMesh->_Bind();
+		UIBuffer::s_previewShader->use();
+	}
+
+	// Draws the preview mesh
+	static void _DrawPreview(const glm::vec2& screenPos, const float& scale) {
+		// Set model matrix
+		glm::mat4 model = glm::mat4(1.0f);
+		model = glm::translate(model, glm::vec3(screenPos.x, screenPos.y, 0.0));
+		model = glm::scale(model, glm::vec3(scale));
+		UIBuffer::s_previewShader->setMatrix("model", model);
+		
+		// Draw mesh
+		GBuffer::s_previewMesh->_Draw();
 	}
 };
 

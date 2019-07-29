@@ -76,7 +76,8 @@ public:
 
 			// Do the sorce->opengl flipperoo
 			glm::vec3 temp = vert.m_vecPosition;
-			vert.m_vecPosition = glm::vec3(temp.x, temp.y, temp.z);
+			vert.m_vecPosition = glm::vec3(temp.x, temp.z, -temp.y);
+			vert.m_vecNormal = glm::vec3(vert.m_vecNormal.x, vert.m_vecNormal.z, -vert.m_vecNormal.y);
 
 			this->verticesLOD0.push_back(vert);
 		}

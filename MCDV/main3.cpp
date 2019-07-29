@@ -29,6 +29,9 @@
 #include <glad\glad.h>
 #include <GLFW\glfw3.h>
 
+// Engine
+#include "Camera.hpp"
+
 // Opengl
 #include "Shader.hpp"
 #include "GBuffer.hpp"
@@ -78,16 +81,33 @@ void APIENTRY openglCallbackFunction(GLenum source,
 	LOG_F(WARNING, "--------------------------------------------------------------------------------------------------------------------------------");
 }
 
+// GLFW function declerations
 static void glfw_error_callback(int error, const char* description) {
 	LOG_F(ERROR, "GLFW Error %d: %s", error, description);
 }
 
-int g_renderWidth = 1024;
-int g_renderHeight = 1024;
+void mouse_callback(GLFWwindow* window, double xpos, double ypos);
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 
 // Source sdk config
 std::string g_game_path = "D:/SteamLibrary/steamapps/common/Counter-Strike Global Offensive/csgo";
-std::string g_mapfile_path = "sample_stuff/map_01";
+std::string g_mapfile_path = "sample_stuff/de_tavr_test";
+
+// shaders
+Shader* g_shader_color;
+Shader* g_shader_id;
+
+// Runtime
+Camera* g_camera_main;
+ImGuiIO* io;
+UIBuffer* g_buff_selection;
+
+glm::vec3 g_debug_line_orig;
+glm::vec3 g_debug_line_point;
+
+vmf* g_vmf_file;
+
+int display_w, display_h;
 
 void setupconsole();
 
@@ -125,7 +145,7 @@ int app(int argc, char** argv) {
 	vmf::LinkVFileSystem(filesys);
 
 
-	vmf* g_vmf_file = vmf::from_file(g_mapfile_path + ".vmf");
+	g_vmf_file = vmf::from_file(g_mapfile_path + ".vmf");
 	tar_config* g_tar_config = new tar_config(g_vmf_file); // Create config
 
 	LOG_F(1, "Pre-processing visgroups into bit masks");
@@ -167,6 +187,10 @@ int app(int argc, char** argv) {
 	glfwMakeContextCurrent(window);
 	glfwSwapInterval(1);
 
+	// Set callbacks
+	glfwSetCursorPosCallback(window, mouse_callback);
+	glfwSetMouseButtonCallback(window, mouse_button_callback);
+
 	LOG_F(1, "Loading GLAD");
 
 	// Deal with GLAD
@@ -201,7 +225,7 @@ int app(int argc, char** argv) {
 	// Setup Imgui context
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
-	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	io = &ImGui::GetIO(); (void)io;
 	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
 
 	// Theme
@@ -222,20 +246,33 @@ int app(int argc, char** argv) {
 
 	// Initialize Gbuffer functions & create one
 	GBuffer::INIT();
-	GBuffer testBuffer = GBuffer(g_renderWidth, g_renderHeight);
-	GBuffer layoutBuf2 = GBuffer(g_renderWidth, g_renderHeight);
+	GBuffer testBuffer = GBuffer(256, 256);
+	GBuffer layoutBuf2 = GBuffer(256, 256);
+	g_buff_selection = new UIBuffer(512, 512);
 
 	// Compile shaders block.
 	SHADER_COMPILE_START
 
 		GBuffer::compile_shaders();
+		UIBuffer::compile_shaders();
 		Shader* g_shader_test = new Shader("shaders/source/se.shaded.vs", "shaders/source/se.shaded.solid.fs", "shader.test");
+		g_shader_color = new Shader("shaders/engine/line.vs", "shaders/engine/line.fs");
+		g_shader_id = new Shader("shaders/engine/line.vs", "shaders/engine/id.fs");
 
 	if( !SHADER_COMPILE_END ) return safe_terminate();
+
+	g_camera_main = new Camera(glm::vec3(0, 0, 0), glm::vec3(0, 0, 1));
+
+#pragma endregion
+
+#pragma region
+
+	Mesh* mesh_debug_line = new Mesh({0,0,0, 0,0,-4096.0f, 0,0,0}, MeshMode::POS_XYZ);
 
 #pragma endregion
 
 	g_tar_config->gen_textures();
+	g_vmf_file->InitOpenglData();
 
 	// Get test model.
 	//studiomdl* testmdl = studiomdl::getModel("models/props/de_nuke/car_nuke.mdl", filesys);
@@ -250,17 +287,13 @@ int app(int argc, char** argv) {
 	glm::mat4 projm = glm::perspective(glm::radians(45.0f / 2.0f), (float)1024 / (float)1024, 32.0f, 100000.0f);
 	glm::mat4 viewm = glm::lookAt(pos, glm::vec3(0.0f), glm::vec3(0, 1, 0));
 	
-	glm::mat4 sourcesdk_transform = glm::mat4(1.0f);
-	sourcesdk_transform = glm::rotate(sourcesdk_transform, glm::radians(-90.0f), glm::vec3(1, 0, 0));
+	//glm::mat4 sourcesdk_transform = glm::mat4(1.0f);
+	//sourcesdk_transform = glm::rotate(sourcesdk_transform, glm::radians(-90.0f), glm::vec3(1, 0, 0));
 	//sourcesdk_transform = glm::scale(sourcesdk_transform, glm::vec3(0.03f));
 
 	// Init gbuffer shader
 	GBuffer::s_gbufferwriteShader->use();
 	GBuffer::s_gbufferwriteShader->setMatrix("projection", projm);
-
-	g_shader_test->use();
-	g_shader_test->setMatrix("projection", projm);
-	g_shader_test->setMatrix("view", viewm);
 
 	glm::vec4 test_color = glm::vec4(0, 0, 0, 1);
 	ImGradient gradient;
@@ -274,26 +307,22 @@ int app(int argc, char** argv) {
 	static ImGradientMark* draggingMark = nullptr;
 	static ImGradientMark* selectedMark = nullptr;
 
-	float color[3];
-	gradient.getColorAt(0.3f, color); //position from 0 to 1
+	gradpreset::load_vertigo(&gradient);
 
-	gradient.getMarks().clear();
-	gradient.addMark(0.0f, ImColor(0.2f, 0.1f, 0.0f));
-	gradient.addMark(0.7f, ImColor(120, 200, 255));
-
-	gradient.getMarks().clear();
-	gradient.addMark(0.0f, ImColor(0xA0, 0x79, 0x3D));
-	gradient.addMark(0.2f, ImColor(0xAA, 0x83, 0x47));
-	gradient.addMark(0.3f, ImColor(0xB4, 0x8D, 0x51));
-	gradient.addMark(0.4f, ImColor(0xBE, 0x97, 0x5B));
-	gradient.addMark(0.6f, ImColor(0xC8, 0xA1, 0x65));
-	gradient.addMark(0.7f, ImColor(0xD2, 0xAB, 0x6F));
-	gradient.addMark(0.8f, ImColor(0xDC, 0xB5, 0x79));
-	gradient.addMark(1.0f, ImColor(0xE6, 0xBF, 0x83));
+	float time_last = 0.0f;
 
 	while (!glfwWindowShouldClose(window)) {
-		viewm = glm::lookAt(glm::vec3(glm::sin(glfwGetTime()) * 4222.0f, 4222.0f, glm::cos(glfwGetTime()) * 4222.0f), glm::vec3(0.0f), glm::vec3(0, 1, 0));
+		glfwPollEvents();
 
+		glfwGetFramebufferSize(window, &display_w, &display_h);
+		glViewport(0, 0, display_w, display_h);
+
+		float deltaTime = glfwGetTime() - time_last;
+		time_last = deltaTime + time_last;
+
+		g_camera_main->handleInput(window, deltaTime);
+
+#if 0
 		// G buffer pass =================================================================================================================
 		GBUFFER_WRITE_START(testBuffer, viewm)
 
@@ -322,23 +351,42 @@ int app(int argc, char** argv) {
 				GBuffer::s_gbufferwriteShader->setVec3("srcOrigin", glm::vec3(0, 0, 0));
 			});
 
-		GBUFFER_WRITE_END
+			GBUFFER_WRITE_END
+
+#endif
+
+		GBuffer::Unbind();
 
 		// Standard pass =================================================================================================================
 		g_shader_test->use();
-		g_shader_test->setMatrix("view", viewm);
+		g_shader_test->setMatrix("projection", g_camera_main->getProjectionMatrix(display_w, display_h));
+		g_shader_test->setMatrix("view", g_camera_main->getViewMatrix());
 
 		glClearColor(0.07, 0.07, 0.07, 0.0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		TARChannel::setChannels(TAR_CHANNEL_ALL);
-		g_vmf_file->DrawWorld(g_shader_test, glm::mat4(1.0f), sourcesdk_transform, [g_shader_test](solid* ptrSolid, entity* ptrEnt) {
+		g_vmf_file->DrawWorld(g_shader_test, glm::mat4(1.0f), [g_shader_test](solid* ptrSolid, entity* ptrEnt) {
+			g_shader_test->setVec4("color", glm::vec4(1, 1, 1, 1));
+			if(ptrSolid) if(ptrSolid->temp_marked) g_shader_test->setVec4("color", glm::vec4(1,0,0,1));
+			if(ptrEnt) if(ptrEnt->temp_marked) g_shader_test->setVec4("color", glm::vec4(1,0.4,0,1));
 		});
 
-		testBuffer.DrawPreview(glm::vec2(0,0));
-		layoutBuf2.DrawPreview(glm::vec2(0, -0.5));
+		//testBuffer.DrawPreview(glm::vec2(0,0));
+		//layoutBuf2.DrawPreview(glm::vec2(0, -0.5));
 
-		glfwPollEvents();
+		// Debug stuff
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		g_shader_color->use();
+		g_shader_color->setMatrix("projection", g_camera_main->getProjectionMatrix(display_w, display_h));
+		g_shader_color->setMatrix("view", g_camera_main->getViewMatrix());
+		g_shader_color->setVec3("color", glm::vec3(0, 1, 0));
+		glm::mat4 model = glm::mat4(1.0f);
+		model = glm::inverse(glm::lookAt(g_debug_line_orig, g_debug_line_orig + g_debug_line_point, glm::vec3(0, 1, 0)));
+		g_shader_color->setMatrix("model", model);
+
+		mesh_debug_line->Draw();
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
 #pragma region ImGui
 
@@ -368,7 +416,7 @@ int app(int argc, char** argv) {
 
 		// ============================= ABOUT TAR ======================================
 		if (show_window_about) {
-			ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x / 2, io.DisplaySize.y / 2), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+			ImGui::SetNextWindowPos(ImVec2(io->DisplaySize.x / 2, io->DisplaySize.y / 2), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
 			ImGui::SetNextWindowSize(ImVec2(600, -1), ImGuiCond_Always);
 			ImGui::Begin("About TAR", &show_window_about, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
 
@@ -386,7 +434,7 @@ int app(int argc, char** argv) {
 			ImGui::End();
 		}
 
-		ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x, 19), ImGuiCond_FirstUseEver, ImVec2(1.0f, 0.0f));
+		ImGui::SetNextWindowPos(ImVec2(io->DisplaySize.x, 19), ImGuiCond_FirstUseEver, ImVec2(1.0f, 0.0f));
 		//ImGui::Begin("Editor", (bool*)0, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
 		ImGui::Begin("Editor", (bool*)0);
 
@@ -466,10 +514,6 @@ int app(int argc, char** argv) {
 
 #pragma endregion
 
-		int display_w, display_h;
-		glfwGetFramebufferSize(window, &display_w, &display_h);
-		glViewport(0, 0, display_w, display_h);
-
 		glfwSwapBuffers(window);
 	}
 
@@ -497,6 +541,77 @@ int main(int argc, char** argv) {
 void setupconsole() {
 	HWND console = GetConsoleWindow();
 	MoveWindow(console, 0, 0, 1900, 900, TRUE);
+}
+
+bool g_is_clicking = false;
+double g_mouse_x = 0;
+double g_mouse_y = 0;
+
+// GLFW callback definitions
+void mouse_callback(GLFWwindow* window, double xpos, double ypos){
+	if(!io->WantCaptureMouse)
+	g_camera_main->mouseUpdate(xpos, ypos, g_is_clicking);
+
+	g_mouse_x = xpos;
+	g_mouse_y = ypos;
+}
+
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods){
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS){
+		if (!io->WantCaptureMouse) {
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+			g_is_clicking = true;
+		}
+	}
+	else{
+		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		g_is_clicking = false;
+	}
+
+	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
+		if (!io->WantCaptureMouse) {
+			g_debug_line_orig = g_camera_main->cameraPos;
+			g_debug_line_point = g_camera_main->getViewRay(g_mouse_x, g_mouse_y, display_w, display_h);
+
+			// Precompute click objects via ray-aabb selection
+			std::vector<solid*> solid_picks;
+			g_vmf_file->IterSolids([&solid_picks](solid* s) {
+				s->temp_marked = false;
+				bool pick = (s->m_bounds.rayBoxIntersect(g_debug_line_orig, g_debug_line_point) > 0.0f);
+				s->m_appendChannels(TAR_CHANNEL_PRESELECTION, !pick);
+				if (pick) solid_picks.push_back(s);
+			}, false);
+
+			std::vector<entity*> ent_picks;
+			g_vmf_file->IterEntities([&ent_picks](entity* e, const std::string& classname) {
+				e->temp_marked = false;
+				bool pick = (e->m_bounds.rayBoxIntersect(g_debug_line_orig, g_debug_line_point) > 0.0f);
+				e->m_appendChannels(TAR_CHANNEL_PRESELECTION, !pick);
+				if (pick) ent_picks.push_back(e);
+			}, false);
+
+			TARChannel::setChannels(TAR_CHANNEL_PRESELECTION);
+			g_shader_id->use();
+			g_shader_id->setMatrix("projection", g_camera_main->getProjectionMatrix(display_w, display_h));
+			g_shader_id->setMatrix("view", g_camera_main->getViewMatrix());
+
+			g_buff_selection->Bind();
+			g_buff_selection->clear();
+
+			g_vmf_file->DrawWorld(g_shader_id, glm::mat4(1.0f), [](solid* solidPtr, entity* entPtr) {
+				if(solidPtr) g_shader_id->setUnsigned("id", solidPtr->_id);
+				if(entPtr) g_shader_id->setUnsigned("id", entPtr->_id);
+			}, false);
+
+			// Read pixels
+			unsigned int uid = g_buff_selection->pick_normalized_pixel(g_mouse_x, display_h- g_mouse_y, display_w, display_h);
+			UIBuffer::Unbind();
+
+			for (auto&& i: solid_picks) if (i->_id == uid) { i->temp_marked = true; return; }
+			for (auto&& i: ent_picks) if (i->_id == uid) { i->temp_marked = true; return; }
+			
+		}
+	}
 }
 
 // NVIDIA Optimus systems
