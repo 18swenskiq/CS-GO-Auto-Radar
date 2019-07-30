@@ -608,7 +608,7 @@ public:
 					// Check if there is already a very similar vertex (within .5 u), and skip it
 					bool similar = false;
 					for (auto&& v: intersecting) 
-						if (glm::distance(v, p) < 0.5f) {
+						if (glm::distance(v, p) < 0.01f) {
 							similar = true; break;
 					}
 					if (similar) continue;

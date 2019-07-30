@@ -92,7 +92,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 
 // Source sdk config
 std::string g_game_path = "D:/SteamLibrary/steamapps/common/Counter-Strike Global Offensive/csgo";
-std::string g_mapfile_path = "sample_stuff/map_01";
+std::string g_mapfile_path = "sample_stuff/sphere";
 
 // shaders
 Shader* g_shader_color;
@@ -340,6 +340,7 @@ void ui_render_dev() {
 	} else {
 		s_ui_show_gradient = false;
 	}
+	ImGui::End();
 }
 
 int app(int argc, char** argv) {
@@ -618,7 +619,7 @@ int app(int argc, char** argv) {
 
 		ui_render_main();
 		ui_render_vgroup_edit();
-		//ui_render_dev();
+		ui_render_dev();
 
 		ImGui::End();
 

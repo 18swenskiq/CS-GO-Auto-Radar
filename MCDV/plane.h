@@ -48,7 +48,7 @@ public:
 	static bool ThreePlaneIntersection(Plane p1, Plane p2, Plane p3, glm::vec3* p) {
 		float det = glm::dot(glm::cross(p1.normal, p2.normal), p3.normal);
 
-		float epsilon = 1e-5f; //Epsilon value for floating point error
+		float epsilon = 1e-3f; //Epsilon value for floating point error
 
 		if (det < epsilon && det > -epsilon) { return false; };
 
@@ -60,7 +60,7 @@ public:
 
 	static bool FinalThreePlaneIntersection(Plane p1, Plane p2, Plane p3, glm::vec3* p) {
 		float det = glm::dot(glm::cross(p1.normal, p2.normal), p3.normal);
-		float epsilon = 1e-5f; //Epsilon value for floating point error
+		float epsilon = 1e-2f; //Epsilon value for floating point error
 
 		if (det < epsilon && det > -epsilon) { return false; };
 
