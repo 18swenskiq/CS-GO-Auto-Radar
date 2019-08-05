@@ -69,6 +69,9 @@
     <Filter Include="Header Files\Imgui\theme">
       <UniqueIdentifier>{cecd1131-fee0-4178-adba-4bb378bfd32f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="OpenGL\Shader Files\engine\tarcfnode">
+      <UniqueIdentifier>{5340259c-7c4f-4be3-9536-e00e09a356f8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="interpolation.h">
@@ -239,6 +242,9 @@
     <ClInclude Include="imgui_color_gradient_presets.h">
       <Filter>Header Files\Imgui\galloscript</Filter>
     </ClInclude>
+    <ClInclude Include="CompositorFrame.hpp">
+      <Filter>OpenGL\engine</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -379,6 +385,15 @@
       <Filter>OpenGL\Shader Files\engine</Filter>
     </None>
     <None Include="shaders\engine\idpreview.fs">
+      <Filter>OpenGL\Shader Files\engine</Filter>
+    </None>
+    <None Include="shaders\engine\node.preview.fs">
+      <Filter>OpenGL\Shader Files\engine</Filter>
+    </None>
+    <None Include="shaders\engine\tarcfnode\passthrough.fs">
+      <Filter>OpenGL\Shader Files\engine\tarcfnode</Filter>
+    </None>
+    <None Include="shaders\engine\quadbase.vs">
       <Filter>OpenGL\Shader Files\engine</Filter>
     </None>
   </ItemGroup>

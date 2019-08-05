@@ -31,6 +31,7 @@
 
 // Engine
 #include "Camera.hpp"
+#include "CompositorFrame.hpp"
 
 // Opengl
 #include "Shader.hpp"
@@ -40,6 +41,10 @@
 #include <glm\glm.hpp>
 #include <glm\gtc\matrix_transform.hpp>
 #include <glm\gtc\type_ptr.hpp>
+
+// STB lib
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 // OpenGL error callback.
 void APIENTRY openglCallbackFunction(GLenum source,
@@ -92,7 +97,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 
 // Source sdk config
 std::string g_game_path = "D:/SteamLibrary/steamapps/common/Counter-Strike Global Offensive/csgo";
-std::string g_mapfile_path = "sample_stuff/sphere";
+std::string g_mapfile_path = "sample_stuff/map_01";
 
 // shaders
 Shader* g_shader_color;
@@ -133,8 +138,8 @@ Texture* tex_ui_unpadlock;
 Texture* tex_ui_rubbish;
 
 void clear_channel(vmf* vmf, uint32_t channels) {
-	for (auto&& i : vmf->m_solids) { i.m_visibility = (i.m_visibility & ~channels); if(i.m_visibility == TAR_CHANNEL_NONE) i.m_visibility |= TAR_CHANNEL_DEFAULT; }
-	for (auto&& i : vmf->m_entities) { i.m_visibility = (i.m_visibility & ~channels); if(i.m_visibility == TAR_CHANNEL_NONE) i.m_visibility |= TAR_CHANNEL_DEFAULT; }
+	for (auto&& i: vmf->m_solids)	{ i.m_visibility = (i.m_visibility & ~channels); if(i.m_visibility == TAR_CHANNEL_NONE) i.m_visibility |= TAR_CHANNEL_DEFAULT; }
+	for (auto&& i: vmf->m_entities) { i.m_visibility = (i.m_visibility & ~channels); if(i.m_visibility == TAR_CHANNEL_NONE) i.m_visibility |= TAR_CHANNEL_DEFAULT; }
 }
 
 void ui_clear_conf(const char* id, uint32_t clearChannel) {
@@ -480,6 +485,7 @@ int app(int argc, char** argv) {
 		Shader* g_shader_test = new Shader("shaders/source/se.shaded.vs", "shaders/source/se.shaded.solid.fs", "shader.test");
 		g_shader_color = new Shader("shaders/engine/line.vs", "shaders/engine/line.fs");
 		g_shader_id = new Shader("shaders/engine/line.vs", "shaders/engine/id.fs");
+		TARCF::init();
 
 	if( !SHADER_COMPILE_END ) return safe_terminate();
 
@@ -526,6 +532,10 @@ int app(int argc, char** argv) {
 
 	vmf_render_mask_preview(g_vmf_file, g_buff_maskpreview, glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, -1, 0), glm::vec3(0, 0, 1)), glm::ortho(0, 5000, -5000, 0, -4000, 4000));
 
+	//TARCF::Node testnode = TARCF::Node(1024, 1024, TARCF::SHADERLIB::passthrough);
+	TARCF::NodeInstance testnode = TARCF::NodeInstance(1024, 1024, "texture");
+	testnode.setProperty("source", "textures/grid-basic.png");
+	testnode.compute();
 	float time_last = 0.0f;
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
@@ -611,6 +621,11 @@ int app(int argc, char** argv) {
 		mesh_debug_line->Draw();
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
+		//testnode.compute();
+		//glViewport(0, 0, display_w, display_h);
+
+		testnode.debug_fs();
+
 #pragma region ImGui
 
 		ImGui_ImplOpenGL3_NewFrame();
@@ -627,6 +642,7 @@ int app(int argc, char** argv) {
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 #pragma endregion
+
 
 		glfwSwapBuffers(window);
 	}

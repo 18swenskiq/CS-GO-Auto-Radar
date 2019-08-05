@@ -1,0 +1,16 @@
+info
+{
+	"name" "Passthrough (dev)"
+}
+shader
+{
+	"vertex" "shaders/engine/quadbase.vs"
+	"fragment" "shaders/engine/tarcfnode/passthrough.fs"
+	
+	defaults
+	{
+		"an_vec_3" 	"(0, 0, 0)"
+		"an_vec_4"	"(0, 0, 0, 0)"
+		"an_float"	"0"
+	}
+}

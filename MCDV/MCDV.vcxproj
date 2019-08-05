@@ -129,6 +129,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Camera.hpp" />
+    <ClInclude Include="CompositorFrame.hpp" />
     <ClInclude Include="Console.hpp" />
     <ClInclude Include="convexPolytope.h" />
     <ClInclude Include="cxxopts.hpp" />
@@ -213,7 +214,10 @@
     <None Include="shaders\engine\idpreview.fs" />
     <None Include="shaders\engine\line.fs" />
     <None Include="shaders\engine\line.vs" />
+    <None Include="shaders\engine\node.preview.fs" />
+    <None Include="shaders\engine\quadbase.vs" />
     <None Include="shaders\engine\screenbase.vs" />
+    <None Include="shaders\engine\tarcfnode\passthrough.fs" />
     <None Include="shaders\fullscreenbase.fs" />
     <None Include="shaders\fullscreenbase.vs" />
     <None Include="shaders\gBuffer.fs" />
