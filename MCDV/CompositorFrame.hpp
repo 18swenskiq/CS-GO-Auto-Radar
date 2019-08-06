@@ -53,7 +53,7 @@ namespace TARCF {
 			else {
 				dsize = strlen((char*)src) + 1; // recalculate size
 				free( value );   // delete old string
-				malloc( dsize ); // alloc new memory
+				value = malloc( dsize ); // alloc new memory
 				memcpy(value, src, dsize); // copy in new value
 			}
 		}
@@ -83,7 +83,34 @@ namespace TARCF {
 
 		~prop() {
 			LOG_F(2, "dealloc()");
-			//free( value ); // Clean memory created from constructor
+			free( value ); // Clean memory created from constructor
+		}
+
+		// Copy-swap assignment
+		prop& operator=(prop copy) {
+			std::swap(dsize, copy.dsize);
+			std::swap(type, copy.type);
+			std::swap(value, copy.value);
+			return *this;
+		}
+		
+		// Move constructor
+		prop(prop&& other){
+			dsize = other.dsize;
+			type = other.type;
+			value = other.value;
+			
+			other.value = NULL;
+			other.type = 0;
+			other.dsize = 0;
+		}
+		
+		// Copy constructor
+		prop(const prop& other){
+			dsize = other.dsize;
+			type = other.type;
+			value = malloc(dsize);
+			memcpy(value, other.value, dsize);
 		}
 	};
 
@@ -199,7 +226,7 @@ namespace TARCF {
 
 		// Destructor deallocates texture memory and framebuffer
 		~NodeInstance() {
-			LOG_F(2, "Deallocating node storage ( type:%s )", m_nodeid);
+			LOG_F(2, "Deallocating node storage ( type:%s )", m_nodeid.c_str());
 
 			// Delete texture storage.
 			for (auto&& uTex : m_gl_texture_ids)
