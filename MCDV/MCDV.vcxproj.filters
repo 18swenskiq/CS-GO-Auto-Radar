@@ -72,6 +72,9 @@
     <Filter Include="OpenGL\Shader Files\engine\tarcfnode">
       <UniqueIdentifier>{5340259c-7c4f-4be3-9536-e00e09a356f8}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\tarcf definitions">
+      <UniqueIdentifier>{6cca446e-978c-42bc-a4b6-93b1f1f4e3a6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="interpolation.h">
@@ -245,6 +248,9 @@
     <ClInclude Include="CompositorFrame.hpp">
       <Filter>OpenGL\engine</Filter>
     </ClInclude>
+    <ClInclude Include="AtomicNodes.hpp">
+      <Filter>OpenGL\engine</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -395,6 +401,24 @@
     </None>
     <None Include="shaders\engine\quadbase.vs">
       <Filter>OpenGL\Shader Files\engine</Filter>
+    </None>
+    <None Include="shaders\engine\tarcfnode\invert.fs">
+      <Filter>OpenGL\Shader Files\engine\tarcfnode</Filter>
+    </None>
+    <None Include="tarcfnode\invert.tcfn">
+      <Filter>Source Files\tarcf definitions</Filter>
+    </None>
+    <None Include="tarcfnode\passthrough.tcfn">
+      <Filter>Source Files\tarcf definitions</Filter>
+    </None>
+    <None Include="tarcfnode\outline.tcfn">
+      <Filter>Source Files\tarcf definitions</Filter>
+    </None>
+    <None Include="shaders\engine\tarcfnode\outline.fs">
+      <Filter>OpenGL\Shader Files\engine\tarcfnode</Filter>
+    </None>
+    <None Include="shaders\engine\tarcfnode\distance.fs">
+      <Filter>OpenGL\Shader Files\engine\tarcfnode</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

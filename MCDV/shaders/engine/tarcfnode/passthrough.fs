@@ -6,10 +6,8 @@ in vec2 TexCoords;
 
 uniform sampler2D MainTex;
 
-uniform vec3 swang;
-
 // Frag main
 void main()
 {
-	FragColor = vec4(TexCoords.xy, swang.x, 1);
+	FragColor = vec4(texture(MainTex, TexCoords));
 }

@@ -532,10 +532,22 @@ int app(int argc, char** argv) {
 
 	vmf_render_mask_preview(g_vmf_file, g_buff_maskpreview, glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, -1, 0), glm::vec3(0, 0, 1)), glm::ortho(0, 5000, -5000, 0, -4000, 4000));
 
-	//TARCF::Node testnode = TARCF::Node(1024, 1024, TARCF::SHADERLIB::passthrough);
-	TARCF::NodeInstance testnode = TARCF::NodeInstance(1024, 1024, "texture");
-	testnode.setProperty("source", "textures/grid-basic.png");
-	testnode.compute();
+	
+	TARCF::NodeInstance nodet_texture = TARCF::NodeInstance(1024, 1024, "texture");
+	nodet_texture.setProperty("source", "textures/testimg_bw.png");
+
+	//TARCF::NodeInstance nodet_invert = TARCF::NodeInstance(1024, 1024, "invert");
+	TARCF::NodeInstance nodet_outline = TARCF::NodeInstance(1024, 1024, "outline");
+
+	TARCF::NodeInstance nodet_dist = TARCF::NodeInstance(1024, 1024, "distance");
+
+	// Connect nodes
+	TARCF::NodeInstance::connect(&nodet_texture, &nodet_outline, 0, 0);
+	TARCF::NodeInstance::connect(&nodet_outline, &nodet_dist, 0, 0);
+
+	nodet_dist.compute();
+
+
 	float time_last = 0.0f;
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
@@ -624,7 +636,7 @@ int app(int argc, char** argv) {
 		//testnode.compute();
 		//glViewport(0, 0, display_w, display_h);
 
-		testnode.debug_fs();
+		nodet_dist.debug_fs();
 
 #pragma region ImGui
 

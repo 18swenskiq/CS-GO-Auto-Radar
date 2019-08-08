@@ -128,6 +128,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="AtomicNodes.hpp" />
     <ClInclude Include="Camera.hpp" />
     <ClInclude Include="CompositorFrame.hpp" />
     <ClInclude Include="Console.hpp" />
@@ -217,6 +218,9 @@
     <None Include="shaders\engine\node.preview.fs" />
     <None Include="shaders\engine\quadbase.vs" />
     <None Include="shaders\engine\screenbase.vs" />
+    <None Include="shaders\engine\tarcfnode\distance.fs" />
+    <None Include="shaders\engine\tarcfnode\invert.fs" />
+    <None Include="shaders\engine\tarcfnode\outline.fs" />
     <None Include="shaders\engine\tarcfnode\passthrough.fs" />
     <None Include="shaders\fullscreenbase.fs" />
     <None Include="shaders\fullscreenbase.vs" />
@@ -240,6 +244,9 @@
     <None Include="shaders\unlit.vs" />
     <None Include="shaders\worldgrid.fs" />
     <None Include="shaders\worldgrid.vs" />
+    <None Include="tarcfnode\invert.tcfn" />
+    <None Include="tarcfnode\outline.tcfn" />
+    <None Include="tarcfnode\passthrough.tcfn" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="fonts\dina-r-background.png" />

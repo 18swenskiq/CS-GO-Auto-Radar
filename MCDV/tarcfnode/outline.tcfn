@@ -1,0 +1,34 @@
+info
+{
+	// Symbolic name
+	"name" "Outline (dev)"
+}
+shader
+{
+	"vertex" "shaders/engine/quadbase.vs"
+	"fragment" "shaders/engine/tarcfnode/outline.fs"
+	
+	// List of outputs, name should denote the frag data location's name
+	outputs
+	{
+		output
+		{
+			"name" "output"
+		}
+	}
+	
+	// List of inputs, name should denote the sampler name
+	inputs
+	{
+		input
+		{
+			"name" "input"
+		}
+	}
+	
+	// Default values that correspond to uniform names in the shader
+	defaults
+	{
+		"width" "2"
+	}
+}

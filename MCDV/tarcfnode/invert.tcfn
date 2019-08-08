@@ -1,0 +1,35 @@
+info
+{
+	// Symbolic name for this node
+	"name" "Invert (dev)"
+}
+shader
+{
+	// Shader source files
+	"vertex" "shaders/engine/quadbase.vs"
+	"fragment" "shaders/engine/tarcfnode/invert.fs"
+	
+	// List of outputs, name should denote the frag data location's name
+	outputs
+	{
+		output
+		{
+			"name" "output"
+		}
+	}
+	
+	// List of inputs, name should denote the sampler name
+	inputs
+	{
+		input
+		{
+			"name" "input"
+		}
+	}
+	
+	// Default values that correspond to uniform names in the shader
+	defaults
+	{
+
+	}
+}

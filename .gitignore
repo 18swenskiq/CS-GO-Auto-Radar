@@ -3,6 +3,7 @@
 
 MCDV/log.txt
 MCDV/log.log0
+MCDV/strings.h
 
 # C# experimantal libraries don't need to be uploaded
 MCDV_Lib/
