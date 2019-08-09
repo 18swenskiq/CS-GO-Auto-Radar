@@ -184,6 +184,7 @@
     <ClInclude Include="vmf.hpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </ClInclude>
+    <ClInclude Include="vmftarcf.hpp" />
     <ClInclude Include="vpk.hpp" />
     <ClInclude Include="vtx.hpp" />
     <ClInclude Include="vvd.hpp" />
@@ -215,10 +216,12 @@
     <None Include="shaders\engine\idpreview.fs" />
     <None Include="shaders\engine\line.fs" />
     <None Include="shaders\engine\line.vs" />
+    <None Include="shaders\engine\node.gbuffer.preview.fs" />
     <None Include="shaders\engine\node.preview.fs" />
     <None Include="shaders\engine\quadbase.vs" />
     <None Include="shaders\engine\screenbase.vs" />
     <None Include="shaders\engine\tarcfnode\distance.fs" />
+    <None Include="shaders\engine\tarcfnode\guass_multipass.fs" />
     <None Include="shaders\engine\tarcfnode\invert.fs" />
     <None Include="shaders\engine\tarcfnode\outline.fs" />
     <None Include="shaders\engine\tarcfnode\passthrough.fs" />

@@ -15,6 +15,7 @@
 #include "stb_image.h"
 
 #define EXTRATYPE_STRING 8989124
+#define EXTRATYPE_RAWPTR 8989125
 
 /* OpenGL compositor frame */
 
@@ -27,6 +28,7 @@ namespace TARCF {
 	namespace SHADERLIB {
 		Shader* passthrough;
 		Shader* distance;
+		Shader* guass_multipass;
 
 		std::map<std::string, Shader*> node_shaders;
 	}
@@ -60,28 +62,47 @@ namespace TARCF {
 			}
 		}
 
+		// Explicit set
+		template <typename T>
+		void setValueEx(T val) { setValue(&val); }
+
+		// Explicit get
+		template <typename T>
+		inline T getValue() { return *((T*)value); }
+
 		// Default constructor
 		prop() {}
 
-		// Constructor
-		prop(GLenum eDataType, void* src, int uniformLocation = 0):
-			type(eDataType), uniformloc(uniformLocation)
-		{
+		static unsigned int dataSize(const GLenum& eDataType, void* ptrArr = 0) {
 			switch (eDataType) {
-			case GL_FLOAT: dsize = sizeof(float); break;
-			case GL_FLOAT_VEC2: dsize = sizeof(float) * 2; break;
-			case GL_FLOAT_VEC3: dsize = sizeof(float) * 3; break;
-			case GL_FLOAT_VEC4: dsize = sizeof(float) * 4; break;
-			case GL_INT: dsize = sizeof(int); break;
-			case EXTRATYPE_STRING: dsize = strlen((char*)src)+1; break;
-			default: LOG_F(WARNING, "UNSUPPORTED UNIFORM TYPE: %u", eDataType); return;
+			case GL_FLOAT: return sizeof(float); break;
+			case GL_FLOAT_VEC2: return sizeof(float) * 2; break;
+			case GL_FLOAT_VEC3: return sizeof(float) * 3; break;
+			case GL_FLOAT_VEC4: return sizeof(float) * 4; break;
+			case GL_INT: return sizeof(int); break;
+			case EXTRATYPE_STRING: return strlen((char*)ptrArr) + 1; break;
+			case GL_FLOAT_MAT4: return sizeof(glm::mat4); break;
+			case EXTRATYPE_RAWPTR: return sizeof(void*); break;
+			default: LOG_F(WARNING, "UNSUPPORTED UNIFORM TYPE: %u", eDataType); return 0;
 			}
 
-			LOG_F(2, "	Storage size: %u", dsize);
+			return 0;
+		}
 
+		// Constructor
+		prop(const GLenum& eDataType, void* src, const int& uniformLocation = 0):
+			type(eDataType), uniformloc(uniformLocation)
+		{
+			dsize = dataSize(eDataType, src);
 			value = calloc( dsize, 1 );			// alloc new storage
 			if(src) memcpy(value, src, dsize);	// copy in initial value
-			if (eDataType == EXTRATYPE_STRING) LOG_F(3, "strv: %s", value);
+		}
+
+		// Explicit type constructor
+		template <typename T>
+		static prop prop_explicit(const GLenum& eDataType, T src, const int& uniformLocation = 0){
+			prop p = prop(eDataType, &src, uniformLocation);
+			return p;
 		}
 
 		~prop() {
@@ -327,6 +348,12 @@ namespace TARCF {
 			if (m_properties.count(propname)) m_properties[propname].setValue(ptr);
 		}
 
+		// Explit set
+		template <typename T>
+		void setPropertyEx(const std::string& propname, T value) {
+			setProperty(propname, &value);
+		}
+
 		// Connects two nodes together
 		static void connect(NodeInstance* src, NodeInstance* dst, const unsigned int& conSrcID, const unsigned int& conDstID) {
 			src->m_con_outputs[conSrcID].push_back( Connection(dst, conDstID) );
@@ -444,9 +471,7 @@ namespace TARCF {
 			Distance() :
 				BaseNode(SHADERLIB::distance)
 			{
-				m_prop_definitions.insert({ "maxdist", prop(GL_INT, 0, -1) });
-				int v = 255;
-				this->m_prop_definitions["maxdist"].setValue(&v);
+				m_prop_definitions.insert({ "maxdist", prop::prop_explicit<int>(GL_INT, 255, -1) });
 
 				m_output_definitions.push_back(Pin("output", 0));
 				m_input_definitions.push_back(Pin("input", 0));
@@ -502,6 +527,85 @@ namespace TARCF {
 				glDrawBuffers(1, attachments);
 			}
 		};
+
+		// Fast guassian blur implementation
+		class GuassBlur: public BaseNode {
+		public:
+			GuassBlur() :
+				BaseNode(SHADERLIB::guass_multipass)
+			{
+				m_prop_definitions.insert({ "iterations", prop::prop_explicit<int>(GL_INT, 8, -1) });
+				m_prop_definitions.insert({ "radius", prop::prop_explicit<float>(GL_FLOAT, 10.0f, -1) });
+
+				m_output_definitions.push_back(Pin("output", 0));
+				m_input_definitions.push_back(Pin("input", 0));
+			}
+
+			void compute(NodeInstance* node) override {
+				glViewport(0, 0, node->m_gl_texture_w, node->m_gl_texture_h);
+
+				// copy image in (we need clamped frame buffers)
+				glBindFramebuffer(GL_FRAMEBUFFER, node->m_gl_framebuffers[1]);
+				SHADERLIB::passthrough->use(); 
+				s_mesh_quad->Draw();
+
+				// Switch to blur shader
+				NODELIB[node->m_nodeid]->m_operator_shader->use();
+
+				float rad = node->m_properties["radius"].getValue<float>();
+				int iterations = node->m_properties["iterations"].getValue<int>() * 2;
+
+				// Do blur pass
+				for (int i = 0; i < iterations; i++) {
+					float radius = (iterations - i - 1) * (1.0f / iterations) * rad;
+					glBindFramebuffer(GL_FRAMEBUFFER, node->m_gl_framebuffers[i%2]);
+					glBindTexture(GL_TEXTURE_2D, node->m_gl_texture_ids[(i + 1) % 2]);
+					NODELIB[node->m_nodeid]->m_operator_shader->setVec2("direction", (i % 2 == 0)? glm::vec2(radius, 0): glm::vec2(0, radius));
+					s_mesh_quad->Draw();
+				}
+
+				glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			}
+
+			void v_gen_buffers(NodeInstance* instance) override {
+				// Front and back buffer
+				glGenFramebuffers(2, &instance->m_gl_framebuffers[0]);
+				glBindFramebuffer(GL_FRAMEBUFFER, instance->m_gl_framebuffers[0]);
+			}
+
+			void v_gen_tex_memory(NodeInstance* instance) override {
+				// BACK BUFFER
+				glBindFramebuffer(GL_FRAMEBUFFER, instance->m_gl_framebuffers[0]); // bind framebuffer
+				glGenTextures(1, &instance->m_gl_texture_ids[0]);
+				glBindTexture(GL_TEXTURE_2D, instance->m_gl_texture_ids[0]);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, instance->m_gl_texture_w, instance->m_gl_texture_h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, instance->m_gl_texture_ids[0], 0);
+				
+				unsigned int attachments[1] = {
+					GL_COLOR_ATTACHMENT0
+				};
+
+				glDrawBuffers(1, attachments);
+
+				// FRONT BUFFER
+				
+				glBindFramebuffer(GL_FRAMEBUFFER, instance->m_gl_framebuffers[1]);
+				glGenTextures(1, &instance->m_gl_texture_ids[1]);
+				glBindTexture(GL_TEXTURE_2D, instance->m_gl_texture_ids[1]);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, instance->m_gl_texture_w, instance->m_gl_texture_h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, instance->m_gl_texture_ids[1], 0);
+				
+				glDrawBuffers(1, attachments);
+			}
+		};
 	}
 
 	// Init system
@@ -520,10 +624,12 @@ namespace TARCF {
 
 		SHADERLIB::passthrough = new Shader("shaders/engine/quadbase.vs", "shaders/engine/tarcfnode/passthrough.fs", "tarcfn.passthrough");
 		SHADERLIB::distance = new Shader("shaders/engine/quadbase.vs", "shaders/engine/tarcfnode/distance.fs", "tarcfn.distance");
+		SHADERLIB::guass_multipass = new Shader("shaders/engine/quadbase.vs", "shaders/engine/tarcfnode/guass_multipass.fs", "tarcfn.guass");
 
 		// Generative nodes (static custom handle nodes)
 		NODELIB.insert({ "texture", new Atomic::TextureNode("textures/modulate.png") });
 		NODELIB.insert({ "distance", new Atomic::Distance() });
+		NODELIB.insert({ "guassian", new Atomic::GuassBlur() });
 
 		// Load generic transformative nodes
 		for(const auto& entry: std::filesystem::directory_iterator("tarcfnode")){

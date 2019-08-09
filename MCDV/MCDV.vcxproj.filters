@@ -251,6 +251,9 @@
     <ClInclude Include="AtomicNodes.hpp">
       <Filter>OpenGL\engine</Filter>
     </ClInclude>
+    <ClInclude Include="vmftarcf.hpp">
+      <Filter>Header Files\valve</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -419,6 +422,12 @@
     </None>
     <None Include="shaders\engine\tarcfnode\distance.fs">
       <Filter>OpenGL\Shader Files\engine\tarcfnode</Filter>
+    </None>
+    <None Include="shaders\engine\tarcfnode\guass_multipass.fs">
+      <Filter>OpenGL\Shader Files\engine\tarcfnode</Filter>
+    </None>
+    <None Include="shaders\engine\node.gbuffer.preview.fs">
+      <Filter>OpenGL\Shader Files\engine</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

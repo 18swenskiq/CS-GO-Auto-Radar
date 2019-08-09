@@ -57,6 +57,7 @@ public:
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, this->gOrigin, 0);
 
+
 		// Announce attachments
 		unsigned int attachments[3] = { 
 			GL_COLOR_ATTACHMENT0, 

@@ -32,6 +32,7 @@
 // Engine
 #include "Camera.hpp"
 #include "CompositorFrame.hpp"
+#include "vmftarcf.hpp"
 
 // Opengl
 #include "Shader.hpp"
@@ -486,6 +487,7 @@ int app(int argc, char** argv) {
 		g_shader_color = new Shader("shaders/engine/line.vs", "shaders/engine/line.fs");
 		g_shader_id = new Shader("shaders/engine/line.vs", "shaders/engine/id.fs");
 		TARCF::init();
+		TARCF::VMF_NODES_INIT();
 
 	if( !SHADER_COMPILE_END ) return safe_terminate();
 
@@ -540,12 +542,29 @@ int app(int argc, char** argv) {
 	TARCF::NodeInstance nodet_outline = TARCF::NodeInstance(1024, 1024, "outline");
 
 	TARCF::NodeInstance nodet_dist = TARCF::NodeInstance(1024, 1024, "distance");
+	TARCF::NodeInstance nodet_blur = TARCF::NodeInstance(1024, 1024, "guassian");
+	nodet_blur.setPropertyEx("radius", 10.0f);
 
 	// Connect nodes
 	TARCF::NodeInstance::connect(&nodet_texture, &nodet_outline, 0, 0);
 	TARCF::NodeInstance::connect(&nodet_outline, &nodet_dist, 0, 0);
+	TARCF::NodeInstance::connect(&nodet_outline, &nodet_blur, 0, 0);
 
-	nodet_dist.compute();
+	TARCF::NodeInstance nodet_vmf = TARCF::NodeInstance(1024, 1024, "vmf.gbuffer");
+	nodet_vmf.setPropertyEx<vmf*>("vmf", g_vmf_file);
+	nodet_vmf.setPropertyEx<unsigned int>("layers", TAR_CHANNEL_ALL);
+	nodet_vmf.setPropertyEx<glm::mat4>("matrix.view", glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, -1, 0), glm::vec3(0, 0, 1)));
+	nodet_vmf.setPropertyEx<glm::mat4>("matrix.proj", glm::ortho(
+		g_tar_config->m_view_origin.x,										// -X
+		g_tar_config->m_view_origin.x + g_tar_config->m_render_ortho_scale,	// +X
+		g_tar_config->m_view_origin.y - g_tar_config->m_render_ortho_scale,	// -Y
+		g_tar_config->m_view_origin.y,										// +Y
+		-10000.0f,  // NEARZ
+		10000.0f));
+
+	nodet_vmf.compute();
+
+	//nodet_blur.compute();
 
 
 	float time_last = 0.0f;
@@ -636,7 +655,7 @@ int app(int argc, char** argv) {
 		//testnode.compute();
 		//glViewport(0, 0, display_w, display_h);
 
-		nodet_dist.debug_fs();
+		nodet_vmf.debug_fs();
 
 #pragma region ImGui
 
