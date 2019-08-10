@@ -220,6 +220,7 @@
     <None Include="shaders\engine\node.preview.fs" />
     <None Include="shaders\engine\quadbase.vs" />
     <None Include="shaders\engine\screenbase.vs" />
+    <None Include="shaders\engine\tarcfnode\aopass.fs" />
     <None Include="shaders\engine\tarcfnode\distance.fs" />
     <None Include="shaders\engine\tarcfnode\guass_multipass.fs" />
     <None Include="shaders\engine\tarcfnode\invert.fs" />

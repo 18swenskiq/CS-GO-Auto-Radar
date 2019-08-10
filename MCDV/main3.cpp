@@ -554,17 +554,19 @@ int app(int argc, char** argv) {
 	nodet_vmf.setPropertyEx<vmf*>("vmf", g_vmf_file);
 	nodet_vmf.setPropertyEx<unsigned int>("layers", TAR_CHANNEL_ALL);
 	nodet_vmf.setPropertyEx<glm::mat4>("matrix.view", glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, -1, 0), glm::vec3(0, 0, 1)));
-	nodet_vmf.setPropertyEx<glm::mat4>("matrix.proj", glm::ortho(
-		g_tar_config->m_view_origin.x,										// -X
-		g_tar_config->m_view_origin.x + g_tar_config->m_render_ortho_scale,	// +X
-		g_tar_config->m_view_origin.y - g_tar_config->m_render_ortho_scale,	// -Y
-		g_tar_config->m_view_origin.y,										// +Y
-		-10000.0f,  // NEARZ
-		10000.0f));
-
+	nodet_vmf.setPropertyEx<glm::mat4>("matrix.proj", glm::ortho( g_tar_config->m_view_origin.x, g_tar_config->m_view_origin.x + g_tar_config->m_render_ortho_scale, g_tar_config->m_view_origin.y - g_tar_config->m_render_ortho_scale, g_tar_config->m_view_origin.y, -10000.0f, 10000.0f));
 	nodet_vmf.compute();
 
-	//nodet_blur.compute();
+	TARCF::NodeInstance nodet_ao = TARCF::NodeInstance(1024, 1024, "aopass");
+	nodet_ao.setPropertyEx<glm::mat4>("matrix.view", glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, -1, 0), glm::vec3(0, 0, 1)));
+	nodet_ao.setPropertyEx<glm::mat4>("matrix.proj", glm::ortho(g_tar_config->m_view_origin.x, g_tar_config->m_view_origin.x + g_tar_config->m_render_ortho_scale, g_tar_config->m_view_origin.y - g_tar_config->m_render_ortho_scale, g_tar_config->m_view_origin.y, -10000.0f, 10000.0f));
+	nodet_ao.setPropertyEx<float>("radius", 512.0f);
+
+	// Connect VMF gbuffer to ao
+	TARCF::NodeInstance::connect(&nodet_vmf, &nodet_ao, 0, 0);
+	TARCF::NodeInstance::connect(&nodet_vmf, &nodet_ao, 1, 1);
+
+	nodet_ao.compute();
 
 
 	float time_last = 0.0f;
@@ -655,7 +657,7 @@ int app(int argc, char** argv) {
 		//testnode.compute();
 		//glViewport(0, 0, display_w, display_h);
 
-		nodet_vmf.debug_fs();
+		nodet_ao.debug_fs();
 
 #pragma region ImGui
 

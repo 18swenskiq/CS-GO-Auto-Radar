@@ -429,6 +429,9 @@
     <None Include="shaders\engine\node.gbuffer.preview.fs">
       <Filter>OpenGL\Shader Files\engine</Filter>
     </None>
+    <None Include="shaders\engine\tarcfnode\aopass.fs">
+      <Filter>OpenGL\Shader Files\engine\tarcfnode</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="fonts\dina-r.png">

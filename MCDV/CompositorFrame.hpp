@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <glad\glad.h>
 #include <GLFW\glfw3.h>
+#include <random>
 
 #include "loguru.hpp"
 
@@ -29,6 +30,7 @@ namespace TARCF {
 		Shader* passthrough;
 		Shader* distance;
 		Shader* guass_multipass;
+		Shader* ambient_occlusion;
 
 		std::map<std::string, Shader*> node_shaders;
 	}
@@ -326,9 +328,10 @@ namespace TARCF {
 			for(auto&& input: this->m_con_inputs){
 				if (input.ptrNode) {
 					glActiveTexture(GL_TEXTURE0 + inputnum++);
-					glBindTexture(GL_TEXTURE_2D, input.ptrNode->m_gl_texture_ids[0]);
+					glBindTexture(GL_TEXTURE_2D, input.ptrNode->m_gl_texture_ids[input.uConID]);
 				}
 			}
+
 			glActiveTexture(GL_TEXTURE0);
 			LOG_F(INFO, "Computing node type: %s", this->m_nodeid.c_str());
 
@@ -606,6 +609,145 @@ namespace TARCF {
 				glDrawBuffers(1, attachments);
 			}
 		};
+
+		// Generic Ambient Occlusion
+		class AmbientOcclusion: public BaseNode {
+			std::vector<glm::vec3> samples;
+			std::vector<glm::vec2> offsets;
+			unsigned int gl_noise_texture;
+		public:
+			AmbientOcclusion() :
+				BaseNode(SHADERLIB::ambient_occlusion)
+			{
+				m_prop_definitions.insert({ "radius", prop::prop_explicit<float>(GL_FLOAT, 256.0f, -1) });
+				m_prop_definitions.insert({ "iterations", prop::prop_explicit<int>(GL_INT, 32, -1) });
+				m_prop_definitions.insert({ "bias", prop::prop_explicit<float>(GL_FLOAT, 1.0f, -1) });
+
+				// For reprojection
+				m_prop_definitions.insert({ "matrix.proj", prop::prop_explicit<glm::mat4>(GL_FLOAT_MAT4, glm::mat4(1.0), -1) });
+				m_prop_definitions.insert({ "matrix.view", prop::prop_explicit<glm::mat4>(GL_FLOAT_MAT4, glm::mat4(1.0), -1) });
+
+				m_output_definitions.push_back(Pin("output", 0));
+
+				// Inputs are from gbuffer
+				m_input_definitions.push_back(Pin("gposition", 0));
+				m_input_definitions.push_back(Pin("gnormal", 1));
+
+				// Generate SSAO kernel
+				std::uniform_real_distribution<float> randomFloats(0.0, 1.0);
+				std::default_random_engine generator;
+
+				for (int i = 0; i < 64; ++i) {
+					glm::vec3 sample(
+						randomFloats(generator) * 2.0 - 1.0,
+						randomFloats(generator) * 2.0 - 1.0,
+						randomFloats(generator)
+					);
+					sample = glm::normalize(sample);
+					sample *= randomFloats(generator);
+					float scale = (float)i / (float)64;
+					scale = lerpf(0.1f, 1.0f, glm::pow(scale, 2.3f)); // accelerate towards center
+					sample *= scale;
+					samples.push_back(sample);
+				}
+
+				// Create random offsets for many many sampling innit
+				for (int i = 0; i < 128; i++) {
+					offsets.push_back(glm::vec2(randomFloats(generator), randomFloats(generator)));
+				}
+
+				// Generate noise texture
+				std::vector<glm::vec3> noise;
+
+				for (int i = 0; i < 65536; i++) {
+					glm::vec3 s(
+						randomFloats(generator) * 2.0 - 1.0,
+						randomFloats(generator) * 2.0 - 1.0,
+						0.0f
+					);
+					noise.push_back(s);
+				}
+
+				glGenTextures(1, &gl_noise_texture);
+				glBindTexture(GL_TEXTURE_2D, gl_noise_texture);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, 256, 256, 0, GL_RGB, GL_FLOAT, &noise[0]);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+			}
+
+			void compute(NodeInstance* node) override {
+				glViewport(0, 0, node->m_gl_texture_w, node->m_gl_texture_h);
+				// Bind shader
+				SHADERLIB::ambient_occlusion->use();
+				SHADERLIB::ambient_occlusion->setFloat("blendFac", 1.0f / (float)node->m_properties["iterations"].getValue<int>());
+				SHADERLIB::ambient_occlusion->setFloat("bias", node->m_properties["bias"].getValue<float>());
+				SHADERLIB::ambient_occlusion->setFloat("ssaoScale", node->m_properties["radius"].getValue<float>());
+
+				SHADERLIB::ambient_occlusion->setMatrix("projection", node->m_properties["matrix.proj"].getValue<glm::mat4>());
+				SHADERLIB::ambient_occlusion->setMatrix("view", node->m_properties["matrix.view"].getValue<glm::mat4>());
+				SHADERLIB::ambient_occlusion->setVec2("noiseScale", glm::vec2(node->m_gl_texture_w / 256.0f, node->m_gl_texture_h / 256.0f));
+
+				// Gen samples if not existant & upload
+				for (int i = 0; i < 64; i++) SHADERLIB::ambient_occlusion->setVec3("samples[" + std::to_string(i) + "]", samples[i]);
+
+				// Bind rotation texture
+				glActiveTexture(GL_TEXTURE2);
+				glBindTexture(GL_TEXTURE_2D, gl_noise_texture);
+				SHADERLIB::ambient_occlusion->setInt("ssaoRotations", 2);
+
+				// Dragged inputs
+				SHADERLIB::ambient_occlusion->setInt("gbuffer_position", 0);
+				SHADERLIB::ambient_occlusion->setInt("gbuffer_normal", 1);
+
+				glBindFramebuffer(GL_FRAMEBUFFER, node->m_gl_framebuffers[0]);
+
+				glClearColor(0, 0, 0, 1);
+				glClear(GL_COLOR_BUFFER_BIT);
+
+				glEnable(GL_BLEND);
+				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+				glBlendEquation(GL_FUNC_ADD);
+
+				int iter = node->m_properties["iterations"].getValue<int>();
+				for (int i = 0; i < glm::min(iter, 128); i++) {
+					SHADERLIB::ambient_occlusion->setVec2("noiseOffset", offsets[i]);
+					s_mesh_quad->Draw();
+				}
+
+				glDisable(GL_BLEND);
+				glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			}
+
+			void v_gen_buffers(NodeInstance* instance) override {
+				// Front and back buffer
+				glGenFramebuffers(1, &instance->m_gl_framebuffers[0]);
+				glBindFramebuffer(GL_FRAMEBUFFER, instance->m_gl_framebuffers[0]);
+			}
+
+			void v_gen_tex_memory(NodeInstance* instance) override {
+				// BACK BUFFER
+				glBindFramebuffer(GL_FRAMEBUFFER, instance->m_gl_framebuffers[0]); // bind framebuffer
+				glGenTextures(1, &instance->m_gl_texture_ids[0]);
+				glBindTexture(GL_TEXTURE_2D, instance->m_gl_texture_ids[0]);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, instance->m_gl_texture_w, instance->m_gl_texture_h, 0, GL_RGBA, GL_FLOAT, NULL);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, instance->m_gl_texture_ids[0], 0);
+				
+				unsigned int attachments[1] = {
+					GL_COLOR_ATTACHMENT0
+				};
+
+				glDrawBuffers(1, attachments);
+			}
+
+			// Clear mem from noise texture
+			~AmbientOcclusion() {
+				glDeleteTextures(1, &gl_noise_texture);
+			}
+		};
 	}
 
 	// Init system
@@ -625,11 +767,13 @@ namespace TARCF {
 		SHADERLIB::passthrough = new Shader("shaders/engine/quadbase.vs", "shaders/engine/tarcfnode/passthrough.fs", "tarcfn.passthrough");
 		SHADERLIB::distance = new Shader("shaders/engine/quadbase.vs", "shaders/engine/tarcfnode/distance.fs", "tarcfn.distance");
 		SHADERLIB::guass_multipass = new Shader("shaders/engine/quadbase.vs", "shaders/engine/tarcfnode/guass_multipass.fs", "tarcfn.guass");
+		SHADERLIB::ambient_occlusion = new Shader("shaders/engine/quadbase.vs", "shaders/engine/tarcfnode/aopass.fs", "tarcfn.aopass");
 
 		// Generative nodes (static custom handle nodes)
 		NODELIB.insert({ "texture", new Atomic::TextureNode("textures/modulate.png") });
 		NODELIB.insert({ "distance", new Atomic::Distance() });
 		NODELIB.insert({ "guassian", new Atomic::GuassBlur() });
+		NODELIB.insert({ "aopass", new Atomic::AmbientOcclusion() });
 
 		// Load generic transformative nodes
 		for(const auto& entry: std::filesystem::directory_iterator("tarcfnode")){
