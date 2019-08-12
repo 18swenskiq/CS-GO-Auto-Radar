@@ -859,8 +859,6 @@ namespace TARCF {
 				: BaseNode(SHADERLIB::node_shaders["gradient"])
 			{
 				m_input_definitions.push_back(Pin("Layer", 0));
-				
-
 				m_output_definitions.push_back(Pin("output", 0));
 
 				m_prop_definitions.insert({ "glGradientID", prop::prop_explicit<int>(GL_INT, 0, -1) });
