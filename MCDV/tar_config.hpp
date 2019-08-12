@@ -42,9 +42,11 @@ private:
 	vmf* v;
 	std::map<std::string, std::string> kvs;
 
-	unsigned int m_gradient_texture;
+	
 
 public:
+	unsigned int m_gradient_texture;
+
 	std::vector<tar_config_layer> layers;
 
 	// Camera settings
@@ -214,7 +216,7 @@ public:
 		this->layers.push_back(tar_config_layer(splits.back(), -10000.0f));
 	}
 
-	void gen_textures() {
+	void gen_textures(ImGradient& grad) {
 		// Load color scheme gradient
 		// TODO: Entity based gradients
 		std::string schemeNum = kv::tryGetStringValue(kvs, "colorScheme", "0");
@@ -235,15 +237,27 @@ public:
 
 		this->m_texture_background = new Texture("textures/" + kv::tryGetStringValue(kvs, "background", "grid.png"), true);
 
-		unsigned char temp_data[256*3*sizeof(float)];
+		unsigned char yo[256 * 4];
+		for (int i = 0; i < 256; i++) {
+			yo[i * 4 + 0] = i;
+			yo[i * 4 + 1] = 255 - i;
+			yo[i * 4 + 2] = 0;
+			yo[i * 4 + 3] = 255;
+		}
 
 		glGenTextures(1, &this->m_gradient_texture);
 		glBindTexture(GL_TEXTURE_2D, this->m_gradient_texture);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 256, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, temp_data);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, grad.cache_ptr());
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}
 
 	// Update the gradient texture with ImGradient
-	void update_gradient(const ImGradient& grad) {
+	void update_gradient(ImGradient& grad) {
 		glBindTexture(GL_TEXTURE_2D, this->m_gradient_texture);
 		glTexSubImage2D(
 			GL_TEXTURE_2D,
@@ -252,7 +266,7 @@ public:
 			0,
 			256,
 			1,
-			GL_RGB,
+			GL_RGBA,
 			GL_UNSIGNED_BYTE,
 			grad.cache_ptr()
 		);

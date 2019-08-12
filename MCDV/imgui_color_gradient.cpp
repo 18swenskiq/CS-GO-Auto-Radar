@@ -8,6 +8,8 @@
 #include "imgui_color_gradient.h"
 #include "imgui_internal.h"
 
+#include <iostream>
+
 static const float GRADIENT_BAR_WIDGET_HEIGHT = 25;
 static const float GRADIENT_BAR_EDITOR_HEIGHT = 40;
 static const float GRADIENT_MARK_DELETE_DIFFY = 40;
@@ -114,6 +116,66 @@ void ImGradient::computeColorAt(float position, float* color) const
 	}
 }
 
+void ImGradient::compColorAt(float position, char* color) const
+{
+	position = ImClamp(position, 0.0f, 1.0f);
+
+	ImGradientMark* lower = nullptr;
+	ImGradientMark* upper = nullptr;
+
+	for (ImGradientMark* mark : m_marks)
+	{
+		if (mark->position < position)
+		{
+			if (!lower || lower->position < mark->position)
+			{
+				lower = mark;
+			}
+		}
+
+		if (mark->position >= position)
+		{
+			if (!upper || upper->position > mark->position)
+			{
+				upper = mark;
+			}
+		}
+	}
+
+	if (upper && !lower)
+	{
+		lower = upper;
+	}
+	else if (!upper && lower)
+	{
+		upper = lower;
+	}
+	else if (!lower && !upper)
+	{
+		color[0] = color[1] = color[2] = color[3] = 128;
+		return;
+	}
+
+	if (upper == lower)
+	{
+		color[0] = (char)(lower->color[0] * 255.0f);
+		color[1] = (char)(lower->color[1] * 255.0f);
+		color[2] = (char)(lower->color[2] * 255.0f);
+		color[3] = (char)(lower->color[3] * 255.0f);
+	}
+	else
+	{
+		float distance = upper->position - lower->position;
+		float delta = (position - lower->position) / distance;
+	
+		//lerp
+		color[0] = (char)((1.0f - delta) * lower->color[0] * 255.0f) + (delta * upper->color[0] * 255.0f);
+		color[1] = (char)((1.0f - delta) * lower->color[1] * 255.0f) + (delta * upper->color[1] * 255.0f);
+		color[2] = (char)((1.0f - delta) * lower->color[2] * 255.0f) + (delta * upper->color[2] * 255.0f);
+		color[3] = (char)((1.0f - delta) * lower->color[3] * 255.0f) + (delta * upper->color[3] * 255.0f);
+	}
+}
+
 void ImGradient::refreshCache()
 {
 	m_marks.sort([](const ImGradientMark * a, const ImGradientMark * b) { return a->position < b->position; });
@@ -121,6 +183,7 @@ void ImGradient::refreshCache()
 	for (int i = 0; i < 256; ++i)
 	{
 		computeColorAt(i / 255.0f, &m_cachedValues[i * 3]);
+		compColorAt(i / 255.0f, &m_texCache[i * 4]);
 	}
 }
 

@@ -116,6 +116,8 @@ glm::vec3 g_debug_line_point;
 vmf* g_vmf_file;
 tar_config* g_tar_config;
 
+TARCF::NodeInstance* nodet_gradient;
+
 int display_w, display_h;
 
 void setupconsole();
@@ -325,23 +327,25 @@ void ui_render_dev() {
 			ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
 			ImGui::Begin("Editing gradient: 'Heightmap Colors'", &s_ui_show_gradient, ImGuiWindowFlags_NoCollapse);
 			bool updated = ImGui::GradientEditor(&gradient, draggingMark, selectedMark);
-			if (updated) {
-				// Routine update gradient ... 
-				g_tar_config->update_gradient(gradient);
-			}
 
 			ImGui::Separator();
 
 			ImGui::Text("Presets:");
-			if (ImGui::Button("Dust2")) { gradpreset::load_dust_2(&gradient); } ImGui::SameLine();
-			if (ImGui::Button("Mirage")) { gradpreset::load_mirage(&gradient); } ImGui::SameLine();
-			if (ImGui::Button("Overpass")) { gradpreset::load_overpass(&gradient); } ImGui::SameLine();
-			if (ImGui::Button("Cache")) { gradpreset::load_cache(&gradient); } ImGui::SameLine();
-			if (ImGui::Button("Inferno")) { gradpreset::load_inferno(&gradient); } ImGui::SameLine();
-			if (ImGui::Button("Train")) { gradpreset::load_train(&gradient); } ImGui::SameLine();
-			if (ImGui::Button("Nuke")) { gradpreset::load_nuke(&gradient); } ImGui::SameLine();
-			if (ImGui::Button("Vertigo")) { gradpreset::load_vertigo(&gradient); }
+			if (ImGui::Button("Dust2")) { gradpreset::load_dust_2(&gradient); updated=true; } ImGui::SameLine();
+			if (ImGui::Button("Mirage")) { gradpreset::load_mirage(&gradient); updated=true; } ImGui::SameLine();
+			if (ImGui::Button("Overpass")) { gradpreset::load_overpass(&gradient); updated=true; } ImGui::SameLine();
+			if (ImGui::Button("Cache")) { gradpreset::load_cache(&gradient); updated=true; } ImGui::SameLine();
+			if (ImGui::Button("Inferno")) { gradpreset::load_inferno(&gradient); updated=true; } ImGui::SameLine();
+			if (ImGui::Button("Train")) { gradpreset::load_train(&gradient); updated=true; } ImGui::SameLine();
+			if (ImGui::Button("Nuke")) { gradpreset::load_nuke(&gradient); updated=true; } ImGui::SameLine();
+			if (ImGui::Button("Vertigo")) { gradpreset::load_vertigo(&gradient); updated=true; }
 			ImGui::End();
+
+			if (updated) {
+				// Routine update gradient ... 
+				g_tar_config->update_gradient(gradient);
+				nodet_gradient->markChainDirt();
+			}
 		}
 	} else {
 		s_ui_show_gradient = false;
@@ -506,7 +510,7 @@ int app(int argc, char** argv) {
 
 #pragma endregion
 
-	g_tar_config->gen_textures();
+	g_tar_config->gen_textures(gradient);
 	g_vmf_file->InitOpenglData();
 
 	// Get test model.
@@ -531,24 +535,9 @@ int app(int argc, char** argv) {
 	GBuffer::s_gbufferwriteShader->setMatrix("projection", projm);
 
 	gradpreset::load_vertigo(&gradient);
+	g_tar_config->update_gradient(gradient);
 
 	vmf_render_mask_preview(g_vmf_file, g_buff_maskpreview, glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, -1, 0), glm::vec3(0, 0, 1)), glm::ortho(0, 5000, -5000, 0, -4000, 4000));
-
-	
-	TARCF::NodeInstance nodet_texture = TARCF::NodeInstance(1024, 1024, "texture");
-	nodet_texture.setProperty("source", "textures/testimg_bw.png");
-
-	//TARCF::NodeInstance nodet_invert = TARCF::NodeInstance(1024, 1024, "invert");
-	TARCF::NodeInstance nodet_outline = TARCF::NodeInstance(1024, 1024, "outline");
-
-	TARCF::NodeInstance nodet_dist = TARCF::NodeInstance(1024, 1024, "distance");
-	TARCF::NodeInstance nodet_blur = TARCF::NodeInstance(1024, 1024, "guassian");
-	nodet_blur.setPropertyEx("radius", 10.0f);
-
-	// Connect nodes
-	TARCF::NodeInstance::connect(&nodet_texture, &nodet_outline, 0, 0);
-	TARCF::NodeInstance::connect(&nodet_outline, &nodet_dist, 0, 0);
-	TARCF::NodeInstance::connect(&nodet_outline, &nodet_blur, 0, 0);
 
 	TARCF::NodeInstance nodet_vmf = TARCF::NodeInstance(1024, 1024, "vmf.gbuffer");
 	nodet_vmf.setPropertyEx<vmf*>("vmf", g_vmf_file);
@@ -560,14 +549,25 @@ int app(int argc, char** argv) {
 	TARCF::NodeInstance nodet_ao = TARCF::NodeInstance(1024, 1024, "aopass");
 	nodet_ao.setPropertyEx<glm::mat4>("matrix.view", glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, -1, 0), glm::vec3(0, 0, 1)));
 	nodet_ao.setPropertyEx<glm::mat4>("matrix.proj", glm::ortho(g_tar_config->m_view_origin.x, g_tar_config->m_view_origin.x + g_tar_config->m_render_ortho_scale, g_tar_config->m_view_origin.y - g_tar_config->m_render_ortho_scale, g_tar_config->m_view_origin.y, -10000.0f, 10000.0f));
-	nodet_ao.setPropertyEx<float>("radius", 512.0f);
+	nodet_ao.setPropertyEx<float>("radius", 256.0f);
 
-	// Connect VMF gbuffer to ao
+	nodet_gradient = new TARCF::NodeInstance(1024, 1024, "gradient");
+	nodet_gradient->setPropertyEx<int>("glGradientID", g_tar_config->m_gradient_texture);
+	nodet_gradient->setPropertyEx<float>("min", -512.0f);
+	nodet_gradient->setPropertyEx<float>("max", 512.0f);
+	nodet_gradient->setPropertyEx<int>("channelID", 1);
+
+	TARCF::NodeInstance::connect(&nodet_vmf, nodet_gradient, 0, 0);
 	TARCF::NodeInstance::connect(&nodet_vmf, &nodet_ao, 0, 0);
 	TARCF::NodeInstance::connect(&nodet_vmf, &nodet_ao, 1, 1);
 
-	nodet_ao.compute();
+	TARCF::NodeInstance nodet_black = TARCF::NodeInstance(2, 2, "color");
+	nodet_black.setPropertyEx<glm::vec4>("color", glm::vec4(0, 0, 0, 1));
 
+	TARCF::NodeInstance nodet_blend = TARCF::NodeInstance(1024, 1024, "blend");
+	TARCF::NodeInstance::connect(nodet_gradient, &nodet_blend, 0, 0);
+	TARCF::NodeInstance::connect(&nodet_black, &nodet_blend, 0, 1);
+	TARCF::NodeInstance::connect(&nodet_ao, &nodet_blend, 0, 2);
 
 	float time_last = 0.0f;
 	while (!glfwWindowShouldClose(window)) {
@@ -653,11 +653,10 @@ int app(int argc, char** argv) {
 
 		mesh_debug_line->Draw();
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-		//testnode.compute();
-		//glViewport(0, 0, display_w, display_h);
-
-		nodet_ao.debug_fs();
+		
+		nodet_blend.compute();
+		glViewport(0, 0, display_w, display_h);
+		nodet_blend.debug_fs();
 
 #pragma region ImGui
 

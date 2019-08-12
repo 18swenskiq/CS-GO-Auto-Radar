@@ -1,13 +1,12 @@
 info
 {
-	// Symbolic name for this node
-	"name" "Invert (dev)"
+	// Symbolic name
+	"name" "Passthrough (dev)"
 }
 shader
 {
-	// Shader source files
 	"vertex" "shaders/engine/quadbase.vs"
-	"fragment" "shaders/engine/tarcfnode/invert.fs"
+	"fragment" "shaders/engine/tarcfnode/blend.mix.fs"
 	
 	// List of outputs, name should denote the frag data location's name
 	outputs
@@ -24,12 +23,19 @@ shader
 		input
 		{
 			"name" "input"
+			"sampler" "MainTex"
+		}
+		
+		input
+		{
+			"name" "input"
+			"sampler" "MainTex1"
 		}
 	}
 	
 	// Default values that correspond to uniform names in the shader
 	defaults
 	{
-
+		"wagwan" "0.5"
 	}
 }

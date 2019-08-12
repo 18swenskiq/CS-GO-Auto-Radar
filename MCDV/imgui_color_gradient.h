@@ -68,11 +68,13 @@ public:
 	void removeMark(ImGradientMark* mark);
 	void refreshCache();
 	std::list<ImGradientMark*> & getMarks() { return m_marks; }
-	unsigned char* cache_ptr() const { return (unsigned char*)&m_cachedValues[0]; }
+	char* cache_ptr() { return m_texCache; }
 private:
 	void computeColorAt(float position, float* color) const;
+	void compColorAt(float position, char* color) const;
 	std::list<ImGradientMark*> m_marks;
 	float m_cachedValues[256 * 3];
+	char m_texCache[256 * 4];
 };
 
 namespace ImGui

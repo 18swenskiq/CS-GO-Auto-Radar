@@ -27,11 +27,6 @@ namespace TARCF {
 
 	// Collection of shaders for nodes
 	namespace SHADERLIB {
-		Shader* passthrough;
-		Shader* distance;
-		Shader* guass_multipass;
-		Shader* ambient_occlusion;
-
 		std::map<std::string, Shader*> node_shaders;
 	}
 
@@ -45,6 +40,22 @@ namespace TARCF {
 	class Node;
 	class NodeInstance;
 	std::map<std::string, BaseNode*> NODELIB = {};
+
+	// Gauruntee full vec4
+	glm::vec4 parse_vec(std::string str) {
+		glm::vec4 out = glm::vec4(0);
+
+		str = sutil::removeChar(str, '(');
+		str = sutil::removeChar(str, ')');
+
+		std::vector<std::string> elems = split(str, ' ');
+
+		for (int i = 0; i < glm::min(elems.size(), 4u); i++) {
+			out[i] = ::atof(sutil::trim(elems[i]).c_str());
+		}
+
+		return out;
+	}
 
 	// Property struct
 	struct prop {
@@ -67,6 +78,23 @@ namespace TARCF {
 		// Explicit set
 		template <typename T>
 		void setValueEx(T val) { setValue(&val); }
+
+		// Overrides for glm types (since they have value_ptr function)
+		template <> void setValueEx(glm::vec2 val) { setValue(glm::value_ptr(val)); }
+		template <> void setValueEx(glm::vec3 val) { setValue(glm::value_ptr(val)); }
+		template <> void setValueEx(glm::vec4 val) { setValue(glm::value_ptr(val)); }
+		template <> void setValueEx(glm::mat4 val) { setValue(glm::value_ptr(val)); }
+
+		// Parse value from string (eg. from vdf)
+		void setValueFromString(const std::string& strVal) {
+			switch (type) {
+			case GL_FLOAT: setValueEx<float>(::atof(strVal.c_str())); break;
+			case GL_FLOAT_VEC2: setValueEx<glm::vec2>(parse_vec(strVal)); break;
+			case GL_FLOAT_VEC3: setValueEx<glm::vec3>(parse_vec(strVal)); break;
+			case GL_FLOAT_VEC4: setValueEx<glm::vec4>(parse_vec(strVal)); break;
+			case GL_INT: setValueEx<int>(std::stoi(strVal.c_str())); break;
+			}
+		}
 
 		// Explicit get
 		template <typename T>
@@ -106,6 +134,32 @@ namespace TARCF {
 			prop p = prop(eDataType, &src, uniformLocation);
 			return p;
 		}
+
+		template <>
+		static prop prop_explicit(const GLenum& eDataType, glm::vec2 src, const int& uniformLocation) {
+			prop p = prop(eDataType, glm::value_ptr(src));
+			return p;
+		}
+
+		template <>
+		static prop prop_explicit(const GLenum& eDataType, glm::vec3 src, const int& uniformLocation) {
+			prop p = prop(eDataType, glm::value_ptr(src));
+			return p;
+		}
+
+		template <>
+		static prop prop_explicit(const GLenum& eDataType, glm::vec4 src, const int& uniformLocation) {
+			prop p = prop(eDataType, glm::value_ptr(src));
+			return p;
+		}
+
+		template <>
+		static prop prop_explicit(const GLenum& eDataType, glm::mat4 src, const int& uniformLocation) {
+			prop p = prop(eDataType, glm::value_ptr(src));
+			return p;
+		}
+
+
 
 		~prop() {
 			LOG_F(2, "dealloc()");
@@ -167,33 +221,10 @@ namespace TARCF {
 
 		// Constructor
 		BaseNode(Shader* sOpShader) :
-			m_operator_shader(sOpShader)
-		{
-			//LOG_F(2, "Creating node from shader ( %s )", sOpShader->symbolicName.c_str());
-
-			int count;
-			int size;
-			GLenum type;
-			const int buf_size = 32;
-			char buf_name[buf_size];
-			int name_length;
-
-			// Extract uniforms from shader
-			glGetProgramiv(sOpShader->programID, GL_ACTIVE_UNIFORMS, &count);
-
-			// Get all uniforms
-			for (int i = 0; i < count; i++) {
-				glGetActiveUniform(sOpShader->programID, i, buf_size, &name_length, &size, &type, buf_name);
-				if(type == GL_FLOAT || type == GL_FLOAT_VEC2 || type == GL_FLOAT_VEC3 || type == GL_FLOAT_VEC4)
-				m_prop_definitions.insert({ std::string(buf_name), prop(type, NULL, i) }); // write to definitions
-
-				// Classify samplers as inputs
-				else if (type == GL_SAMPLER_2D) {
-					this->m_input_definitions.push_back(Pin(buf_name, i));
-				}
-			}
+			m_operator_shader(sOpShader){
 		}
 
+		// Some debug information about the node
 		void showInfo() const {
 			LOG_F(INFO, "Inputs: %u", this->m_input_definitions.size());
 			for(auto&& input: this->m_input_definitions) LOG_F(INFO, "  %i: %s", input.location, input.name.c_str());
@@ -224,16 +255,6 @@ namespace TARCF {
 
 		// Draws what this node is currently storing to screen
 		virtual void debug_fs(const NodeInstance* instance, int channel = 0);
-	};
-
-	// Standard node.
-	class Node: public BaseNode {
-	public:
-		Node(Shader* sOpShader):
-			BaseNode(sOpShader)
-		{
-			
-		}
 	};
 
 	// Bidirection connection struct
@@ -317,8 +338,18 @@ namespace TARCF {
 			
 		}
 
+		// Consecutively mark dirt after some kind of an update
+		void markChainDirt() {
+			this->m_isDirty = true;
+			for (auto&& outputTree : this->m_con_outputs)
+				for (auto&& output : outputTree)
+					if (output.ptrNode) output.ptrNode->m_isDirty = true;
+		}
+
 		// Call respective compute function
 		void compute() { 
+			if (!this->m_isDirty) return;
+
 			// Compute any dependent input nodes if they are dirty
 			for(auto&& input: this->m_con_inputs)
 				if (input.ptrNode) if (input.ptrNode->m_isDirty) input.ptrNode->compute();
@@ -333,7 +364,7 @@ namespace TARCF {
 			}
 
 			glActiveTexture(GL_TEXTURE0);
-			LOG_F(INFO, "Computing node type: %s", this->m_nodeid.c_str());
+			//LOG_F(INFO, "Computing node type: %s", this->m_nodeid.c_str());
 
 			// Compute this node
 			NODELIB[this->m_nodeid]->compute(this);
@@ -363,8 +394,6 @@ namespace TARCF {
 			dst->m_con_inputs[conDstID] = Connection(src, conSrcID);
 		}
 	};
-
-	
 
 	void BaseNode::compute(NodeInstance* node) {
 		glViewport(0, 0, node->m_gl_texture_w, node->m_gl_texture_h);
@@ -420,7 +449,7 @@ namespace TARCF {
 		public:
 			// Constructor sets string property to path
 			TextureNode(const std::string& sSource):
-				BaseNode(SHADERLIB::passthrough)
+				BaseNode(SHADERLIB::node_shaders["passthrough"])
 			{
 				m_prop_definitions.insert({ "source", prop(EXTRATYPE_STRING, (void*)sSource.c_str()) });
 				m_output_definitions.push_back(Pin("output", 0));
@@ -472,7 +501,7 @@ namespace TARCF {
 		class Distance: public BaseNode {
 		public:
 			Distance() :
-				BaseNode(SHADERLIB::distance)
+				BaseNode(SHADERLIB::node_shaders["distance"])
 			{
 				m_prop_definitions.insert({ "maxdist", prop::prop_explicit<int>(GL_INT, 255, -1) });
 
@@ -535,7 +564,7 @@ namespace TARCF {
 		class GuassBlur: public BaseNode {
 		public:
 			GuassBlur() :
-				BaseNode(SHADERLIB::guass_multipass)
+				BaseNode(SHADERLIB::node_shaders["guass_multipass"])
 			{
 				m_prop_definitions.insert({ "iterations", prop::prop_explicit<int>(GL_INT, 8, -1) });
 				m_prop_definitions.insert({ "radius", prop::prop_explicit<float>(GL_FLOAT, 10.0f, -1) });
@@ -549,7 +578,7 @@ namespace TARCF {
 
 				// copy image in (we need clamped frame buffers)
 				glBindFramebuffer(GL_FRAMEBUFFER, node->m_gl_framebuffers[1]);
-				SHADERLIB::passthrough->use(); 
+				SHADERLIB::node_shaders["passthrough"]->use(); 
 				s_mesh_quad->Draw();
 
 				// Switch to blur shader
@@ -617,11 +646,12 @@ namespace TARCF {
 			unsigned int gl_noise_texture;
 		public:
 			AmbientOcclusion() :
-				BaseNode(SHADERLIB::ambient_occlusion)
+				BaseNode(SHADERLIB::node_shaders["aopass"])
 			{
 				m_prop_definitions.insert({ "radius", prop::prop_explicit<float>(GL_FLOAT, 256.0f, -1) });
-				m_prop_definitions.insert({ "iterations", prop::prop_explicit<int>(GL_INT, 32, -1) });
+				m_prop_definitions.insert({ "iterations", prop::prop_explicit<int>(GL_INT, 64, -1) });
 				m_prop_definitions.insert({ "bias", prop::prop_explicit<float>(GL_FLOAT, 1.0f, -1) });
+				m_prop_definitions.insert({ "accum_divisor", prop::prop_explicit<float>(GL_FLOAT, 15.0f, -1) });
 
 				// For reprojection
 				m_prop_definitions.insert({ "matrix.proj", prop::prop_explicit<glm::mat4>(GL_FLOAT_MAT4, glm::mat4(1.0), -1) });
@@ -646,7 +676,7 @@ namespace TARCF {
 					sample = glm::normalize(sample);
 					sample *= randomFloats(generator);
 					float scale = (float)i / (float)64;
-					scale = lerpf(0.1f, 1.0f, glm::pow(scale, 2.3f)); // accelerate towards center
+					scale = lerpf(0.1f, 1.0f, glm::pow(scale, 2.15f)); // accelerate towards center
 					sample *= scale;
 					samples.push_back(sample);
 				}
@@ -663,7 +693,7 @@ namespace TARCF {
 					glm::vec3 s(
 						randomFloats(generator) * 2.0 - 1.0,
 						randomFloats(generator) * 2.0 - 1.0,
-						0.0f
+						(randomFloats(generator) * 0.5) + 0.5
 					);
 					noise.push_back(s);
 				}
@@ -680,26 +710,27 @@ namespace TARCF {
 			void compute(NodeInstance* node) override {
 				glViewport(0, 0, node->m_gl_texture_w, node->m_gl_texture_h);
 				// Bind shader
-				SHADERLIB::ambient_occlusion->use();
-				SHADERLIB::ambient_occlusion->setFloat("blendFac", 1.0f / (float)node->m_properties["iterations"].getValue<int>());
-				SHADERLIB::ambient_occlusion->setFloat("bias", node->m_properties["bias"].getValue<float>());
-				SHADERLIB::ambient_occlusion->setFloat("ssaoScale", node->m_properties["radius"].getValue<float>());
+				m_operator_shader->use();
+				m_operator_shader->setFloat("blendFac", 1.0f / (float)node->m_properties["iterations"].getValue<int>());
+				m_operator_shader->setFloat("bias", node->m_properties["bias"].getValue<float>());
+				m_operator_shader->setFloat("ssaoScale", node->m_properties["radius"].getValue<float>());
 
-				SHADERLIB::ambient_occlusion->setMatrix("projection", node->m_properties["matrix.proj"].getValue<glm::mat4>());
-				SHADERLIB::ambient_occlusion->setMatrix("view", node->m_properties["matrix.view"].getValue<glm::mat4>());
-				SHADERLIB::ambient_occlusion->setVec2("noiseScale", glm::vec2(node->m_gl_texture_w / 256.0f, node->m_gl_texture_h / 256.0f));
+				m_operator_shader->setMatrix("projection", node->m_properties["matrix.proj"].getValue<glm::mat4>());
+				m_operator_shader->setMatrix("view", node->m_properties["matrix.view"].getValue<glm::mat4>());
+				m_operator_shader->setVec2("noiseScale", glm::vec2(node->m_gl_texture_w / 256.0f, node->m_gl_texture_h / 256.0f));
+				m_operator_shader->setFloat("accum_divisor", node->m_properties["accum_divisor"].getValue<float>());
 
 				// Gen samples if not existant & upload
-				for (int i = 0; i < 64; i++) SHADERLIB::ambient_occlusion->setVec3("samples[" + std::to_string(i) + "]", samples[i]);
+				for (int i = 0; i < 64; i++) m_operator_shader->setVec3("samples[" + std::to_string(i) + "]", samples[i]);
 
 				// Bind rotation texture
 				glActiveTexture(GL_TEXTURE2);
 				glBindTexture(GL_TEXTURE_2D, gl_noise_texture);
-				SHADERLIB::ambient_occlusion->setInt("ssaoRotations", 2);
+				m_operator_shader->setInt("ssaoRotations", 2);
 
 				// Dragged inputs
-				SHADERLIB::ambient_occlusion->setInt("gbuffer_position", 0);
-				SHADERLIB::ambient_occlusion->setInt("gbuffer_normal", 1);
+				m_operator_shader->setInt("gbuffer_position", 0);
+				m_operator_shader->setInt("gbuffer_normal", 1);
 
 				glBindFramebuffer(GL_FRAMEBUFFER, node->m_gl_framebuffers[0]);
 
@@ -712,7 +743,7 @@ namespace TARCF {
 
 				int iter = node->m_properties["iterations"].getValue<int>();
 				for (int i = 0; i < glm::min(iter, 128); i++) {
-					SHADERLIB::ambient_occlusion->setVec2("noiseOffset", offsets[i]);
+					m_operator_shader->setVec2("noiseOffset", offsets[i]);
 					s_mesh_quad->Draw();
 				}
 
@@ -748,6 +779,144 @@ namespace TARCF {
 				glDeleteTextures(1, &gl_noise_texture);
 			}
 		};
+
+		// Simple blend node.
+		class Blend: public BaseNode{
+		public:
+			enum BlendMode: signed int {
+				BLEND_MIX,
+				BLEND_ADD,
+				BLEND_SUB,
+				BLEND_MUL
+			};
+
+			Blend()
+				: BaseNode(SHADERLIB::node_shaders["blend.mix"])
+			{
+				m_input_definitions.push_back(Pin("Base", 0));
+				m_input_definitions.push_back(Pin("Layer", 1));
+				m_input_definitions.push_back(Pin("Mask", 2));
+
+				m_output_definitions.push_back(Pin("output", 0));
+
+				m_prop_definitions.insert({ "mode", prop::prop_explicit<int>(GL_INT, BlendMode::BLEND_MIX, -1) });
+				m_prop_definitions.insert({ "factor", prop::prop_explicit<float>(GL_FLOAT, 1.0f, -1) });
+			}
+
+			void compute(NodeInstance* node) override {
+				Shader* ptrShader = m_operator_shader;
+				switch (node->m_properties["mode"].getValue<int>()) {
+				case BLEND_MIX: ptrShader = SHADERLIB::node_shaders["blend.mix"]; break;
+				case BLEND_ADD: ptrShader = SHADERLIB::node_shaders["blend.add"]; break;
+				case BLEND_SUB: ptrShader = SHADERLIB::node_shaders["blend.sub"]; break;
+				case BLEND_MUL: ptrShader = SHADERLIB::node_shaders["blend.mul"]; break;
+				default: break;
+				}
+
+				glViewport(0, 0, node->m_gl_texture_w, node->m_gl_texture_h);
+				// Bind shader
+				ptrShader->use();
+				ptrShader->setInt("MainTex", 0);
+				ptrShader->setInt("MainTex1", 1);
+				ptrShader->setInt("Mask", 2);
+				ptrShader->setFloat("factor", node->m_properties["factor"].getValue<float>());
+
+				glBindFramebuffer(GL_FRAMEBUFFER, node->m_gl_framebuffers[0]);
+
+				s_mesh_quad->Draw();
+
+				glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			}
+		};
+
+		// Simple solid color
+		class Color : public BaseNode {
+		public:
+			Color()
+				: BaseNode(NULL)
+			{
+				m_output_definitions.push_back(Pin("output", 0));
+				m_prop_definitions.insert({ "color", prop::prop_explicit<glm::vec4>(GL_FLOAT_VEC4,glm::vec4(1.0f), -1) });
+			}
+
+			void compute(NodeInstance* node) override {
+				glm::vec4 col = node->m_properties["color"].getValue<glm::vec4>();
+				
+				glViewport(0, 0, node->m_gl_texture_w, node->m_gl_texture_h);
+				glBindFramebuffer(GL_FRAMEBUFFER, node->m_gl_framebuffers[0]);
+
+				glClearColor(col.r, col.g, col.b, col.a);
+				glClear(GL_COLOR_BUFFER_BIT);
+
+				glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			}
+		};
+
+		// Maps a gradient to channel
+		class GradientMap: public BaseNode {
+		public:
+			GradientMap()
+				: BaseNode(SHADERLIB::node_shaders["gradient"])
+			{
+				m_input_definitions.push_back(Pin("Layer", 0));
+				
+
+				m_output_definitions.push_back(Pin("output", 0));
+
+				m_prop_definitions.insert({ "glGradientID", prop::prop_explicit<int>(GL_INT, 0, -1) });
+				m_prop_definitions.insert({ "channelID", prop::prop_explicit<int>(GL_INT, 0, -1) });
+				m_prop_definitions.insert({ "min", prop::prop_explicit<float>(GL_FLOAT, 0.0f, -1) });
+				m_prop_definitions.insert({ "max", prop::prop_explicit<float>(GL_FLOAT, 1.0f, -1) });
+			}
+
+			void compute(NodeInstance* node) override {
+				glViewport(0, 0, node->m_gl_texture_w, node->m_gl_texture_h);
+				glBindFramebuffer(GL_FRAMEBUFFER, node->m_gl_framebuffers[0]);
+
+				m_operator_shader->use();
+				m_operator_shader->setInt("channelID", node->m_properties["channelID"].getValue<int>());
+				m_operator_shader->setFloat("s_minimum", node->m_properties["min"].getValue<float>());
+				m_operator_shader->setFloat("s_maximum", node->m_properties["max"].getValue<float>());
+
+				m_operator_shader->setInt("MainTex", 0);
+
+				glActiveTexture(GL_TEXTURE1);
+				glBindTexture(GL_TEXTURE_2D, node->m_properties["glGradientID"].getValue<int>());
+
+				m_operator_shader->setInt("Gradient", 1);
+
+				s_mesh_quad->Draw();
+
+				glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			}
+		};
+
+		// Base class that takes an input and outputs
+		class StdTransformitive: public BaseNode {
+		public:
+			StdTransformitive(Shader* shader)
+				: BaseNode(shader)
+			{
+				m_input_definitions.push_back(Pin("input", 0));
+				m_output_definitions.push_back(Pin("output", 0));
+			}
+		};
+
+		// Inverts input on RGB
+		class Invert: public StdTransformitive {
+		public:
+			Invert()
+				: StdTransformitive(SHADERLIB::node_shaders["invert"])
+			{ }
+		};
+
+		// Just moves input->output
+		class Passthrough: public StdTransformitive {
+		public:
+			Passthrough()
+				: StdTransformitive(SHADERLIB::node_shaders["passthrough"])
+			{ }
+		};
 	}
 
 	// Init system
@@ -764,62 +933,21 @@ namespace TARCF {
 
 		s_debug_shader = new Shader("shaders/engine/quadbase.vs", "shaders/engine/node.preview.fs", "shader.node.preview");
 
-		SHADERLIB::passthrough = new Shader("shaders/engine/quadbase.vs", "shaders/engine/tarcfnode/passthrough.fs", "tarcfn.passthrough");
-		SHADERLIB::distance = new Shader("shaders/engine/quadbase.vs", "shaders/engine/tarcfnode/distance.fs", "tarcfn.distance");
-		SHADERLIB::guass_multipass = new Shader("shaders/engine/quadbase.vs", "shaders/engine/tarcfnode/guass_multipass.fs", "tarcfn.guass");
-		SHADERLIB::ambient_occlusion = new Shader("shaders/engine/quadbase.vs", "shaders/engine/tarcfnode/aopass.fs", "tarcfn.aopass");
+		for (const auto& entry: std::filesystem::directory_iterator("shaders/engine/tarcfnode")) {
+			SHADERLIB::node_shaders.insert({ split(entry.path().filename().string(), ".fs")[0],
+				new Shader("shaders/engine/quadbase.vs", entry.path().string(), entry.path().filename().string()) });
+		}
 
 		// Generative nodes (static custom handle nodes)
 		NODELIB.insert({ "texture", new Atomic::TextureNode("textures/modulate.png") });
 		NODELIB.insert({ "distance", new Atomic::Distance() });
 		NODELIB.insert({ "guassian", new Atomic::GuassBlur() });
 		NODELIB.insert({ "aopass", new Atomic::AmbientOcclusion() });
-
-		// Load generic transformative nodes
-		for(const auto& entry: std::filesystem::directory_iterator("tarcfnode")){
-			std::ifstream ifs(entry.path().c_str());
-			if (!ifs) throw std::exception("Node info read error");
-
-			std::string file_str((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
-			kv::FileData file_kv(file_str);
-
-			kv::DataBlock* block_info = file_kv.headNode->GetFirstByName("info");
-			kv::DataBlock* block_shader = file_kv.headNode->GetFirstByName("shader");
-
-			if (!block_info) { LOG_F(ERROR, "No info block in node: %s", entry.path().filename().c_str()); continue; };
-			if (!block_shader) { LOG_F(ERROR, "No shader block in node: %s", entry.path().filename().c_str()); continue; };
-
-			// Create node
-			Node* ptrNodeNew = new Node(
-				new Shader(
-					kv::tryGetStringValue(block_shader->Values, "vertex", "shaders/engine/quadbase.vs"),
-					kv::tryGetStringValue(block_shader->Values, "fragment", "shaders/engine/tarcfnode/passthrough.fs"),
-					"tarcfn::" + kv::tryGetStringValue(block_info->Values, "name", "none")
-				)
-			);
-
-			// Add outputs
-			kv::DataBlock* block_shader_outputs = block_shader->GetFirstByName("outputs");
-			if (block_shader_outputs) { // Loop output listings and add
-				unsigned int autoNames = 0;
-				for(auto&& outputDef: block_shader_outputs->GetAllByName("output")){
-					ptrNodeNew->m_output_definitions.push_back(Pin(kv::tryGetStringValue(outputDef->Values, "name", "output_" + std::to_string(autoNames)), autoNames++));
-				}
-			}
-			if(ptrNodeNew->m_output_definitions.size() == 0){ // Just use default outputs (1, named output)
-				ptrNodeNew->m_output_definitions.push_back(Pin("output", 0));
-			}
-
-			ptrNodeNew->showInfo();
-
-			// Create index listing.
-			NODELIB.insert(
-				{
-				split(entry.path().filename().string(), ".tcfn")[0],
-				ptrNodeNew
-				}
-			);
-		}
+		NODELIB.insert({ "invert", new Atomic::Invert() });
+		NODELIB.insert({ "passthrough", new Atomic::Passthrough() });
+		NODELIB.insert({ "blend", new Atomic::Blend() });
+		NODELIB.insert({ "color", new Atomic::Color() });
+		NODELIB.insert({ "gradient", new Atomic::GradientMap() });
 	}
 }
 

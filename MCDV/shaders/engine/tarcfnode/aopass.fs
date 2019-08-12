@@ -6,6 +6,7 @@ uniform vec3 samples[64];
 uniform float ssaoScale;
 uniform float bias;
 uniform float blendFac;
+uniform float accum_divisor;
 
 // Random rotations
 uniform sampler2D ssaoRotations;
@@ -26,7 +27,9 @@ void main()
 	vec4 s_position = texture(gbuffer_position, TexCoords);
 	vec4 s_normal = texture(gbuffer_normal, TexCoords);
 
-	vec3 randVec = texture(ssaoRotations, (TexCoords * noiseScale) + noiseOffset).rgb;
+	vec3 s_noises = texture(ssaoRotations, (TexCoords * noiseScale) + noiseOffset).rgb;
+	vec3 randVec = vec3(s_noises.rg, 0);
+	float random_size = s_noises.b;
 	vec3 tangent = normalize(randVec - s_normal.rgb * dot(randVec, s_normal.rgb));
 	vec3 bitangent = cross(s_normal.rgb, tangent);
 	mat3 TBN = mat3(tangent, bitangent, s_normal.rgb);
@@ -35,7 +38,7 @@ void main()
 	for(int i = 0; i < 64; i++)
 	{
 		vec3 sample = TBN * samples[i];
-		sample = s_position.xyz + (sample * ssaoScale);
+		sample = s_position.xyz + (sample * ssaoScale * random_size);
 
 		vec4 offset = vec4(sample, 1.0);
 		offset = projection * view * offset;
@@ -47,7 +50,7 @@ void main()
 		occlusion += (depth >= sample.y + bias ? 1.0 : 0.0);
 	}
 	
-	occlusion /= 60;
+	occlusion /= accum_divisor;
 
-	FragColor = vec4(1, 0, 0, occlusion * blendFac);
+	FragColor = vec4(1, 0, 0, clamp(occlusion * blendFac, 0, 1));
 }
