@@ -8,6 +8,7 @@
 
 namespace TARCF {
 	Shader* s_shader_gbuf_debug;
+	Shader* s_shader_mask_write;
 
 	// Fast guassian blur implementation
 	class RenderBrushesGBuffer: public BaseNode {
@@ -16,7 +17,7 @@ namespace TARCF {
 			BaseNode(GBuffer::s_gbufferwriteShader)
 		{
 			m_prop_definitions.insert({ "vmf", prop::prop_explicit<vmf*>(EXTRATYPE_RAWPTR, 0, -1) });
-			m_prop_definitions.insert({ "layers", prop::prop_explicit<unsigned int>(GL_INT, TAR_CHANNEL_NONRESERVE, -1) });
+			m_prop_definitions.insert({ "layers", prop::prop_explicit<unsigned int>(GL_INT, TAR_CHANNEL_NONRESERVE, -1) });  
 			m_prop_definitions.insert({ "matrix.view", prop::prop_explicit<glm::mat4>(GL_FLOAT_MAT4, glm::mat4(1.0), -1) });
 			m_prop_definitions.insert({ "matrix.proj", prop::prop_explicit<glm::mat4>(GL_FLOAT_MAT4, glm::mat4(1.0), -1) });
 
@@ -28,11 +29,14 @@ namespace TARCF {
 		void compute(NodeInstance* node) override {
 			glViewport(0, 0, node->m_gl_texture_w, node->m_gl_texture_h);
 			glBindFramebuffer(GL_FRAMEBUFFER, node->m_gl_framebuffers[0]);
-
-			glClearColor(0, 0, 0, 1);
+			
+			// Clear position buffer Y coordinate to very high value
+			glClearColor(0, 99999.9f, 0, 1);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-			TARChannel::setChannels(node->m_properties["layers"].getValue<unsigned int>());
+			LOG_F(INFO, "rendering vmf");
+
+			TARChannel::setChannels(node->m_properties["layers"].getValue<unsigned int>() | TAR_CHANNEL_MASK);
 			LOG_F(INFO, "Tarchannel: %u", node->m_properties["layers"].getValue<unsigned int>());
 			GBuffer::s_gbufferwriteShader->use();
 
@@ -62,9 +66,9 @@ namespace TARCF {
 		void v_gen_tex_memory(NodeInstance* instance) override {
 			glGenTextures(4, &instance->m_gl_texture_ids[0]);
 
-			// Position buffer float16 (48bpp)
+			// Position buffer float16 (64bpp) a channel for masking.
 			glBindTexture(GL_TEXTURE_2D, instance->m_gl_texture_ids[0]);
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, instance->m_gl_texture_w, instance->m_gl_texture_h, 0, GL_RGB, GL_FLOAT, NULL);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, instance->m_gl_texture_w, instance->m_gl_texture_h, 0, GL_RGBA, GL_FLOAT, NULL);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -115,11 +119,92 @@ namespace TARCF {
 		}
 	};
 
+	class RenderBrushesMask: public BaseNode {
+	public:
+		RenderBrushesMask() :
+			BaseNode(s_shader_mask_write)
+		{
+			m_prop_definitions.insert({ "vmf", prop::prop_explicit<vmf*>(EXTRATYPE_RAWPTR, 0, -1) });
+			m_prop_definitions.insert({ "layers", prop::prop_explicit<unsigned int>(GL_INT, TAR_CHANNEL_NONRESERVE, -1) });
+			m_prop_definitions.insert({ "matrix.view", prop::prop_explicit<glm::mat4>(GL_FLOAT_MAT4, glm::mat4(1.0), -1) });
+			m_prop_definitions.insert({ "matrix.proj", prop::prop_explicit<glm::mat4>(GL_FLOAT_MAT4, glm::mat4(1.0), -1) });
+
+			m_output_definitions.push_back(Pin("Mask", 0));
+		}
+
+		void compute(NodeInstance* node) override {
+			glViewport(0, 0, node->m_gl_texture_w, node->m_gl_texture_h);
+			glBindFramebuffer(GL_FRAMEBUFFER, node->m_gl_framebuffers[0]);
+
+			glClearColor(0, 0, 0, 1);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+			LOG_F(INFO, "rendering vmf");
+
+			TARChannel::setChannels(node->m_properties["layers"].getValue<unsigned int>() | TAR_CHANNEL_MASK);
+			LOG_F(INFO, "Tarchannel render limit set: %u", node->m_properties["layers"].getValue<unsigned int>());
+			s_shader_mask_write->use();
+
+			// Set matrices
+			s_shader_mask_write->setMatrix("view", node->m_properties["matrix.view"].getValue<glm::mat4>());
+			s_shader_mask_write->setMatrix("projection", node->m_properties["matrix.proj"].getValue<glm::mat4>());
+
+			// Draw vmf
+			node->m_properties["vmf"].getValue<vmf*>()->DrawWorld(s_shader_mask_write, glm::mat4(1.0f), [](solid* ptrSolid, entity* ptrEnt) {
+				s_shader_mask_write->setVec3("color", glm::vec3(1, 1, 1));
+				if (ptrSolid)
+					if (ptrSolid->isShown(TAR_CHANNEL_MASK))
+						s_shader_mask_write->setVec3("color", glm::vec3(0, 0, 0));
+				if (ptrEnt)
+					if (ptrEnt->isShown(TAR_CHANNEL_MASK))
+						s_shader_mask_write->setVec3("color", glm::vec3(0, 0, 0));
+			});
+
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		}
+
+		void v_gen_buffers(NodeInstance* instance) override {
+			// Front and back buffer
+			glGenFramebuffers(1, &instance->m_gl_framebuffers[0]);
+			glBindFramebuffer(GL_FRAMEBUFFER, instance->m_gl_framebuffers[0]);
+		}
+
+		void v_gen_tex_memory(NodeInstance* instance) override {
+			glGenTextures(2, &instance->m_gl_texture_ids[0]);
+
+			// Position buffer float16 (64bpp) a channel for masking.
+			glBindTexture(GL_TEXTURE_2D, instance->m_gl_texture_ids[0]);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, instance->m_gl_texture_w, instance->m_gl_texture_h, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, instance->m_gl_texture_ids[0], 0);
+
+			// Depth texture
+			glBindTexture(GL_TEXTURE_2D, instance->m_gl_texture_ids[1]);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, instance->m_gl_texture_w, instance->m_gl_texture_h, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, instance->m_gl_texture_ids[1], 0);
+
+			unsigned int attachments[1] = {
+				GL_COLOR_ATTACHMENT0
+			};
+
+			glDrawBuffers(1, attachments);
+		}
+	};
+
 	void VMF_NODES_INIT() {
 		// Create debug shader
 		s_shader_gbuf_debug = new Shader("shaders/engine/quadbase.vs", "shaders/engine/node.gbuffer.preview.fs", "shader.node.gbuffer.preview");
-		
+		s_shader_mask_write = new Shader("shaders/unlit.vs", "shaders/unlit.fs", "unlit.duplicate(1)");
+
 		// Append to node lib
 		NODELIB.insert({ "vmf.gbuffer", new RenderBrushesGBuffer() });
+		NODELIB.insert({ "vmf.mask", new RenderBrushesMask() });
 	}
 }

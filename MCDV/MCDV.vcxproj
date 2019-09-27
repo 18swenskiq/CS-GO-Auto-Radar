@@ -131,6 +131,7 @@
     <ClInclude Include="AtomicNodes.hpp" />
     <ClInclude Include="Camera.hpp" />
     <ClInclude Include="CompositorFrame.hpp" />
+    <ClInclude Include="CompositorGraphs.hpp" />
     <ClInclude Include="Console.hpp" />
     <ClInclude Include="convexPolytope.h" />
     <ClInclude Include="cxxopts.hpp" />
@@ -221,11 +222,16 @@
     <None Include="shaders\engine\quadbase.vs" />
     <None Include="shaders\engine\screenbase.vs" />
     <None Include="shaders\engine\tarcfnode\aopass.fs" />
+    <None Include="shaders\engine\tarcfnode\blend.add.fs" />
+    <None Include="shaders\engine\tarcfnode\blend.mix.fs" />
+    <None Include="shaders\engine\tarcfnode\blend.sub.fs" />
     <None Include="shaders\engine\tarcfnode\distance.fs" />
     <None Include="shaders\engine\tarcfnode\guass_multipass.fs" />
     <None Include="shaders\engine\tarcfnode\invert.fs" />
     <None Include="shaders\engine\tarcfnode\outline.fs" />
     <None Include="shaders\engine\tarcfnode\passthrough.fs" />
+    <None Include="shaders\engine\tarcfnode\pow.fs" />
+    <None Include="shaders\engine\tarcfnode\step.fs" />
     <None Include="shaders\fullscreenbase.fs" />
     <None Include="shaders\fullscreenbase.vs" />
     <None Include="shaders\gBuffer.fs" />

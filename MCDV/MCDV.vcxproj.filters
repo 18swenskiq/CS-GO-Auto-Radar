@@ -254,6 +254,9 @@
     <ClInclude Include="vmftarcf.hpp">
       <Filter>Header Files\valve</Filter>
     </ClInclude>
+    <ClInclude Include="CompositorGraphs.hpp">
+      <Filter>OpenGL\engine</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -430,6 +433,21 @@
       <Filter>OpenGL\Shader Files\engine</Filter>
     </None>
     <None Include="shaders\engine\tarcfnode\aopass.fs">
+      <Filter>OpenGL\Shader Files\engine\tarcfnode</Filter>
+    </None>
+    <None Include="shaders\engine\tarcfnode\step.fs">
+      <Filter>OpenGL\Shader Files\engine\tarcfnode</Filter>
+    </None>
+    <None Include="shaders\engine\tarcfnode\blend.mix.fs">
+      <Filter>OpenGL\Shader Files\engine\tarcfnode</Filter>
+    </None>
+    <None Include="shaders\engine\tarcfnode\blend.sub.fs">
+      <Filter>OpenGL\Shader Files\engine\tarcfnode</Filter>
+    </None>
+    <None Include="shaders\engine\tarcfnode\blend.add.fs">
+      <Filter>OpenGL\Shader Files\engine\tarcfnode</Filter>
+    </None>
+    <None Include="shaders\engine\tarcfnode\pow.fs">
       <Filter>OpenGL\Shader Files\engine\tarcfnode</Filter>
     </None>
   </ItemGroup>

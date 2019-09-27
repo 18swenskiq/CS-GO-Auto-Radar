@@ -444,9 +444,12 @@ class vmf;
 #define TAR_CHANNEL_MASK TAR_CHANNEL_2
 #define TAR_CHANNEL_COVER TAR_CHANNEL_3
 
+#define TAR_CHANNEL_BUYZONE TAR_CHANNEL_4
+#define TAR_CHANNEL_OBJECTIVES TAR_CHANNEL_5
+
 #define TAR_CHANNEL_DEFAULT TAR_CHANNEL_31
 
-#define TAR_CHANNEL_NONRESERVE ~(TAR_CHANNEL_LAYOUT | TAR_CHANNEL_MASK | TAR_CHANNEL_COVER)
+#define TAR_CHANNEL_NONRESERVE ~(TAR_CHANNEL_LAYOUT | TAR_CHANNEL_MASK | TAR_CHANNEL_COVER | TAR_CHANNEL_BUYZONE | TAR_CHANNEL_OBJECTIVES )
 
 class TARChannel {
 public:
@@ -577,9 +580,7 @@ public:
 		// Process polytope problem. (still questionable why this is a thing)
 		std::vector<glm::vec3> intersecting;
 
-		float x, _x, y, _y, z, _z;
-		_x = _y = _z = 99999.0f;// std::numeric_limits<float>::max();
-		x = y = z = -99999.0f;// std::numeric_limits<float>::min();
+		m_bounds = BoundingBox::inverted_maxs();
 
 		for (int i = 0; i < m_sides.size(); i++) {
 			for (int j = 0; j < m_sides.size(); j++) {
@@ -620,13 +621,8 @@ public:
 
 					intersecting.push_back(p);
 
-					// Calculate bounds
-					_x = glm::round(glm::min(_x, p.x));
-					_y = glm::round(glm::min(_y, p.y));
-					_z = glm::round(glm::min(_z, p.z));
-					x =  glm::round(glm::max(x,  p.x));
-					y =  glm::round(glm::max(y,  p.y));
-					z =  glm::round(glm::max(z,  p.z));
+					// Update bounds
+					boundary_extend(&m_bounds.MAX, &m_bounds.MIN, p, p);
 				}
 			}
 		}
@@ -635,10 +631,6 @@ public:
 			// Sort out deez rascals
 			Plane::InPlaceOrderCoplanarClockWise(side->m_plane, &side->m_vertices);
 		}
-
-		// Append bounds data
-		this->m_bounds.MAX = glm::vec3(x, y, z);
-		this->m_bounds.MIN = glm::vec3(_x, _y, _z);
 	}
 
 	/* Check if this solid contains any displacement infos. */
@@ -952,12 +944,26 @@ public:
 	}
 
 	// Calculate boundaries of a visgroup
-	BoundingBox getVisgroupBounds(const std::string& visgroup) {
+	BoundingBox getVisgroupBounds(const uint32_t& mask) {
 		BoundingBox bounds = BoundingBox::inverted_maxs();
-		if (!this->m_visgroups.count(visgroup)) return bounds;
 
-		unsigned int vgroup = this->m_visgroups[visgroup];
-		for (auto && iSolid : this->m_solids) boundary_extend(&bounds.MAX, &bounds.MIN, iSolid.m_bounds.MAX, iSolid.m_bounds.MIN);
+		// Iterate surface level solids
+		IterSolids([&bounds, &mask](solid* ptrSolid) {
+			if (ptrSolid->isShown(mask))
+				boundary_extend(&bounds.MAX, &bounds.MIN, ptrSolid->m_bounds.MAX, ptrSolid->m_bounds.MIN);
+		}, false);
+
+		// Iterate surface level entities
+		IterEntities([&bounds, &mask](entity* ptrEnt, const std::string& classname) {
+			if (ptrEnt->isShown(mask))
+				if (ptrEnt->m_internal_solids.size() > 0)
+					for (auto&& iSolid : ptrEnt->m_internal_solids)
+						boundary_extend(&bounds.MAX, &bounds.MIN, iSolid.m_bounds.MAX, iSolid.m_bounds.MIN);
+		}, false);
+
+		if (bounds.MIN.x > bounds.MAX.x ||
+			bounds.MIN.y > bounds.MAX.y ||
+			bounds.MIN.z > bounds.MAX.z) bounds = BoundingBox();
 
 		return bounds;
 	}

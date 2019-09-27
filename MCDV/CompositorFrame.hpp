@@ -100,9 +100,6 @@ namespace TARCF {
 		template <typename T>
 		inline T getValue() { return *((T*)value); }
 
-		// Default constructor
-		prop() {}
-
 		static unsigned int dataSize(const GLenum& eDataType, void* ptrArr = 0) {
 			switch (eDataType) {
 			case GL_FLOAT: return sizeof(float); break;
@@ -119,6 +116,9 @@ namespace TARCF {
 			return 0;
 		}
 
+		// Default constructor
+		prop() {}
+
 		// Constructor
 		prop(const GLenum& eDataType, void* src, const int& uniformLocation = 0):
 			type(eDataType), uniformloc(uniformLocation)
@@ -131,40 +131,14 @@ namespace TARCF {
 		// Explicit type constructor
 		template <typename T>
 		static prop prop_explicit(const GLenum& eDataType, T src, const int& uniformLocation = 0){
-			prop p = prop(eDataType, &src, uniformLocation);
-			return p;
+			return prop(eDataType, &src, uniformLocation);
 		}
 
-		template <>
-		static prop prop_explicit(const GLenum& eDataType, glm::vec2 src, const int& uniformLocation) {
-			prop p = prop(eDataType, glm::value_ptr(src));
-			return p;
+		virtual void clean_mem() {
+			free(value); // Clean memory created from constructor
 		}
 
-		template <>
-		static prop prop_explicit(const GLenum& eDataType, glm::vec3 src, const int& uniformLocation) {
-			prop p = prop(eDataType, glm::value_ptr(src));
-			return p;
-		}
-
-		template <>
-		static prop prop_explicit(const GLenum& eDataType, glm::vec4 src, const int& uniformLocation) {
-			prop p = prop(eDataType, glm::value_ptr(src));
-			return p;
-		}
-
-		template <>
-		static prop prop_explicit(const GLenum& eDataType, glm::mat4 src, const int& uniformLocation) {
-			prop p = prop(eDataType, glm::value_ptr(src));
-			return p;
-		}
-
-
-
-		~prop() {
-			LOG_F(2, "dealloc()");
-			free( value ); // Clean memory created from constructor
-		}
+		~prop() { clean_mem(); }
 
 		// Copy-swap assignment
 		prop& operator=(prop copy) {
@@ -298,6 +272,8 @@ namespace TARCF {
 			return (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 		}
 
+		NodeInstance() {}
+
 		// Constructor creates framebuffer and texture memory, sets up properties
 		NodeInstance(const unsigned int& iWidth, const unsigned int& iHeight, const std::string& sNodeId) :
 			m_gl_texture_w(iWidth), m_gl_texture_h(iHeight), m_nodeid(sNodeId)
@@ -343,7 +319,7 @@ namespace TARCF {
 			this->m_isDirty = true;
 			for (auto&& outputTree : this->m_con_outputs)
 				for (auto&& output : outputTree)
-					if (output.ptrNode) output.ptrNode->m_isDirty = true;
+					if (output.ptrNode) output.ptrNode->markChainDirt();
 		}
 
 		// Call respective compute function
@@ -380,12 +356,14 @@ namespace TARCF {
 		// Set a property
 		void setProperty(const std::string& propname, void* ptr) {
 			if (m_properties.count(propname)) m_properties[propname].setValue(ptr);
+			this->markChainDirt();
 		}
 
 		// Explit set
 		template <typename T>
 		void setPropertyEx(const std::string& propname, T value) {
 			setProperty(propname, &value);
+			this->markChainDirt();
 		}
 
 		// Connects two nodes together
@@ -399,7 +377,7 @@ namespace TARCF {
 		glViewport(0, 0, node->m_gl_texture_w, node->m_gl_texture_h);
 		glBindFramebuffer(GL_FRAMEBUFFER, node->m_gl_framebuffers[0]);
 		this->m_operator_shader->use();
-		LOG_F(INFO, "Shaderr: %s", this->m_operator_shader->symbolicName.c_str());
+		//LOG_F(INFO, "Shaderr: %s", this->m_operator_shader->symbolicName.c_str());
 		s_mesh_quad->Draw();
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	}
@@ -511,13 +489,17 @@ namespace TARCF {
 
 			void compute(NodeInstance* node) override {
 				glViewport(0, 0, node->m_gl_texture_w, node->m_gl_texture_h);
+				glBindFramebuffer(GL_FRAMEBUFFER, node->m_gl_framebuffers[0]);
 				// Bind shader
 				NODELIB[node->m_nodeid]->m_operator_shader->use();
 				s_mesh_quad->Draw();
-				for (int i = 0; i < 255; i++) {
+
+				int iter = node->m_properties["maxdist"].getValue<int>();
+
+				for (int i = 0; i < iter; i++) {
 					glBindFramebuffer(GL_FRAMEBUFFER, node->m_gl_framebuffers[i%2]);
 					if(i > 0) glBindTexture(GL_TEXTURE_2D, node->m_gl_texture_ids[(i + 1) % 2]);
-					NODELIB[node->m_nodeid]->m_operator_shader->setFloat("iter", (255.0f - (float)i) * 0.00392156862f);
+					NODELIB[node->m_nodeid]->m_operator_shader->setFloat("iter", (255.0f - (float)remap(i, 0, iter, 0, 255)) * 0.00392156862f);
 					s_mesh_quad->Draw();
 				}
 
@@ -588,11 +570,13 @@ namespace TARCF {
 				int iterations = node->m_properties["iterations"].getValue<int>() * 2;
 
 				// Do blur pass
-				for (int i = 0; i < iterations; i++) {
+				for (int i = 1; i < iterations; i++) {
 					float radius = (iterations - i - 1) * (1.0f / iterations) * rad;
-					glBindFramebuffer(GL_FRAMEBUFFER, node->m_gl_framebuffers[i%2]);
-					glBindTexture(GL_TEXTURE_2D, node->m_gl_texture_ids[(i + 1) % 2]);
-					NODELIB[node->m_nodeid]->m_operator_shader->setVec2("direction", (i % 2 == 0)? glm::vec2(radius, 0): glm::vec2(0, radius));
+					glBindFramebuffer(GL_FRAMEBUFFER, node->m_gl_framebuffers[(i + 1) % 2]);
+					glBindTexture(GL_TEXTURE_2D, node->m_gl_texture_ids[i % 2]);
+					NODELIB[node->m_nodeid]->m_operator_shader->setVec2("direction", (i % 2 == 0)? 
+																						glm::vec2(radius, 0): 
+																						glm::vec2(0, radius));
 					s_mesh_quad->Draw();
 				}
 
@@ -649,7 +633,7 @@ namespace TARCF {
 				BaseNode(SHADERLIB::node_shaders["aopass"])
 			{
 				m_prop_definitions.insert({ "radius", prop::prop_explicit<float>(GL_FLOAT, 256.0f, -1) });
-				m_prop_definitions.insert({ "iterations", prop::prop_explicit<int>(GL_INT, 64, -1) });
+				m_prop_definitions.insert({ "iterations", prop::prop_explicit<int>(GL_INT, 16, -1) });
 				m_prop_definitions.insert({ "bias", prop::prop_explicit<float>(GL_FLOAT, 1.0f, -1) });
 				m_prop_definitions.insert({ "accum_divisor", prop::prop_explicit<float>(GL_FLOAT, 15.0f, -1) });
 
@@ -780,6 +764,132 @@ namespace TARCF {
 			}
 		};
 
+		// Soft shadowing
+		class SoftShadow : public BaseNode {
+			std::vector<glm::vec2> offsets;
+			unsigned int gl_noise_texture;
+		public:
+			SoftShadow() :
+				BaseNode(SHADERLIB::node_shaders["shadowpass"])
+			{
+				m_prop_definitions.insert({ "radius", prop::prop_explicit<float>(GL_FLOAT, 32.0f, -1) });
+				m_prop_definitions.insert({ "sundir", prop::prop_explicit<glm::vec3>(GL_FLOAT_VEC3, glm::vec3(0.67,0.76,0.88)) });
+				m_prop_definitions.insert({ "iterations", prop::prop_explicit<int>(GL_INT, 256, -1) });
+				m_prop_definitions.insert({ "bias", prop::prop_explicit<float>(GL_FLOAT, 0.25f, -1) });
+				m_prop_definitions.insert({ "accum_divisor", prop::prop_explicit<float>(GL_FLOAT, 8.0f, -1) });
+
+				// For reprojection
+				m_prop_definitions.insert({ "matrix.proj", prop::prop_explicit<glm::mat4>(GL_FLOAT_MAT4, glm::mat4(1.0), -1) });
+				m_prop_definitions.insert({ "matrix.view", prop::prop_explicit<glm::mat4>(GL_FLOAT_MAT4, glm::mat4(1.0), -1) });
+
+				m_output_definitions.push_back(Pin("output", 0));
+
+				// Inputs are from gbuffer
+				m_input_definitions.push_back(Pin("gposition", 0));
+				m_input_definitions.push_back(Pin("gnormal", 1));
+
+				// Generate SSAO kernel
+				std::uniform_real_distribution<float> randomFloats(0.0, 1.0);
+				std::default_random_engine generator;
+
+
+				// Create random offsets for many many sampling innit
+				for (int i = 0; i < 128; i++) {
+					offsets.push_back(glm::vec2(randomFloats(generator), randomFloats(generator)));
+				}
+
+				// Generate noise texture
+				std::vector<glm::vec3> noise;
+
+				for (int i = 0; i < 65536; i++) {
+					glm::vec3 s(
+						randomFloats(generator),
+						randomFloats(generator),
+						randomFloats(generator)
+					);
+					noise.push_back(glm::normalize(s));
+				}
+
+				glGenTextures(1, &gl_noise_texture);
+				glBindTexture(GL_TEXTURE_2D, gl_noise_texture);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, 256, 256, 0, GL_RGB, GL_FLOAT, &noise[0]);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+			}
+
+			void compute(NodeInstance* node) override {
+				glViewport(0, 0, node->m_gl_texture_w, node->m_gl_texture_h);
+				// Bind shader
+				m_operator_shader->use();
+				m_operator_shader->setFloat("blendFac", 1.0f / (float)node->m_properties["iterations"].getValue<int>());
+				m_operator_shader->setFloat("bias", node->m_properties["bias"].getValue<float>());
+				m_operator_shader->setFloat("ssaoScale", node->m_properties["radius"].getValue<float>());
+
+				m_operator_shader->setMatrix("projection", node->m_properties["matrix.proj"].getValue<glm::mat4>());
+				m_operator_shader->setMatrix("view", node->m_properties["matrix.view"].getValue<glm::mat4>());
+				m_operator_shader->setVec2("noiseScale", glm::vec2(node->m_gl_texture_w / 256.0f, node->m_gl_texture_h / 256.0f));
+				m_operator_shader->setFloat("accum_divisor", node->m_properties["accum_divisor"].getValue<float>());
+				m_operator_shader->setVec3("sun_dir", node->m_properties["sundir"].getValue<glm::vec3>());
+
+				// Bind rotation texture
+				glActiveTexture(GL_TEXTURE2);
+				glBindTexture(GL_TEXTURE_2D, gl_noise_texture);
+				m_operator_shader->setInt("ssaoRotations", 2);
+
+				// Dragged inputs
+				m_operator_shader->setInt("gbuffer_position", 0);
+				m_operator_shader->setInt("gbuffer_normal", 1);
+
+				glBindFramebuffer(GL_FRAMEBUFFER, node->m_gl_framebuffers[0]);
+
+				glClearColor(0, 0, 0, 1);
+				glClear(GL_COLOR_BUFFER_BIT);
+
+				glEnable(GL_BLEND);
+				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+				glBlendEquation(GL_FUNC_ADD);
+
+				int iter = node->m_properties["iterations"].getValue<int>();
+				for (int i = 0; i < glm::min(iter, 128); i++) {
+					m_operator_shader->setVec2("noiseOffset", offsets[i]);
+					s_mesh_quad->Draw();
+				}
+
+				glDisable(GL_BLEND);
+				glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			}
+
+			void v_gen_buffers(NodeInstance* instance) override {
+				// Front and back buffer
+				glGenFramebuffers(1, &instance->m_gl_framebuffers[0]);
+				glBindFramebuffer(GL_FRAMEBUFFER, instance->m_gl_framebuffers[0]);
+			}
+
+			void v_gen_tex_memory(NodeInstance* instance) override {
+				// BACK BUFFER
+				glBindFramebuffer(GL_FRAMEBUFFER, instance->m_gl_framebuffers[0]); // bind framebuffer
+				glGenTextures(1, &instance->m_gl_texture_ids[0]);
+				glBindTexture(GL_TEXTURE_2D, instance->m_gl_texture_ids[0]);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, instance->m_gl_texture_w, instance->m_gl_texture_h, 0, GL_RGBA, GL_FLOAT, NULL);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, instance->m_gl_texture_ids[0], 0);
+
+				unsigned int attachments[1] = {
+					GL_COLOR_ATTACHMENT0
+				};
+
+				glDrawBuffers(1, attachments);
+			}
+
+			// Clear mem from noise texture
+			~SoftShadow() {
+				glDeleteTextures(1, &gl_noise_texture);
+			}
+		};
+
 		// Simple blend node.
 		class Blend: public BaseNode{
 		public:
@@ -801,6 +911,7 @@ namespace TARCF {
 
 				m_prop_definitions.insert({ "mode", prop::prop_explicit<int>(GL_INT, BlendMode::BLEND_MIX, -1) });
 				m_prop_definitions.insert({ "factor", prop::prop_explicit<float>(GL_FLOAT, 1.0f, -1) });
+				m_prop_definitions.insert({ "maskChannelID", prop::prop_explicit<int>(GL_INT, 0, -1 ) });
 			}
 
 			void compute(NodeInstance* node) override {
@@ -819,6 +930,7 @@ namespace TARCF {
 				ptrShader->setInt("MainTex", 0);
 				ptrShader->setInt("MainTex1", 1);
 				ptrShader->setInt("Mask", 2);
+				ptrShader->setInt("maskChannelID", node->m_properties["maskChannelID"].getValue<int>());
 				ptrShader->setFloat("factor", node->m_properties["factor"].getValue<float>());
 
 				glBindFramebuffer(GL_FRAMEBUFFER, node->m_gl_framebuffers[0]);
@@ -900,11 +1012,73 @@ namespace TARCF {
 			}
 		};
 
+		// Histogram step
+		class Step: public BaseNode {
+		public:
+			Step()
+				: BaseNode(SHADERLIB::node_shaders["step"])
+			{
+				m_input_definitions.push_back(Pin("Layer", 0));
+				m_output_definitions.push_back(Pin("output", 0));
+
+				m_prop_definitions.insert({ "edge", prop::prop_explicit<float>(GL_FLOAT, 0.5f, -1) });
+			}
+
+			void compute(NodeInstance* node) override {
+				glViewport(0, 0, node->m_gl_texture_w, node->m_gl_texture_h);
+				glBindFramebuffer(GL_FRAMEBUFFER, node->m_gl_framebuffers[0]);
+
+				m_operator_shader->use();
+				m_operator_shader->setFloat("edge", node->m_properties["edge"].getValue<float>());
+
+				m_operator_shader->setInt("MainTex", 0);
+
+				s_mesh_quad->Draw();
+
+				glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			}
+		};
+
+		// Histogram step
+		class Pow: public BaseNode {
+		public:
+			Pow()
+				: BaseNode(SHADERLIB::node_shaders["pow"])
+			{
+				m_input_definitions.push_back(Pin("Layer", 0));
+				m_output_definitions.push_back(Pin("output", 0));
+
+				m_prop_definitions.insert({ "value", prop::prop_explicit<float>(GL_FLOAT, 2.0f, -1) });
+			}
+
+			void compute(NodeInstance* node) override {
+				glViewport(0, 0, node->m_gl_texture_w, node->m_gl_texture_h);
+				glBindFramebuffer(GL_FRAMEBUFFER, node->m_gl_framebuffers[0]);
+
+				m_operator_shader->use();
+				m_operator_shader->setFloat("value", node->m_properties["value"].getValue<float>());
+
+				m_operator_shader->setInt("MainTex", 0);
+
+				s_mesh_quad->Draw();
+
+				glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			}
+		};
+
 		// Inverts input on RGB
-		class Invert: public StdTransformitive {
+		class Invert : public StdTransformitive {
 		public:
 			Invert()
 				: StdTransformitive(SHADERLIB::node_shaders["invert"])
+			{ }
+		};
+
+		// Creates a mask from an RGB image specify channel
+		class GenMask : public StdTransformitive {
+		public:
+			GenMask()
+				: StdTransformitive(SHADERLIB::node_shaders["genmask"])
 			{ }
 		};
 
@@ -916,6 +1090,22 @@ namespace TARCF {
 			{ }
 		};
 	}
+
+	// Class to hold a set up of nodes
+	class NodeGraph {
+		std::vector<NodeInstance*> nodes;
+
+		// A binding from the abstract Node graph to apply to nodes
+		struct PropBinding{};
+
+		void addNode() {
+
+		}
+	};
+
+	class NodeGraphInstance {
+
+	};
 
 	// Init system
 	void init() {
@@ -937,15 +1127,18 @@ namespace TARCF {
 		}
 
 		// Generative nodes (static custom handle nodes)
-		NODELIB.insert({ "texture", new Atomic::TextureNode("textures/modulate.png") });
-		NODELIB.insert({ "distance", new Atomic::Distance() });
-		NODELIB.insert({ "guassian", new Atomic::GuassBlur() });
-		NODELIB.insert({ "aopass", new Atomic::AmbientOcclusion() });
-		NODELIB.insert({ "invert", new Atomic::Invert() });
+		NODELIB.insert({ "texture",		new Atomic::TextureNode("textures/modulate.png") });
+		NODELIB.insert({ "distance",	new Atomic::Distance() });
+		NODELIB.insert({ "guassian",	new Atomic::GuassBlur() });
+		NODELIB.insert({ "aopass",		new Atomic::AmbientOcclusion() });
+		NODELIB.insert({ "shadowpass",	new Atomic::SoftShadow() });
+		NODELIB.insert({ "invert",		new Atomic::Invert() });
 		NODELIB.insert({ "passthrough", new Atomic::Passthrough() });
-		NODELIB.insert({ "blend", new Atomic::Blend() });
-		NODELIB.insert({ "color", new Atomic::Color() });
-		NODELIB.insert({ "gradient", new Atomic::GradientMap() });
+		NODELIB.insert({ "blend",		new Atomic::Blend() });
+		NODELIB.insert({ "color",		new Atomic::Color() });
+		NODELIB.insert({ "gradient",	new Atomic::GradientMap() });
+		NODELIB.insert({ "step",		new Atomic::Step() });
+		NODELIB.insert({ "pow",			new Atomic::Pow() });
 	}
 }
 

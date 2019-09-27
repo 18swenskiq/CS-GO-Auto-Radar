@@ -5,14 +5,14 @@ in vec3 Normal;
 uniform uint Info;
 uniform vec2 origin;
 
-layout (location = 0) out vec3 gPosition;
+layout (location = 0) out vec4 gPosition;
 layout (location = 1) out vec3 gNormal;
 layout (location = 2) out uint gInfo;
 layout (location = 3) out vec2 gOrigin;
 
 void main()
 {
-	gPosition = FragPos;
+	gPosition = vec4(FragPos, 1.0);
 	gNormal = normalize(Normal);
 	gInfo = Info;
 	gOrigin = origin;

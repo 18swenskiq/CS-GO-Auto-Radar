@@ -32,6 +32,7 @@
 // Engine
 #include "Camera.hpp"
 #include "CompositorFrame.hpp"
+#include "CompositorGraphs.hpp"
 #include "vmftarcf.hpp"
 
 // Opengl
@@ -117,10 +118,20 @@ vmf* g_vmf_file;
 tar_config* g_tar_config;
 
 TARCF::NodeInstance* nodet_gradient;
+TARCF::NodeInstance* nodet_blend;
+TARCF::NodeInstance* nodet_ao_color;
+TARCF::NodeInstance* nodet_ao;
+TARCF::NodeInstance* nodet_vmf;
+TARCF::NodeInstance* nodet_blur;
+GRAPHS::OutlineWithGlow* glowTest;
 
 int display_w, display_h;
 
 void setupconsole();
+
+void viewmode_editgroups();
+void viewmode_fullradar();
+int viewmode = 0;
 
 // Terminate safely
 int safe_terminate() {
@@ -178,8 +189,6 @@ void ui_sub_vgroup(const char* name, const ImVec4& color, const uint32_t& groupi
 	if (ImGui::Button(name)) { g_group_write = groupid; }
 	ImGui::PopStyleColor(3);
 	if (TARChannel::_compFlags(&g_group_lock, groupid)) ImGui::PopStyleVar();
-
-	
 }
 
 // UI voids
@@ -196,7 +205,7 @@ void ui_render_vgroup_edit() {
 	ImGui::Separator();
 
 	ImGui::Text("Mask preview:");
-	ImGui::Image((void*)g_buff_maskpreview->texColorBuffer, ImVec2(256, 256), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1,1,1,1), ImVec4(0,0,0,1));
+	ImGui::Image((void*)nodet_blend->m_gl_texture_ids[0], ImVec2(256, 256), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1,1,1,1), ImVec4(0,0,0,1));
 }
 
 // Main menu and related 'main' windows
@@ -270,6 +279,8 @@ void vmf_render_mask_preview(vmf* v, FrameBuffer* fb, const glm::mat4& viewm, co
 
 ImGradient gradient;
 
+float blurtestr = 10.0f;
+
 void ui_render_dev() {
 	static bool s_ui_show_gradient = false;
 
@@ -282,18 +293,30 @@ void ui_render_dev() {
 
 	// ============================= LIGHTING TAB ==========================================
 	ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
+
+	if (ImGui::SliderFloat("Blur test radius", &blurtestr, 0.1f, 30.0f, "%.1f")) {
+		nodet_blur->setPropertyEx<float>("radius", blurtestr);
+	}
+
 	if (ImGui::CollapsingHeader("Lighting Options")) {
 		if (ImGui::BeginTabBar("Lighting")) {
 			if (ImGui::BeginTabItem("Occlusion"))
 			{
-				ImGui::Checkbox("Enable AO", &g_tar_config->m_ao_enable);
+				if (ImGui::Checkbox("Enable AO", &g_tar_config->m_ao_enable)) {
+					nodet_blend->setPropertyEx<float>("factor", g_tar_config->m_ao_enable ? 1.0f: 0.0f);
+				}
+
 				if (g_tar_config->m_ao_enable) {
-					ImGui::SliderFloat("AO Scale", &g_tar_config->m_ao_scale, 1.0f, 1500.0f, "%.1f");
-					//ImGui::ColorPicker4("AO Color", glm::value_ptr(g_tar_config->m_color_ao), ImGuiColorEditFlags_NoPicker);
+					if (ImGui::SliderFloat("AO Scale", &g_tar_config->m_ao_scale, 1.0f, 1500.0f, "%.1f")) {
+						nodet_ao->setPropertyEx<float>("radius", g_tar_config->m_ao_scale);
+					}
 
 					ImGui::Text("AO Color: ");
 					ImGui::SameLine();
-					ImGui::ColorEdit4("AO Color", glm::value_ptr(g_tar_config->m_color_ao), ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_AlphaBar);
+
+					if (ImGui::ColorEdit4("AO Color", glm::value_ptr(g_tar_config->m_color_ao), ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_AlphaBar)) {
+						nodet_ao_color->setPropertyEx<glm::vec4>("color", g_tar_config->m_color_ao);
+					}
 				}
 
 				ImGui::EndTabItem();
@@ -347,11 +370,27 @@ void ui_render_dev() {
 				nodet_gradient->markChainDirt();
 			}
 		}
+
+		if (ImGui::SliderFloat("Corner Rounding", &glowTest->corner_rounding, 0.0f, 5.0f, "%.2f")) {
+			glowTest->update_rounding(glowTest->corner_rounding);
+		}
+
+		if (ImGui::SliderFloat("Outline Width", &glowTest->outline_width, 0.0f, 10.0f, "%.1f")) {
+			glowTest->update_width(glowTest->outline_width);
+		}
+
+		if (ImGui::SliderInt("glow_radius", &glowTest->glow_radius, 0, 128)) {
+			glowTest->update_glow_radius(glowTest->glow_radius);
+		}
+
 	} else {
 		s_ui_show_gradient = false;
 	}
 	ImGui::End();
 }
+
+Mesh* mesh_debug_line;
+Shader* g_shader_test;
 
 int app(int argc, char** argv) {
 #pragma region loguru
@@ -378,17 +417,6 @@ int app(int argc, char** argv) {
 
 	g_vmf_file = vmf::from_file(g_mapfile_path + ".vmf");
 	g_tar_config = new tar_config(g_vmf_file); // Create config
-
-	LOG_F(1, "Pre-processing visgroups into bit masks");
-	g_vmf_file->IterSolids([](solid* s) {
-		if (s->m_editorvalues.m_hashed_visgroups.count(hash(g_tar_config->m_visgroup_layout.c_str()))) s->m_setChannels( TAR_CHANNEL_LAYOUT_0 );
-		if (s->m_editorvalues.m_hashed_visgroups.count(hash(g_tar_config->m_visgroup_overlap.c_str()))) s->m_setChannels( TAR_CHANNEL_LAYOUT_1 );
-	});
-
-	g_vmf_file->IterEntities([](entity* e, const std::string& classname) {
-		if (e->m_editorvalues.m_hashed_visgroups.count(hash(g_tar_config->m_visgroup_layout.c_str()))) e->m_setChannels( TAR_CHANNEL_LAYOUT_0 );
-		if (e->m_editorvalues.m_hashed_visgroups.count(hash(g_tar_config->m_visgroup_overlap.c_str()))) e->m_setChannels( TAR_CHANNEL_LAYOUT_1 );
-	});
 
 #pragma endregion
 
@@ -487,7 +515,7 @@ int app(int argc, char** argv) {
 
 		GBuffer::compile_shaders();
 		UIBuffer::compile_shaders();
-		Shader* g_shader_test = new Shader("shaders/source/se.shaded.vs", "shaders/source/se.shaded.solid.fs", "shader.test");
+		g_shader_test = new Shader("shaders/source/se.shaded.vs", "shaders/source/se.shaded.solid.fs", "shader.test");
 		g_shader_color = new Shader("shaders/engine/line.vs", "shaders/engine/line.fs");
 		g_shader_id = new Shader("shaders/engine/line.vs", "shaders/engine/id.fs");
 		TARCF::init();
@@ -506,18 +534,12 @@ int app(int argc, char** argv) {
 
 #pragma region
 
-	Mesh* mesh_debug_line = new Mesh({0,0,0, 0,0,-4096.0f, 0,0,0}, MeshMode::POS_XYZ);
+	mesh_debug_line = new Mesh({0,0,0, 0,0,-4096.0f, 0,0,0}, MeshMode::POS_XYZ);
 
 #pragma endregion
 
 	g_tar_config->gen_textures(gradient);
 	g_vmf_file->InitOpenglData();
-
-	// Get test model.
-	//studiomdl* testmdl = studiomdl::getModel("models/props/de_nuke/car_nuke.mdl", filesys);
-	studiomdl* testmdl = studiomdl::getModel("models/player/zombie.mdl", filesys);
-
-	if (testmdl == NULL) throw std::exception("Model not loadey");
 
 	glm::vec3 pos = glm::vec3(0.0, 4224.0, -4224.0);
 	glm::vec3 dir = glm::normalize(glm::vec3(0.0, -1.0, 1.0));
@@ -525,10 +547,6 @@ int app(int argc, char** argv) {
 	// Create test camera
 	glm::mat4 projm = glm::perspective(glm::radians(45.0f / 2.0f), (float)1024 / (float)1024, 32.0f, 100000.0f);
 	glm::mat4 viewm = glm::lookAt(pos, glm::vec3(0.0f), glm::vec3(0, 1, 0));
-	
-	//glm::mat4 sourcesdk_transform = glm::mat4(1.0f);
-	//sourcesdk_transform = glm::rotate(sourcesdk_transform, glm::radians(-90.0f), glm::vec3(1, 0, 0));
-	//sourcesdk_transform = glm::scale(sourcesdk_transform, glm::vec3(0.03f));
 
 	// Init gbuffer shader
 	GBuffer::s_gbufferwriteShader->use();
@@ -539,35 +557,106 @@ int app(int argc, char** argv) {
 
 	vmf_render_mask_preview(g_vmf_file, g_buff_maskpreview, glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, -1, 0), glm::vec3(0, 0, 1)), glm::ortho(0, 5000, -5000, 0, -4000, 4000));
 
-	TARCF::NodeInstance nodet_vmf = TARCF::NodeInstance(1024, 1024, "vmf.gbuffer");
-	nodet_vmf.setPropertyEx<vmf*>("vmf", g_vmf_file);
-	nodet_vmf.setPropertyEx<unsigned int>("layers", TAR_CHANNEL_ALL);
-	nodet_vmf.setPropertyEx<glm::mat4>("matrix.view", glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, -1, 0), glm::vec3(0, 0, 1)));
-	nodet_vmf.setPropertyEx<glm::mat4>("matrix.proj", glm::ortho( g_tar_config->m_view_origin.x, g_tar_config->m_view_origin.x + g_tar_config->m_render_ortho_scale, g_tar_config->m_view_origin.y - g_tar_config->m_render_ortho_scale, g_tar_config->m_view_origin.y, -10000.0f, 10000.0f));
-	nodet_vmf.compute();
+	nodet_vmf = new TARCF::NodeInstance(1024, 1024, "vmf.gbuffer");
+	nodet_vmf->setPropertyEx<vmf*>("vmf", g_vmf_file);
+	nodet_vmf->setPropertyEx<unsigned int>("layers", TAR_CHANNEL_LAYOUT);
+	nodet_vmf->setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
+	nodet_vmf->setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
+	nodet_vmf->compute();
 
-	TARCF::NodeInstance nodet_ao = TARCF::NodeInstance(1024, 1024, "aopass");
-	nodet_ao.setPropertyEx<glm::mat4>("matrix.view", glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, -1, 0), glm::vec3(0, 0, 1)));
-	nodet_ao.setPropertyEx<glm::mat4>("matrix.proj", glm::ortho(g_tar_config->m_view_origin.x, g_tar_config->m_view_origin.x + g_tar_config->m_render_ortho_scale, g_tar_config->m_view_origin.y - g_tar_config->m_render_ortho_scale, g_tar_config->m_view_origin.y, -10000.0f, 10000.0f));
-	nodet_ao.setPropertyEx<float>("radius", 256.0f);
+	// =============================================================================
+
+	TARCF::NodeInstance nodet_maskt = TARCF::NodeInstance(1024, 1024, "vmf.mask");
+	nodet_maskt.setPropertyEx<vmf*>("vmf", g_vmf_file);
+	nodet_maskt.setPropertyEx<unsigned int>("layers", TAR_CHANNEL_OBJECTIVES);
+	nodet_maskt.setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
+	nodet_maskt.setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
+	nodet_maskt.compute();
+
+	TARCF::NodeInstance nodet_mask_layout = TARCF::NodeInstance(1024, 1024, "vmf.mask");
+	nodet_mask_layout.setPropertyEx<vmf*>("vmf", g_vmf_file);
+	nodet_mask_layout.setPropertyEx<unsigned int>("layers", TAR_CHANNEL_LAYOUT);
+	nodet_mask_layout.setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
+	nodet_mask_layout.setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
+	nodet_mask_layout.compute();
+
+	glowTest = new GRAPHS::OutlineWithGlow(&nodet_maskt, 0);
+
+	// Glowy ==============================================================================================
+
+	nodet_ao = new TARCF::NodeInstance(1024, 1024, "aopass");
+	nodet_ao->setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
+	nodet_ao->setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
+	nodet_ao->setPropertyEx<float>("radius", 256.0f);
+
+	TARCF::NodeInstance nBlackOver = TARCF::NodeInstance(2, 2, "color");
+	nBlackOver.setPropertyEx<glm::vec4>("color", glm::vec4(0, 0, 0, 1));
+
+	//TARCF::NodeInstance aoblur = TARCF::NodeInstance(1024, 1024, "guassian");
+	//aoblur.setPropertyEx<float>("radius", 0.1f);
+	//TARCF::NodeInstance::connect(nodet_ao, &aoblur, 0, 0);
+
+	//TARCF::NodeInstance nodet_shadow = TARCF::NodeInstance(1024, 1024, "shadowpass");
+	//nodet_shadow.setPropertyEx<glm::mat4>("matrix.view", glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, -1, 0), glm::vec3(0, 0, 1)));
+	//nodet_shadow.setPropertyEx<glm::mat4>("matrix.proj", glm::ortho(g_tar_config->m_view_origin.x, g_tar_config->m_view_origin.x + g_tar_config->m_render_ortho_scale, g_tar_config->m_view_origin.y - g_tar_config->m_render_ortho_scale, g_tar_config->m_view_origin.y, -10000.0f, 10000.0f));
+	//nodet_shadow.setPropertyEx<float>("radius", 256.0f);
 
 	nodet_gradient = new TARCF::NodeInstance(1024, 1024, "gradient");
 	nodet_gradient->setPropertyEx<int>("glGradientID", g_tar_config->m_gradient_texture);
-	nodet_gradient->setPropertyEx<float>("min", -512.0f);
-	nodet_gradient->setPropertyEx<float>("max", 512.0f);
+	nodet_gradient->setPropertyEx<float>("min", g_tar_config->m_map_bounds.MIN.y);
+	nodet_gradient->setPropertyEx<float>("max", g_tar_config->m_map_bounds.MAX.y);
 	nodet_gradient->setPropertyEx<int>("channelID", 1);
 
-	TARCF::NodeInstance::connect(&nodet_vmf, nodet_gradient, 0, 0);
-	TARCF::NodeInstance::connect(&nodet_vmf, &nodet_ao, 0, 0);
-	TARCF::NodeInstance::connect(&nodet_vmf, &nodet_ao, 1, 1);
+	TARCF::NodeInstance::connect(nodet_vmf, nodet_gradient, 0, 0);
+	TARCF::NodeInstance::connect(nodet_vmf, nodet_ao, 0, 0);
+	TARCF::NodeInstance::connect(nodet_vmf, nodet_ao, 1, 1);
 
-	TARCF::NodeInstance nodet_black = TARCF::NodeInstance(2, 2, "color");
-	nodet_black.setPropertyEx<glm::vec4>("color", glm::vec4(0, 0, 0, 1));
+	nodet_ao_color = new TARCF::NodeInstance(2, 2, "color");
+	nodet_ao_color->setPropertyEx<glm::vec4>("color", glm::vec4(0, 0, 0, 1));
 
-	TARCF::NodeInstance nodet_blend = TARCF::NodeInstance(1024, 1024, "blend");
-	TARCF::NodeInstance::connect(nodet_gradient, &nodet_blend, 0, 0);
-	TARCF::NodeInstance::connect(&nodet_black, &nodet_blend, 0, 1);
-	TARCF::NodeInstance::connect(&nodet_ao, &nodet_blend, 0, 2);
+	nodet_blend = new TARCF::NodeInstance(1024, 1024, "blend");
+	TARCF::NodeInstance::connect(nodet_gradient, nodet_blend, 0, 0);
+	TARCF::NodeInstance::connect(nodet_ao_color, nodet_blend, 0, 1);
+	TARCF::NodeInstance::connect(nodet_ao, nodet_blend, 0, 2);
+
+	TARCF::NodeInstance nodet_blend_bombsite = TARCF::NodeInstance(1024, 1024, "blend");
+	
+	TARCF::NodeInstance nodet_bombsite_color = TARCF::NodeInstance(2, 2, "color");
+	nodet_bombsite_color.setPropertyEx<glm::vec4>("color", glm::vec4(1, 0, 0, 1));
+
+	glowTest->connect_output(&nodet_blend_bombsite, 2);
+	TARCF::NodeInstance::connect(&nodet_bombsite_color, &nodet_blend_bombsite, 0, 1);
+	TARCF::NodeInstance::connect(nodet_blend, &nodet_blend_bombsite, 0, 0);
+
+	// Basically just transparent background
+	TARCF::NodeInstance transparent = TARCF::NodeInstance(2, 2, "color");
+	transparent.setPropertyEx<glm::vec4>("color", glm::vec4(0, 0, 0, 0));
+
+	// Blending radar onto transparent.
+	TARCF::NodeInstance nodet_cutout = TARCF::NodeInstance(1024, 1024, "blend");
+
+	TARCF::NodeInstance::connect(&transparent, &nodet_cutout, 0, 0);
+	TARCF::NodeInstance::connect(nodet_blend, &nodet_cutout, 0, 1);
+	TARCF::NodeInstance::connect(nodet_vmf, &nodet_cutout, 0, 2);
+
+	nodet_cutout.setPropertyEx<int>("maskChannelID", 3);
+
+	TARCF::NodeInstance nodet_background_image = TARCF::NodeInstance(1024, 1024, "texture");
+	nodet_background_image.setProperty("source", "textures/grid.png");
+
+	TARCF::NodeInstance nodet_bgblend = TARCF::NodeInstance(1024, 1024, "blend");
+	TARCF::NodeInstance::connect(&nodet_blend_bombsite, &nodet_bgblend, 0, 1);
+	TARCF::NodeInstance::connect(&nodet_background_image, &nodet_bgblend, 0, 0);
+	TARCF::NodeInstance::connect(&nodet_mask_layout, &nodet_bgblend, 0, 2);
+
+
+	// Testing blur
+	TARCF::NodeInstance nodet_fred_tex = TARCF::NodeInstance(1024, 1024, "texture");
+	nodet_fred_tex.setProperty("source", "textures/testimg.png");
+
+	nodet_blur = new TARCF::NodeInstance(1024, 1024, "guassian");
+	TARCF::NodeInstance::connect(&nodet_fred_tex, nodet_blur, 0, 0);
+
 
 	float time_last = 0.0f;
 	while (!glfwWindowShouldClose(window)) {
@@ -581,82 +670,20 @@ int app(int argc, char** argv) {
 
 		g_camera_main->handleInput(window, deltaTime);
 
-#if 0
-		// G buffer pass =================================================================================================================
-		GBUFFER_WRITE_START(testBuffer, viewm)
-
-			TARChannel::setChannels(TAR_CHANNEL_LAYOUT_0);
-			g_vmf_file->DrawWorld(GBuffer::s_gbufferwriteShader, glm::mat4(1.0f), sourcesdk_transform, [](solid* ptrSolid, entity* ptrEnt) {
-				if (ptrSolid) {
-					glm::vec3 orig = (ptrSolid->NWU + ptrSolid->SEL) * 0.5f;
-					GBuffer::s_gbufferwriteShader->setVec3("srcOrigin", glm::vec3(orig.x, orig.y, orig.z));
-				}
-				if (ptrEnt)
-					GBuffer::s_gbufferwriteShader->setVec3("srcOrigin", glm::vec3(0, 0, 0));
-			});
-
-		GBUFFER_WRITE_END
-
-		// G buffer pass =================================================================================================================
-		GBUFFER_WRITE_START(layoutBuf2, viewm)
-
-			TARChannel::setChannels(TAR_CHANNEL_LAYOUT_1);
-			g_vmf_file->DrawWorld(GBuffer::s_gbufferwriteShader, glm::mat4(1.0f), sourcesdk_transform, [](solid* ptrSolid, entity* ptrEnt) {
-			if (ptrSolid) {
-				glm::vec3 orig = (ptrSolid->NWU + ptrSolid->SEL) * 0.5f;
-				GBuffer::s_gbufferwriteShader->setVec3("srcOrigin", glm::vec3(orig.x, orig.y, orig.z));
-			}
-			if (ptrEnt)
-				GBuffer::s_gbufferwriteShader->setVec3("srcOrigin", glm::vec3(0, 0, 0));
-			});
-
-			GBUFFER_WRITE_END
-
-#endif
-
 		GBuffer::Unbind();
 
-		// Standard pass =================================================================================================================
-		g_shader_test->use();
-		g_shader_test->setMatrix("projection", g_camera_main->getProjectionMatrix(display_w, display_h));
-		g_shader_test->setMatrix("view", g_camera_main->getViewMatrix());
+		switch (viewmode) {
+		case(0): viewmode_editgroups(); break;
+		case(1): viewmode_fullradar(); break;
+		default: break;
+		}
 
-		glClearColor(0.07, 0.07, 0.07, 0.0);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		static  std::map<uint32_t, glm::vec4> color_lookup = {
-			{ TAR_CHANNEL_LAYOUT_0, glm::vec4(0.4f, 0.5f, 0.6f, 1.0f) },
-			{ TAR_CHANNEL_LAYOUT_1, glm::vec4(0.1f, 0.3f, 0.6f, 1.0f) },
-			{ TAR_CHANNEL_COVER,	glm::vec4(0.1f, 0.6f, 0.0f, 1.0f) },
-			{ TAR_CHANNEL_MASK,		glm::vec4(0.6f, 0.0f, 0.0f, 1.0f) }
-		};
-
-		TARChannel::setChannels(TAR_CHANNEL_ALL);
-		g_vmf_file->DrawWorld(g_shader_test, glm::mat4(1.0f), [g_shader_test](solid* ptrSolid, entity* ptrEnt) {
-			g_shader_test->setVec4("color", glm::vec4(0.2, 0.2, 0.2, 0.2));
-			if(ptrSolid) if(color_lookup.count(ptrSolid->m_visibility)) g_shader_test->setVec4("color", color_lookup[ptrSolid->m_visibility] );
-			if(ptrEnt) if (color_lookup.count(ptrEnt->m_visibility)) g_shader_test->setVec4("color", color_lookup[ptrEnt->m_visibility]);
-		});
-
-		//testBuffer.DrawPreview(glm::vec2(0,0));
-		//layoutBuf2.DrawPreview(glm::vec2(0, -0.5));
-
-		// Debug stuff
-		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-		g_shader_color->use();
-		g_shader_color->setMatrix("projection", g_camera_main->getProjectionMatrix(display_w, display_h));
-		g_shader_color->setMatrix("view", g_camera_main->getViewMatrix());
-		g_shader_color->setVec3("color", glm::vec3(0, 1, 0));
-		glm::mat4 model = glm::mat4(1.0f);
-		model = glm::inverse(glm::lookAt(g_debug_line_orig, g_debug_line_orig + g_debug_line_point, glm::vec3(0, 1, 0)));
-		g_shader_color->setMatrix("model", model);
-
-		mesh_debug_line->Draw();
-		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		
-		nodet_blend.compute();
+		//glowTest->get_final()->compute();
+		nodet_bgblend.compute();
 		glViewport(0, 0, display_w, display_h);
-		nodet_blend.debug_fs();
+		nodet_bgblend.debug_fs();
+		//glowTest->get_final()->debug_fs();
 
 #pragma region ImGui
 
@@ -680,6 +707,38 @@ int app(int argc, char** argv) {
 	}
 
 	return safe_terminate();
+}
+
+void viewmode_editgroups() {
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+	// Standard pass =================================================================================================================
+	g_shader_test->use();
+	g_shader_test->setMatrix("projection", g_camera_main->getProjectionMatrix(display_w, display_h));
+	g_shader_test->setMatrix("view", g_camera_main->getViewMatrix());
+
+	glClearColor(0.07, 0.07, 0.07, 0.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	static  std::map<uint32_t, glm::vec4> color_lookup = {
+		{ TAR_CHANNEL_LAYOUT_0, glm::vec4(0.4f, 0.5f, 0.6f, 1.0f) },
+		{ TAR_CHANNEL_LAYOUT_1, glm::vec4(0.1f, 0.3f, 0.6f, 1.0f) },
+		{ TAR_CHANNEL_COVER,	glm::vec4(0.1f, 0.6f, 0.0f, 1.0f) },
+		{ TAR_CHANNEL_MASK,		glm::vec4(0.6f, 0.0f, 0.0f, 1.0f) }
+	};
+
+	TARChannel::setChannels(TAR_CHANNEL_ALL);
+	g_vmf_file->DrawWorld(g_shader_test, glm::mat4(1.0f), [](solid* ptrSolid, entity* ptrEnt) {
+		g_shader_test->setVec4("color", glm::vec4(0.2, 0.2, 0.2, 0.2));
+		if(ptrSolid) if(color_lookup.count(ptrSolid->m_visibility)) g_shader_test->setVec4("color", color_lookup[ptrSolid->m_visibility] );
+		if(ptrEnt) if (color_lookup.count(ptrEnt->m_visibility)) g_shader_test->setVec4("color", color_lookup[ptrEnt->m_visibility]);
+	});
+
+
+}
+
+void viewmode_fullradar() {
+
 }
 
 void render_idmap() {
@@ -745,17 +804,20 @@ void selection_update(GLFWwindow* hWindow) {
 
 			//vmf_render_mask_preview(g_vmf_file, g_buff_maskpreview, glm::lookAt(glm::vec3(0,0,0), glm::vec3(0,-1,0), glm::vec3(0,0,1)), glm::ortho(0, 5000, -5000, 0, -4000, 4000));
 			
-			return;
+			
 
 		IL_FOUND:
-			vmf_render_mask_preview(g_vmf_file, g_buff_maskpreview, glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, -1, 0), glm::vec3(0, 0, 1)), glm::ortho(
-				g_tar_config->m_view_origin.x,										// -X
-				g_tar_config->m_view_origin.x + g_tar_config->m_render_ortho_scale,	// +X
-				g_tar_config->m_view_origin.y - g_tar_config->m_render_ortho_scale,	// -Y
-				g_tar_config->m_view_origin.y,										// +Y
-				-10000.0f,  // NEARZ
-				10000.0f));	// FARZ);
-			//vmf_render_mask_preview(g_vmf_file, g_buff_maskpreview, g_tar_config., g_camera_main->getProjectionMatrix(display_w, display_h));
+			//vmf_render_mask_preview(g_vmf_file, g_buff_maskpreview, glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, -1, 0), glm::vec3(0, 0, 1)), glm::ortho(
+			//	g_tar_config->m_view_origin.x,										// -X
+			//	g_tar_config->m_view_origin.x + g_tar_config->m_render_ortho_scale,	// +X
+			//	g_tar_config->m_view_origin.y - g_tar_config->m_render_ortho_scale,	// -Y
+			//	g_tar_config->m_view_origin.y,										// +Y
+			//	-10000.0f,  // NEARZ
+			//	10000.0f));	// FARZ);
+			////vmf_render_mask_preview(g_vmf_file, g_buff_maskpreview, g_tar_config., g_camera_main->getProjectionMatrix(display_w, display_h));
+
+			nodet_vmf->markChainDirt();
+
 			return;
 		}
 	}
