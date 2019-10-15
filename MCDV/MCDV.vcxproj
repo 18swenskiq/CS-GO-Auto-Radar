@@ -22,7 +22,7 @@
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{3F5631FE-0F0C-4285-B301-66DA219121EC}</ProjectGuid>
     <RootNamespace>MCDV</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.18362.0</WindowsTargetPlatformVersion>
     <ProjectName>AutoRadar</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -212,6 +212,7 @@
     <None Include="shaders\depth.fs" />
     <None Include="shaders\depth.vs" />
     <None Include="shaders\dev.fs" />
+    <None Include="shaders\engine\gb.hcomp.fs" />
     <None Include="shaders\engine\gb.preview.fs" />
     <None Include="shaders\engine\id.fs" />
     <None Include="shaders\engine\idpreview.fs" />
@@ -223,9 +224,14 @@
     <None Include="shaders\engine\screenbase.vs" />
     <None Include="shaders\engine\tarcfnode\aopass.fs" />
     <None Include="shaders\engine\tarcfnode\blend.add.fs" />
+    <None Include="shaders\engine\tarcfnode\blend.add.masked.fs" />
     <None Include="shaders\engine\tarcfnode\blend.mix.fs" />
+    <None Include="shaders\engine\tarcfnode\blend.mix.masked.fs" />
+    <None Include="shaders\engine\tarcfnode\blend.mul.fs" />
+    <None Include="shaders\engine\tarcfnode\blend.mul.masked.fs" />
     <None Include="shaders\engine\tarcfnode\blend.sub.fs" />
     <None Include="shaders\engine\tarcfnode\distance.fs" />
+    <None Include="shaders\engine\tarcfnode\extractmask.fs" />
     <None Include="shaders\engine\tarcfnode\guass_multipass.fs" />
     <None Include="shaders\engine\tarcfnode\invert.fs" />
     <None Include="shaders\engine\tarcfnode\outline.fs" />
@@ -237,6 +243,7 @@
     <None Include="shaders\gBuffer.fs" />
     <None Include="shaders\gBuffer.vs" />
     <None Include="shaders\iBuffer.fs" />
+    <None Include="shaders\source\se.gbuffer.clean.fs" />
     <None Include="shaders\source\se.gbuffer.fs" />
     <None Include="shaders\source\se.gbuffer.vs" />
     <None Include="shaders\source\se.shaded.solid.fs" />

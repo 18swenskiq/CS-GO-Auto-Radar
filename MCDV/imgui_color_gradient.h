@@ -73,7 +73,7 @@ private:
 	void computeColorAt(float position, float* color) const;
 	void compColorAt(float position, char* color) const;
 	std::list<ImGradientMark*> m_marks;
-	float m_cachedValues[256 * 3];
+	float m_cachedValues[256 * 4];
 	char m_texCache[256 * 4];
 };
 

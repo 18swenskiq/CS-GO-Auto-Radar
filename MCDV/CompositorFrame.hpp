@@ -18,6 +18,8 @@
 #define EXTRATYPE_STRING 8989124
 #define EXTRATYPE_RAWPTR 8989125
 
+extern uint64_t GLOBAL_VAR;
+
 /* OpenGL compositor frame */
 
 namespace TARCF {
@@ -229,6 +231,9 @@ namespace TARCF {
 
 		// Draws what this node is currently storing to screen
 		virtual void debug_fs(const NodeInstance* instance, int channel = 0);
+
+		// Function to get some information on the internal texture memory being used
+		virtual uint64_t get_tex_memory_usage(const NodeInstance* instance);
 	};
 
 	// Bidirection connection struct
@@ -247,9 +252,15 @@ namespace TARCF {
 
 	// This is an instance of a node which holds property values.
 	class NodeInstance {
+		inline static uint64_t uTexMemUsage = 0u;
+		inline static std::list<NodeInstance*> active_nodes;
+		inline static unsigned int maxActive = 16;
 	public:
 		// Keep track whether this node needs to be calculated
 		bool m_isDirty = true;
+
+		// Whether we have allocated texture memory for this node
+		bool m_allocated = false;
 
 		// Connections to this node
 		std::vector<std::vector<Connection>> m_con_outputs;	// Output connections: this['o_pos][<i>] -> ptrNode[uConID]
@@ -275,10 +286,12 @@ namespace TARCF {
 		NodeInstance() {}
 
 		// Constructor creates framebuffer and texture memory, sets up properties
-		NodeInstance(const unsigned int& iWidth, const unsigned int& iHeight, const std::string& sNodeId) :
-			m_gl_texture_w(iWidth), m_gl_texture_h(iHeight), m_nodeid(sNodeId)
+		NodeInstance(const unsigned int& uWidth, const unsigned int& uHeight, const std::string& sNodeId) :
+			m_gl_texture_w(uWidth), m_gl_texture_h(uHeight), m_nodeid(sNodeId)
 		{
 			NODELIB[m_nodeid]->v_gen_buffers(this);
+
+			LOG_F(INFO, "Node created( %08X:%20s ) dims( %u:%u )\t buffer_size( %lluMB +%lluKB )", (unsigned int)this, m_nodeid.c_str(), m_gl_texture_w, m_gl_texture_h, (NodeInstance::uTexMemUsage / 1024ull / 1024ull), (NODELIB[m_nodeid]->get_tex_memory_usage(this) / 1024ull));
 
 			// Copy properties
 			for(auto&& p: NODELIB[m_nodeid]->m_prop_definitions){
@@ -296,22 +309,87 @@ namespace TARCF {
 			}
 
 			// Generate texture memory for this node
+			//NODELIB[m_nodeid]->v_gen_tex_memory(this);
+			//if (!this->check_buffer()) LOG_F(ERROR, "(NODE) Framebuffer did not complete");
+		}
+
+		// Deletes frame buffer names
+		void dealloc_buffers() {
+			//for (auto&& buf: m_gl_framebuffers) if (buf) glDeleteFramebuffers(1, &buf);
+			LOG_F(INFO, "Buffer deallocation ( type:%s )", m_nodeid.c_str());
+
+			unsigned int id = 0;
+			for (auto&& buf : m_gl_framebuffers) if (buf) glDeleteFramebuffers(1, &this->m_gl_framebuffers[id++]);
+		}
+
+		// Deletes texture memory
+		void dealloc_memory() {
+			//LOG_F(INFO, "Deallocating node storage ( type:%s )", m_nodeid.c_str());
+
+			// Delete texture storage.
+			unsigned int id = 0;
+			for (auto&& uTex : m_gl_texture_ids) if (uTex) glDeleteTextures(1, &this->m_gl_texture_ids[id++]);
+
+			// Clear memory usage
+			uTexMemUsage -= NODELIB[m_nodeid]->get_tex_memory_usage(this);
+
+			// Mark as deallocated
+			m_allocated = false;
+			m_isDirty = true;
+		}
+
+		// Allocated texture memory
+		void alloc_memory() {
+			// Append to total static memory count
+			NodeInstance::uTexMemUsage = NodeInstance::uTexMemUsage + NODELIB[m_nodeid]->get_tex_memory_usage(this);
+
+			LOG_F(INFO, "Node texture allocation( %08X:%20s ) dims( %u:%u )\t buffer_size( %lluMB +%lluKB )", (unsigned int)this, m_nodeid.c_str(), m_gl_texture_w, m_gl_texture_h, (NodeInstance::uTexMemUsage / 1024ull / 1024ull), (NODELIB[m_nodeid]->get_tex_memory_usage(this) / 1024ull));
+
+			// Dealloc until we can add our own node
+			//while (NodeInstance::active_nodes.size() >= 16) {
+			//	NodeInstance::active_nodes.front()->dealloc_memory();
+			//	NodeInstance::active_nodes.pop_front();
+			//}
+
+			// Limit to 128 mb
+			//while (NodeInstance::uTexMemUsage > 128 * 1024 * 1024) {
+			//	if (NodeInstance::active_nodes.size() > 0) {
+			//		NodeInstance::active_nodes.front()->dealloc_memory();
+			//		NodeInstance::active_nodes.pop_front();
+			//	} else break;
+			//}
+
+			NodeInstance::active_nodes.push_back(this);
+
 			NODELIB[m_nodeid]->v_gen_tex_memory(this);
 			if (!this->check_buffer()) LOG_F(ERROR, "(NODE) Framebuffer did not complete");
 
+			m_allocated = true;
+		}
+
+		void update_lru() {
+			std::list<NodeInstance*>::iterator iter = NodeInstance::active_nodes.begin();
+			std::list<NodeInstance*>::iterator end = NodeInstance::active_nodes.end();
+
+			while (iter != end){
+				NodeInstance* pItem = *iter;
+
+				if (pItem == this){
+					iter = NodeInstance::active_nodes.erase(iter);
+				}
+				else{
+					++iter;
+				}
+			}
+
+			NodeInstance::active_nodes.push_back(this);
 		}
 
 		// Destructor deallocates texture memory and framebuffer
 		~NodeInstance() {
-			LOG_F(2, "Deallocating node storage ( type:%s )", m_nodeid.c_str());
-
-			// Delete texture storage.
-			for (auto&& uTex : m_gl_texture_ids)
-				if (uTex) glDeleteTextures(1, &uTex);
-
-			unsigned int id = 0;
-			for(auto&& buf: m_gl_framebuffers) if(buf) glDeleteFramebuffers(1, &this->m_gl_framebuffers[id++]);
-			
+			// Opengl Cleanup
+			dealloc_memory();
+			dealloc_buffers();
 		}
 
 		// Consecutively mark dirt after some kind of an update
@@ -325,10 +403,12 @@ namespace TARCF {
 		// Call respective compute function
 		void compute() { 
 			if (!this->m_isDirty) return;
+			if (!this->m_allocated) this->alloc_memory(); // allocate memory if we dont have any.
+			this->update_lru(); // Tell LRU we just used this node... so don't delete us just yet.
 
-			// Compute any dependent input nodes if they are dirty
+			// Compute any dependent input nodes if they are dirty or memory have been de-allocated by resource handler.
 			for(auto&& input: this->m_con_inputs)
-				if (input.ptrNode) if (input.ptrNode->m_isDirty) input.ptrNode->compute();
+				if (input.ptrNode) if (input.ptrNode->m_isDirty || !input.ptrNode->m_allocated) input.ptrNode->compute();
 
 			// Pull inputs
 			unsigned int inputnum = 0;
@@ -390,6 +470,7 @@ namespace TARCF {
 
 	// Generic tex mem handler
 	void BaseNode::v_gen_tex_memory(NodeInstance* instance) {
+		glBindFramebuffer(GL_FRAMEBUFFER, instance->m_gl_framebuffers[0]);
 		unsigned int id = 0;
 		unsigned int* attachments = new unsigned int[this->m_output_definitions.size()];
 		for (auto&& texOut: this->m_output_definitions) {
@@ -419,6 +500,11 @@ namespace TARCF {
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, instance->m_gl_texture_ids[channel]);
 		s_mesh_quad->Draw();
+	}
+
+	// Default memory calculation for RGBA texture
+	uint64_t BaseNode::get_tex_memory_usage(const NodeInstance* instance) {
+		return instance->m_gl_texture_w * instance->m_gl_texture_h * 4;
 	}
 
 	namespace Atomic {
@@ -517,7 +603,7 @@ namespace TARCF {
 				glBindFramebuffer(GL_FRAMEBUFFER, instance->m_gl_framebuffers[0]); // bind framebuffer
 				glGenTextures(1, &instance->m_gl_texture_ids[0]);
 				glBindTexture(GL_TEXTURE_2D, instance->m_gl_texture_ids[0]);
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, instance->m_gl_texture_w, instance->m_gl_texture_h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, instance->m_gl_texture_w, instance->m_gl_texture_h, 0, GL_RED, GL_UNSIGNED_BYTE, NULL);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, instance->m_gl_texture_ids[0], 0);
@@ -533,12 +619,16 @@ namespace TARCF {
 				glBindFramebuffer(GL_FRAMEBUFFER, instance->m_gl_framebuffers[1]);
 				glGenTextures(1, &instance->m_gl_texture_ids[1]);
 				glBindTexture(GL_TEXTURE_2D, instance->m_gl_texture_ids[1]);
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, instance->m_gl_texture_w, instance->m_gl_texture_h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, instance->m_gl_texture_w, instance->m_gl_texture_h, 0, GL_RED, GL_UNSIGNED_BYTE, NULL);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, instance->m_gl_texture_ids[1], 0);
 				
 				glDrawBuffers(1, attachments);
+			}
+
+			uint64_t get_tex_memory_usage(const NodeInstance* instance) override {
+				return instance->m_gl_texture_w * instance->m_gl_texture_h * 1 * 2;
 			}
 		};
 
@@ -620,6 +710,10 @@ namespace TARCF {
 				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, instance->m_gl_texture_ids[1], 0);
 				
 				glDrawBuffers(1, attachments);
+			}
+
+			uint64_t get_tex_memory_usage(const NodeInstance* instance) override {
+				return instance->m_gl_texture_w * instance->m_gl_texture_h * 4 * 2;
 			}
 		};
 
@@ -746,7 +840,7 @@ namespace TARCF {
 				glBindFramebuffer(GL_FRAMEBUFFER, instance->m_gl_framebuffers[0]); // bind framebuffer
 				glGenTextures(1, &instance->m_gl_texture_ids[0]);
 				glBindTexture(GL_TEXTURE_2D, instance->m_gl_texture_ids[0]);
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, instance->m_gl_texture_w, instance->m_gl_texture_h, 0, GL_RGBA, GL_FLOAT, NULL);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, instance->m_gl_texture_w, instance->m_gl_texture_h, 0, GL_RED, GL_FLOAT, NULL);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, instance->m_gl_texture_ids[0], 0);
@@ -761,6 +855,10 @@ namespace TARCF {
 			// Clear mem from noise texture
 			~AmbientOcclusion() {
 				glDeleteTextures(1, &gl_noise_texture);
+			}
+
+			uint64_t get_tex_memory_usage(const NodeInstance* instance) override {
+				return instance->m_gl_texture_w * instance->m_gl_texture_h * 1 * 4;
 			}
 		};
 
@@ -888,6 +986,10 @@ namespace TARCF {
 			~SoftShadow() {
 				glDeleteTextures(1, &gl_noise_texture);
 			}
+
+			uint64_t get_tex_memory_usage(const NodeInstance* instance) override {
+				return instance->m_gl_texture_w * instance->m_gl_texture_h * 4 * 4;
+			}
 		};
 
 		// Simple blend node.
@@ -916,11 +1018,15 @@ namespace TARCF {
 
 			void compute(NodeInstance* node) override {
 				Shader* ptrShader = m_operator_shader;
+
+				// Test if there is a mask connected to this node
+				bool bShaderMasked = node->m_con_inputs[2].ptrNode;
+
 				switch (node->m_properties["mode"].getValue<int>()) {
-				case BLEND_MIX: ptrShader = SHADERLIB::node_shaders["blend.mix"]; break;
-				case BLEND_ADD: ptrShader = SHADERLIB::node_shaders["blend.add"]; break;
-				case BLEND_SUB: ptrShader = SHADERLIB::node_shaders["blend.sub"]; break;
-				case BLEND_MUL: ptrShader = SHADERLIB::node_shaders["blend.mul"]; break;
+				case BLEND_MIX: ptrShader = bShaderMasked? SHADERLIB::node_shaders["blend.mix.masked"]: SHADERLIB::node_shaders["blend.mix"]; break;
+				case BLEND_ADD: ptrShader = bShaderMasked? SHADERLIB::node_shaders["blend.add.masked"]: SHADERLIB::node_shaders["blend.add"]; break;
+				case BLEND_SUB: ptrShader = bShaderMasked? SHADERLIB::node_shaders["blend.sub.masked"]: SHADERLIB::node_shaders["blend.sub"]; break;
+				case BLEND_MUL: ptrShader = bShaderMasked? SHADERLIB::node_shaders["blend.mul.masked"]: SHADERLIB::node_shaders["blend.mul"]; break;
 				default: break;
 				}
 
@@ -929,8 +1035,13 @@ namespace TARCF {
 				ptrShader->use();
 				ptrShader->setInt("MainTex", 0);
 				ptrShader->setInt("MainTex1", 1);
-				ptrShader->setInt("Mask", 2);
-				ptrShader->setInt("maskChannelID", node->m_properties["maskChannelID"].getValue<int>());
+
+				// Assign masking options if availible on shader
+				if (bShaderMasked) {
+					ptrShader->setInt("Mask", 2);
+					ptrShader->setInt("maskChannelID", node->m_properties["maskChannelID"].getValue<int>());
+				}
+
 				ptrShader->setFloat("factor", node->m_properties["factor"].getValue<float>());
 
 				glBindFramebuffer(GL_FRAMEBUFFER, node->m_gl_framebuffers[0]);
@@ -938,6 +1049,33 @@ namespace TARCF {
 				s_mesh_quad->Draw();
 
 				glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			}
+		};
+
+		// Specialized RGB16F blending
+		class BlendRGB16F: public Blend {
+			void v_gen_tex_memory(NodeInstance* instance) override {
+				glBindFramebuffer(GL_FRAMEBUFFER, instance->m_gl_framebuffers[0]);
+				glGenTextures(1, &instance->m_gl_texture_ids[0]);
+
+				// RGB16F buffer
+				glBindTexture(GL_TEXTURE_2D, instance->m_gl_texture_ids[0]);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, instance->m_gl_texture_w, instance->m_gl_texture_h, 0, GL_RGB, GL_FLOAT, NULL);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, instance->m_gl_texture_ids[0], 0);
+
+				unsigned int attachments[1] = {
+					GL_COLOR_ATTACHMENT0
+				};
+
+				glDrawBuffers(1, attachments);
+			}
+
+			uint64_t get_tex_memory_usage(const NodeInstance* instance) override {
+				return instance->m_gl_texture_w * instance->m_gl_texture_h * 3 * 2;
 			}
 		};
 
@@ -1037,6 +1175,26 @@ namespace TARCF {
 
 				glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			}
+
+			void v_gen_tex_memory(NodeInstance* instance) override {
+				glBindFramebuffer(GL_FRAMEBUFFER, instance->m_gl_framebuffers[0]); // bind framebuffer
+				glGenTextures(1, &instance->m_gl_texture_ids[0]);
+				glBindTexture(GL_TEXTURE_2D, instance->m_gl_texture_ids[0]);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, instance->m_gl_texture_w, instance->m_gl_texture_h, 0, GL_RED, GL_FLOAT, NULL);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, instance->m_gl_texture_ids[0], 0);
+
+				unsigned int attachments[1] = {
+					GL_COLOR_ATTACHMENT0
+				};
+
+				glDrawBuffers(1, attachments);
+			}
+
+			uint64_t get_tex_memory_usage(const NodeInstance* instance) override {
+				return instance->m_gl_texture_w * instance->m_gl_texture_h * 1;
+			}
 		};
 
 		// Histogram step
@@ -1064,6 +1222,26 @@ namespace TARCF {
 
 				glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			}
+
+			void v_gen_tex_memory(NodeInstance* instance) override {
+				glBindFramebuffer(GL_FRAMEBUFFER, instance->m_gl_framebuffers[0]); // bind framebuffer
+				glGenTextures(1, &instance->m_gl_texture_ids[0]);
+				glBindTexture(GL_TEXTURE_2D, instance->m_gl_texture_ids[0]);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, instance->m_gl_texture_w, instance->m_gl_texture_h, 0, GL_RED, GL_FLOAT, NULL);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, instance->m_gl_texture_ids[0], 0);
+
+				unsigned int attachments[1] = {
+					GL_COLOR_ATTACHMENT0
+				};
+
+				glDrawBuffers(1, attachments);
+			}
+
+			uint64_t get_tex_memory_usage(const NodeInstance* instance) override {
+				return instance->m_gl_texture_w * instance->m_gl_texture_h * 1;
+			}
 		};
 
 		// Inverts input on RGB
@@ -1089,44 +1267,39 @@ namespace TARCF {
 				: StdTransformitive(SHADERLIB::node_shaders["passthrough"])
 			{ }
 		};
+
+		// Extracts mask from R16F buffers where x>0
+		class ExtractMask: public StdTransformitive {
+		public:
+			ExtractMask()
+				: StdTransformitive(SHADERLIB::node_shaders["extractmask"])
+			{}
+		};
 	}
-
-	// Class to hold a set up of nodes
-	class NodeGraph {
-		std::vector<NodeInstance*> nodes;
-
-		// A binding from the abstract Node graph to apply to nodes
-		struct PropBinding{};
-
-		void addNode() {
-
-		}
-	};
-
-	class NodeGraphInstance {
-
-	};
 
 	// Init system
 	void init() {
+		// Auxiliary quad for drawing to screen easily
 		s_mesh_quad = new Mesh({
-			-1.0, -1.0, 0.0, 0.0, // bottom left
-			1.0, -1.0, 1.0, 0.0, // bottom right
-			1.0, 1.0, 1.0, 1.0, // top right
+			-1.0, -1.0,		0.0, 0.0, // bottom left
+			 1.0, -1.0,		1.0, 0.0, // bottom right
+			 1.0,  1.0,		1.0, 1.0, // top right
 
-			-1.0, -1.0, 0.0, 0.0, // bottom left
-			1.0, 1.0, 1.0, 1.0, // top right
-			-1.0, 1.0, 0.0, 1.0  // top left
+			-1.0, -1.0,		0.0, 0.0, // bottom left
+			 1.0,  1.0,		1.0, 1.0, // top right
+			-1.0,  1.0,		0.0, 1.0  // top left
 			}, MeshMode::POS_XY_TEXOORD_UV);
 
+		// Static debug shader
 		s_debug_shader = new Shader("shaders/engine/quadbase.vs", "shaders/engine/node.preview.fs", "shader.node.preview");
 
+		// Scoop up fragment shaders in the tarcfnode folder
 		for (const auto& entry: std::filesystem::directory_iterator("shaders/engine/tarcfnode")) {
 			SHADERLIB::node_shaders.insert({ split(entry.path().filename().string(), ".fs")[0],
 				new Shader("shaders/engine/quadbase.vs", entry.path().string(), entry.path().filename().string()) });
 		}
 
-		// Generative nodes (static custom handle nodes)
+		// Get these nodes mapped into the library
 		NODELIB.insert({ "texture",		new Atomic::TextureNode("textures/modulate.png") });
 		NODELIB.insert({ "distance",	new Atomic::Distance() });
 		NODELIB.insert({ "guassian",	new Atomic::GuassBlur() });
@@ -1134,17 +1307,12 @@ namespace TARCF {
 		NODELIB.insert({ "shadowpass",	new Atomic::SoftShadow() });
 		NODELIB.insert({ "invert",		new Atomic::Invert() });
 		NODELIB.insert({ "passthrough", new Atomic::Passthrough() });
+		NODELIB.insert({ "extractmask", new Atomic::ExtractMask() });
 		NODELIB.insert({ "blend",		new Atomic::Blend() });
+		NODELIB.insert({ "blendRGB16F", new Atomic::BlendRGB16F() });
 		NODELIB.insert({ "color",		new Atomic::Color() });
 		NODELIB.insert({ "gradient",	new Atomic::GradientMap() });
 		NODELIB.insert({ "step",		new Atomic::Step() });
 		NODELIB.insert({ "pow",			new Atomic::Pow() });
 	}
-}
-
-/* Universal nodes that make up other things */
-
-// Loads a texture from a file as a node
-namespace TARCF{ 
-
 }

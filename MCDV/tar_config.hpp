@@ -43,7 +43,7 @@ private:
 	std::map<std::string, std::string> kvs;
 
 public:
-	unsigned int m_gradient_texture;
+	unsigned int m_gradient_textures[2];
 
 	std::vector<tar_config_layer> layers;
 
@@ -88,6 +88,45 @@ public:
 	std::string		m_visgroup_overlap;
 
 	tar_config() {}
+
+	void recalc_bounds() {
+		// Configure camera setup
+		this->m_map_bounds = v->getVisgroupBounds(TAR_CHANNEL_LAYOUT);
+
+		//LOG_F(WARNING, "Map bounds: %.2f %.2f %.2f  ::  %.2f %.2f %.2f", m_map_bounds.MIN.x, m_map_bounds.MIN.y, m_map_bounds.MIN.z, m_map_bounds.MAX.x, m_map_bounds.MAX.y, m_map_bounds.MAX.z);
+
+		for (auto&& min : v->get_entities_by_classname("tar_min"))
+			this->m_map_bounds.MIN.y = glm::max(min->m_origin.y, this->m_map_bounds.MIN.y);
+		
+		for (auto&& max : v->get_entities_by_classname("tar_max"))
+			this->m_map_bounds.MAX.y = glm::min(max->m_origin.y, this->m_map_bounds.MAX.y);
+
+		float padding = 128.0f;
+
+		float x_bounds_min = this->m_map_bounds.MIN.x - padding;
+		float x_bounds_max = this->m_map_bounds.MAX.x + padding;
+
+		float y_bounds_min = this->m_map_bounds.MIN.z - padding;
+		float y_bounds_max = this->m_map_bounds.MAX.z + padding;
+
+		float dist_x = x_bounds_max - x_bounds_min;
+		float dist_y = y_bounds_max - y_bounds_min;
+
+		float mx_dist = glm::max(dist_x, dist_y);
+
+		float justify_x = (mx_dist - dist_x) * 0.5f;
+		float justify_y = (mx_dist - dist_y) * 0.5f;
+
+		this->m_render_ortho_scale = glm::round((mx_dist / 1024.0f) / 0.01f) * 0.01f * 1024.0f;
+		this->m_view_origin = glm::vec2((x_bounds_min + x_bounds_max) * 0.5f, (y_bounds_min + y_bounds_max) * 0.5f);
+
+		// Calculate optimal projections
+		this->m_pmPersp = glm::ortho(mx_dist * 0.5f, -mx_dist * 0.5f, mx_dist * 0.5f, -mx_dist * 0.5f, -10000.0f, 10000.0f);
+		this->m_pmView = glm::lookAt(
+			glm::vec3(m_view_origin.x, 0, m_view_origin.y), 
+			glm::vec3(m_view_origin.x, -1, m_view_origin.y), 
+			glm::vec3(0, 0, 1));
+	}
 
 	tar_config(vmf* v) : v(v) {
 		LOG_F(1, "Loading config entity");
@@ -163,14 +202,17 @@ public:
 
 		LOG_F(1, "Pre-processing visgroups into bit masks");
 		v->IterSolids([=](solid* s) {
-			if (s->m_editorvalues.m_hashed_visgroups.count(hash(m_visgroup_layout.c_str()))) s->m_setChannels(TAR_CHANNEL_LAYOUT_0);
-			if (s->m_editorvalues.m_hashed_visgroups.count(hash(m_visgroup_overlap.c_str()))) s->m_setChannels(TAR_CHANNEL_LAYOUT_1);
-			if (s->m_editorvalues.m_hashed_visgroups.count(hash(m_visgroup_mask.c_str()))) s->m_setChannels(TAR_CHANNEL_MASK);
+			if (s->m_editorvalues.m_hashed_visgroups.count(hash(m_visgroup_layout.c_str())))	s->m_setChannels(TAR_CHANNEL_LAYOUT_0);
+			if (s->m_editorvalues.m_hashed_visgroups.count(hash(m_visgroup_overlap.c_str())))	s->m_setChannels(TAR_CHANNEL_LAYOUT_1);
+			if (s->m_editorvalues.m_hashed_visgroups.count(hash(m_visgroup_mask.c_str())))		s->m_setChannels(TAR_CHANNEL_MASK);
+			if (s->m_editorvalues.m_hashed_visgroups.count(hash(m_visgroup_cover.c_str())))		s->m_setChannels(TAR_CHANNEL_COVER);
 		});
 
 		v->IterEntities([=](entity* e, const std::string& classname) {
-			if (e->m_editorvalues.m_hashed_visgroups.count(hash(m_visgroup_layout.c_str()))) e->m_setChannels(TAR_CHANNEL_LAYOUT_0);
-			if (e->m_editorvalues.m_hashed_visgroups.count(hash(m_visgroup_overlap.c_str()))) e->m_setChannels(TAR_CHANNEL_LAYOUT_1);
+			if (e->m_editorvalues.m_hashed_visgroups.count(hash(m_visgroup_layout.c_str())))	e->m_setChannels(TAR_CHANNEL_LAYOUT_0);
+			if (e->m_editorvalues.m_hashed_visgroups.count(hash(m_visgroup_overlap.c_str())))	e->m_setChannels(TAR_CHANNEL_LAYOUT_1);
+			if (e->m_editorvalues.m_hashed_visgroups.count(hash(m_visgroup_mask.c_str())))		e->m_setChannels(TAR_CHANNEL_MASK);
+			if (e->m_editorvalues.m_hashed_visgroups.count(hash(m_visgroup_cover.c_str())))		e->m_setChannels(TAR_CHANNEL_COVER);
 
 			if (classname == "func_buyzone") e->m_appendChannels(TAR_CHANNEL_BUYZONE);
 			if (classname == "func_bomb_target" || classname == "func_hostage_rescue") 
@@ -182,42 +224,8 @@ public:
 		LOG_F(INFO, "TXT Write: %s", (this->m_write_txt ? "ON" : "OFF"));
 		LOG_F(INFO, "PNG Write: %s", (this->m_write_png ? "ON" : "OFF"));
 
-		// Configure camera setup
-		this->m_map_bounds = v->getVisgroupBounds(TAR_CHANNEL_LAYOUT);
-
-		LOG_F(WARNING, "Map bounds: %.2f %.2f %.2f  ::  %.2f %.2f %.2f", m_map_bounds.MIN.x, m_map_bounds.MIN.y, m_map_bounds.MIN.z, m_map_bounds.MAX.x, m_map_bounds.MAX.y, m_map_bounds.MAX.z);
-
-		for (auto&& min : v->get_entities_by_classname("tar_min"))
-			this->m_map_bounds.MIN.y = glm::max(min->m_origin.y, this->m_map_bounds.MIN.y);
-		
-		for (auto&& max : v->get_entities_by_classname("tar_max"))
-			this->m_map_bounds.MAX.y = glm::min(max->m_origin.y, this->m_map_bounds.MAX.y);
-
-		float padding = 128.0f;
-
-		float x_bounds_min = this->m_map_bounds.MIN.x - padding;
-		float x_bounds_max = this->m_map_bounds.MAX.x + padding;
-
-		float y_bounds_min = this->m_map_bounds.MIN.z - padding;
-		float y_bounds_max = this->m_map_bounds.MAX.z + padding;
-
-		float dist_x = x_bounds_max - x_bounds_min;
-		float dist_y = y_bounds_max - y_bounds_min;
-
-		float mx_dist = glm::max(dist_x, dist_y);
-
-		float justify_x = (mx_dist - dist_x) * 0.5f;
-		float justify_y = (mx_dist - dist_y) * 0.5f;
-
-		this->m_render_ortho_scale = glm::round((mx_dist / 1024.0f) / 0.01f) * 0.01f * 1024.0f;
-		this->m_view_origin = glm::vec2((x_bounds_min + x_bounds_max) * 0.5f, (y_bounds_min + y_bounds_max) * 0.5f);
-
-		// Calculate optimal projections
-		this->m_pmPersp = glm::ortho(mx_dist * 0.5f, -mx_dist * 0.5f, mx_dist * 0.5f, -mx_dist * 0.5f, -10000.0f, 10000.0f);
-		this->m_pmView = glm::lookAt(
-			glm::vec3(m_view_origin.x, 0, m_view_origin.y), 
-			glm::vec3(m_view_origin.x, -1, m_view_origin.y), 
-			glm::vec3(0, 0, 1));
+		// Initial boundary check
+		recalc_bounds();
 
 		// Get map splits
 		std::vector<entity*> splitters = v->get_entities_by_classname("tar_map_divider");
@@ -240,10 +248,19 @@ public:
 		this->layers.push_back(tar_config_layer(splits.back(), -10000.0f));
 	}
 
-	void gen_textures(ImGradient& grad) {
-		glGenTextures(1, &this->m_gradient_texture);
-		glBindTexture(GL_TEXTURE_2D, this->m_gradient_texture);
+	void gen_textures(ImGradient& grad, ImGradient& grad1) {
+		glGenTextures(2, this->m_gradient_textures);
+		glBindTexture(GL_TEXTURE_2D, this->m_gradient_textures[0]);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, grad.cache_ptr());
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+		glBindTexture(GL_TEXTURE_2D, this->m_gradient_textures[1]);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, grad1.cache_ptr());
 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -253,8 +270,8 @@ public:
 	}
 
 	// Update the gradient texture with ImGradient
-	void update_gradient(ImGradient& grad) {
-		glBindTexture(GL_TEXTURE_2D, this->m_gradient_texture);
+	void update_gradient(ImGradient& grad, const unsigned int& id = 0) {
+		glBindTexture(GL_TEXTURE_2D, this->m_gradient_textures[id]);
 		glTexSubImage2D(
 			GL_TEXTURE_2D,
 			0,
@@ -272,8 +289,8 @@ public:
 	void update_gradient(const int& presetID) { }
 
 	// Bind gradient texture to slot
-	void bind_gradient_texture(const unsigned int& slot = 0) {
+	void bind_gradient_texture(const unsigned int& slot = 0, const unsigned int& id = 0) {
 		glActiveTexture(GL_TEXTURE0 + slot);
-		glBindTexture(GL_TEXTURE_2D, this->m_gradient_texture);
+		glBindTexture(GL_TEXTURE_2D, this->m_gradient_textures[id]);
 	}
 };

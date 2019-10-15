@@ -2,7 +2,7 @@ versioninfo
 {
 	"editorversion" "400"
 	"editorbuild" "8365"
-	"mapversion" "790"
+	"mapversion" "791"
 	"formatversion" "100"
 	"prefab" "0"
 }
@@ -50,7 +50,7 @@ viewsettings
 world
 {
 	"id" "1"
-	"mapversion" "790"
+	"mapversion" "791"
 	"classname" "worldspawn"
 	"detailmaterial" "detail/detailsprites"
 	"detailvbsp" "detail.vbsp"
@@ -69593,7 +69593,6 @@ world
 		{
 			"color" "220 220 220"
 			"groupid" "143662"
-			"visgroupid" "23"
 			"visgroupshown" "1"
 			"visgroupautoshown" "1"
 		}
@@ -69671,7 +69670,6 @@ world
 		{
 			"color" "220 220 220"
 			"groupid" "143662"
-			"visgroupid" "23"
 			"visgroupshown" "1"
 			"visgroupautoshown" "1"
 		}
@@ -69749,7 +69747,6 @@ world
 		{
 			"color" "220 220 220"
 			"groupid" "143662"
-			"visgroupid" "23"
 			"visgroupshown" "1"
 			"visgroupautoshown" "1"
 		}
@@ -69827,7 +69824,6 @@ world
 		{
 			"color" "220 220 220"
 			"groupid" "143662"
-			"visgroupid" "23"
 			"visgroupshown" "1"
 			"visgroupautoshown" "1"
 		}
@@ -69905,7 +69901,6 @@ world
 		{
 			"color" "220 220 220"
 			"groupid" "143662"
-			"visgroupid" "23"
 			"visgroupshown" "1"
 			"visgroupautoshown" "1"
 		}
@@ -69983,7 +69978,6 @@ world
 		{
 			"color" "220 220 220"
 			"groupid" "143662"
-			"visgroupid" "23"
 			"visgroupshown" "1"
 			"visgroupautoshown" "1"
 		}

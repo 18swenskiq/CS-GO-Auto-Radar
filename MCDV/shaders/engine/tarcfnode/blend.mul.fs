@@ -13,5 +13,5 @@ void main()
 {
 	vec4 s_a = vec4(texture(MainTex, TexCoords));
 	vec4 s_b = vec4(texture(MainTex1, TexCoords));
-	FragColor = vec4(s_a.rgb + (s_b.rgb * factor), 1);
+	FragColor = vec4(s_a.rgb * s_b.rgb, 1);
 }

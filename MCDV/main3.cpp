@@ -48,6 +48,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+uint64_t GLOBAL_VAR = 32434;
+
 // OpenGL error callback.
 void APIENTRY openglCallbackFunction(GLenum source,
 	GLenum type,
@@ -99,7 +101,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 
 // Source sdk config
 std::string g_game_path = "D:/SteamLibrary/steamapps/common/Counter-Strike Global Offensive/csgo";
-std::string g_mapfile_path = "sample_stuff/map_01";
+std::string g_mapfile_path = "sample_stuff/de_tavr_test";
 
 // shaders
 Shader* g_shader_color;
@@ -118,12 +120,76 @@ vmf* g_vmf_file;
 tar_config* g_tar_config;
 
 TARCF::NodeInstance* nodet_gradient;
+TARCF::NodeInstance* nodet_gradient1;
 TARCF::NodeInstance* nodet_blend;
 TARCF::NodeInstance* nodet_ao_color;
 TARCF::NodeInstance* nodet_ao;
+TARCF::NodeInstance* nodet_ao_overlap;
 TARCF::NodeInstance* nodet_vmf;
+TARCF::NodeInstance* nodet_vmf_cleanheight;
+TARCF::NodeInstance* nodet_vmf_overlap;
+TARCF::NodeInstance* nodet_vmf_overlap_cleanheight;
+TARCF::NodeInstance* nodet_vmf_cover;
 TARCF::NodeInstance* nodet_blur;
+TARCF::NodeInstance* nodet_bombsite_color;
+TARCF::NodeInstance* nodet_buyzone_color;
+TARCF::NodeInstance* nodet_bgblend;
+TARCF::NodeInstance* nodet_mask_layout;
+TARCF::NodeInstance* nodet_mask_overlap;
+TARCF::NodeInstance* nodet_mask_cover;
+TARCF::NodeInstance* nodet_maskt;
+TARCF::NodeInstance* nodet_mask_buyzone;
 GRAPHS::OutlineWithGlow* glowTest;
+GRAPHS::OutlineWithGlow* glow_buyzone;
+
+void routine_vmf_changed(uint32_t specid) {
+	BoundingBox prev = g_tar_config->m_map_bounds;
+	g_tar_config->recalc_bounds();
+	
+	bool proj_change = false;
+
+	// Update projections if boundaries change
+	if (prev.MIN != g_tar_config->m_map_bounds.MIN || prev.MAX != g_tar_config->m_map_bounds.MAX) {
+		nodet_vmf->setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
+		nodet_vmf->setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
+		nodet_vmf_overlap->setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
+		nodet_vmf_overlap->setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
+		nodet_maskt->setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
+		nodet_maskt->setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
+		nodet_mask_layout->setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
+		nodet_mask_layout->setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
+		nodet_mask_overlap->setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
+		nodet_mask_overlap->setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
+		nodet_ao->setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
+		nodet_ao->setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
+		nodet_ao_overlap->setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
+		nodet_ao_overlap->setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
+		nodet_mask_cover->setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
+		nodet_mask_cover->setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
+	
+		nodet_vmf_cleanheight->setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
+		nodet_vmf_cleanheight->setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
+		nodet_vmf_overlap_cleanheight->setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
+		nodet_vmf_overlap_cleanheight->setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
+
+		proj_change = true;
+	}
+
+	if ((specid & (TAR_CHANNEL_LAYOUT | TAR_CHANNEL_MASK)) || proj_change) {
+		nodet_vmf->markChainDirt();
+		nodet_mask_layout->markChainDirt();
+		nodet_vmf_cleanheight->markChainDirt();
+
+		nodet_vmf_overlap->markChainDirt();
+		nodet_mask_overlap->markChainDirt();
+		nodet_vmf_overlap_cleanheight->markChainDirt();
+	}
+
+	if ((specid & (TAR_CHANNEL_COVER | TAR_CHANNEL_MASK)) || proj_change) {
+		nodet_mask_cover->markChainDirt();
+	}
+}
+
 
 int display_w, display_h;
 
@@ -161,7 +227,17 @@ void ui_clear_conf(const char* id, uint32_t clearChannel) {
 		ImGui::Text("This operation cannot be undone!\n\n");
 		ImGui::Separator();
 
-		if (ImGui::Button("OK", ImVec2(120, 0))) { ImGui::CloseCurrentPopup(); clear_channel(g_vmf_file, clearChannel); }
+		if (ImGui::Button("OK", ImVec2(120, 0))) { 
+			ImGui::CloseCurrentPopup(); 
+			clear_channel(g_vmf_file, clearChannel); 
+			
+			// Update VMF dependent TARCF nodes.
+			//nodet_vmf->markChainDirt(); nodet_mask_layout->markChainDirt(); 
+			//nodet_vmf_overlap->markChainDirt(); nodet_mask_overlap->markChainDirt();
+			routine_vmf_changed(clearChannel);
+		}
+
+
 		ImGui::SetItemDefaultFocus();
 		ImGui::SameLine();
 		if (ImGui::Button("Cancel", ImVec2(120, 0))) { ImGui::CloseCurrentPopup(); }
@@ -204,8 +280,8 @@ void ui_render_vgroup_edit() {
 
 	ImGui::Separator();
 
-	ImGui::Text("Mask preview:");
-	ImGui::Image((void*)nodet_blend->m_gl_texture_ids[0], ImVec2(256, 256), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1,1,1,1), ImVec4(0,0,0,1));
+	ImGui::Text("Preview:");
+	ImGui::Image((void*)nodet_bgblend->m_gl_texture_ids[0], ImVec2(300, 300), ImVec2(0, 1), ImVec2(1, 0), ImVec4(1,1,1,1), ImVec4(0,0,0,1));
 }
 
 // Main menu and related 'main' windows
@@ -278,14 +354,19 @@ void vmf_render_mask_preview(vmf* v, FrameBuffer* fb, const glm::mat4& viewm, co
 }
 
 ImGradient gradient;
+ImGradient gradient1;
 
 float blurtestr = 10.0f;
 
 void ui_render_dev() {
 	static bool s_ui_show_gradient = false;
+	static bool s_ui_show_gradient1 = false;
 
 	static ImGradientMark* draggingMark = nullptr;
 	static ImGradientMark* selectedMark = nullptr;
+
+	static ImGradientMark* draggingMark1 = nullptr;
+	static ImGradientMark* selectedMark1 = nullptr;
 
 	ImGui::SetNextWindowPos(ImVec2(io->DisplaySize.x, 19), ImGuiCond_FirstUseEver, ImVec2(1.0f, 0.0f));
 	//ImGui::Begin("Editor", (bool*)0, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
@@ -293,10 +374,6 @@ void ui_render_dev() {
 
 	// ============================= LIGHTING TAB ==========================================
 	ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
-
-	if (ImGui::SliderFloat("Blur test radius", &blurtestr, 0.1f, 30.0f, "%.1f")) {
-		nodet_blur->setPropertyEx<float>("radius", blurtestr);
-	}
 
 	if (ImGui::CollapsingHeader("Lighting Options")) {
 		if (ImGui::BeginTabBar("Lighting")) {
@@ -337,9 +414,9 @@ void ui_render_dev() {
 		}
 	}
 
-	// =============================== COLORS TAB ============================================
+	// ============================= GRADIENTS TAB ===========================================
 	ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
-	if (ImGui::CollapsingHeader("Color Options")) {
+	if (ImGui::CollapsingHeader("Gradient options")) {
 		ImGui::Text("Heightmap Colors:");
 
 		if (ImGui::GradientButton(&gradient)) {
@@ -371,23 +448,40 @@ void ui_render_dev() {
 			}
 		}
 
-		if (ImGui::SliderFloat("Corner Rounding", &glowTest->corner_rounding, 0.0f, 5.0f, "%.2f")) {
-			glowTest->update_rounding(glowTest->corner_rounding);
-		}
+		ImGui::Text("Cover Colors:");
 
-		if (ImGui::SliderFloat("Outline Width", &glowTest->outline_width, 0.0f, 10.0f, "%.1f")) {
-			glowTest->update_width(glowTest->outline_width);
+		ImGui::PushID("tfbttn");
+		if (ImGui::GradientButton(&gradient1)) {
+			s_ui_show_gradient1 = !s_ui_show_gradient1;
 		}
+		ImGui::PopID();
 
-		if (ImGui::SliderInt("glow_radius", &glowTest->glow_radius, 0, 128)) {
-			glowTest->update_glow_radius(glowTest->glow_radius);
+		if (s_ui_show_gradient1) {
+			ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
+			ImGui::Begin("Editing gradient: 'Cover Colors'", &s_ui_show_gradient1, ImGuiWindowFlags_NoCollapse);
+			bool updated = ImGui::GradientEditor(&gradient1, draggingMark1, selectedMark1);
+			ImGui::End();
+
+			if (updated) {
+				// Routine update gradient ... 
+				g_tar_config->update_gradient(gradient1, 1);
+				nodet_gradient1->markChainDirt();
+			}
 		}
-
-	} else {
+	} else { // onclose
 		s_ui_show_gradient = false;
 	}
+
+	// =============================== COLORS TAB ============================================
+	ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
+	if (ImGui::CollapsingHeader("Color Options")) {
+		glowTest->imgui_hook(nodet_bombsite_color, glm::value_ptr(g_tar_config->m_color_objective), "Objective");
+		glow_buyzone->imgui_hook(nodet_buyzone_color, glm::value_ptr(g_tar_config->m_color_buyzone), "Buyzone");
+	}
+	else { } // onclose
 	ImGui::End();
 }
+
 
 Mesh* mesh_debug_line;
 Shader* g_shader_test;
@@ -488,8 +582,8 @@ int app(int argc, char** argv) {
 	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
 
 	// Theme
-	ImGui::theme_apply_psui();
-	ImGui::theme_apply_eu4();
+	//ImGui::theme_apply_psui();
+	//ImGui::theme_apply_eu4();
 
 	// Setup platform / renderer bindings
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
@@ -538,7 +632,7 @@ int app(int argc, char** argv) {
 
 #pragma endregion
 
-	g_tar_config->gen_textures(gradient);
+	g_tar_config->gen_textures(gradient, gradient1);
 	g_vmf_file->InitOpenglData();
 
 	glm::vec3 pos = glm::vec3(0.0, 4224.0, -4224.0);
@@ -559,28 +653,97 @@ int app(int argc, char** argv) {
 
 	nodet_vmf = new TARCF::NodeInstance(1024, 1024, "vmf.gbuffer");
 	nodet_vmf->setPropertyEx<vmf*>("vmf", g_vmf_file);
-	nodet_vmf->setPropertyEx<unsigned int>("layers", TAR_CHANNEL_LAYOUT);
+	nodet_vmf->setPropertyEx<unsigned int>("layers", TAR_CHANNEL_LAYOUT_0 | TAR_CHANNEL_COVER);
 	nodet_vmf->setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
 	nodet_vmf->setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
 	nodet_vmf->compute();
 
+	nodet_vmf_cleanheight = new TARCF::NodeInstance(1024, 1024, "vmf.height");
+	nodet_vmf_cleanheight->setPropertyEx<vmf*>("vmf", g_vmf_file);
+	nodet_vmf_cleanheight->setPropertyEx<unsigned int>("layers", TAR_CHANNEL_LAYOUT_0);
+	nodet_vmf_cleanheight->setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
+	nodet_vmf_cleanheight->setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
+	nodet_vmf_cleanheight->compute();
+
+	nodet_vmf_overlap = new TARCF::NodeInstance(1024, 1024, "vmf.gbuffer");
+	nodet_vmf_overlap->setPropertyEx<vmf*>("vmf", g_vmf_file);
+	nodet_vmf_overlap->setPropertyEx<unsigned int>("layers", TAR_CHANNEL_LAYOUT | TAR_CHANNEL_COVER);
+	nodet_vmf_overlap->setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
+	nodet_vmf_overlap->setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
+	nodet_vmf_overlap->compute();
+
+	nodet_vmf_overlap_cleanheight = new TARCF::NodeInstance(1024, 1024, "vmf.height");
+	nodet_vmf_overlap_cleanheight->setPropertyEx<vmf*>("vmf", g_vmf_file);
+	nodet_vmf_overlap_cleanheight->setPropertyEx<unsigned int>("layers", TAR_CHANNEL_LAYOUT);
+	nodet_vmf_overlap_cleanheight->setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
+	nodet_vmf_overlap_cleanheight->setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
+	nodet_vmf_overlap_cleanheight->compute();
+
+	// For calculating cover differences
+	TARCF::NodeInstance* nodet_rel1 = new TARCF::NodeInstance(1024, 1024, "vmf.relativeheight");
+	nodet_rel1->setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
+	nodet_rel1->setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
+
+	TARCF::NodeInstance* nodet_rel2 = new TARCF::NodeInstance(1024, 1024, "vmf.relativeheight");
+	nodet_rel2->setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
+	nodet_rel2->setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
+	
+	TARCF::NodeInstance::connect(nodet_vmf, nodet_rel1, 0, 0);
+	TARCF::NodeInstance::connect(nodet_vmf, nodet_rel1, 2, 1);
+	TARCF::NodeInstance::connect(nodet_vmf_cleanheight, nodet_rel1, 0, 2);
+	TARCF::NodeInstance::connect(nodet_vmf_overlap_cleanheight, nodet_rel1, 0, 3);
+
+	TARCF::NodeInstance::connect(nodet_vmf_overlap, nodet_rel2, 0, 0);
+	TARCF::NodeInstance::connect(nodet_vmf_overlap, nodet_rel2, 2, 1);
+	TARCF::NodeInstance::connect(nodet_vmf_cleanheight, nodet_rel2, 0, 2);
+	TARCF::NodeInstance::connect(nodet_vmf_overlap_cleanheight, nodet_rel1, 0, 3);
+	
+
 	// =============================================================================
 
-	TARCF::NodeInstance nodet_maskt = TARCF::NodeInstance(1024, 1024, "vmf.mask");
-	nodet_maskt.setPropertyEx<vmf*>("vmf", g_vmf_file);
-	nodet_maskt.setPropertyEx<unsigned int>("layers", TAR_CHANNEL_OBJECTIVES);
-	nodet_maskt.setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
-	nodet_maskt.setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
-	nodet_maskt.compute();
+	// == objective mask
+	nodet_maskt = new TARCF::NodeInstance(1024, 1024, "vmf.mask");
+	nodet_maskt->setPropertyEx<vmf*>("vmf", g_vmf_file);
+	nodet_maskt->setPropertyEx<unsigned int>("layers", TAR_CHANNEL_OBJECTIVES);
+	nodet_maskt->setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
+	nodet_maskt->setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
+	nodet_maskt->compute();
 
-	TARCF::NodeInstance nodet_mask_layout = TARCF::NodeInstance(1024, 1024, "vmf.mask");
-	nodet_mask_layout.setPropertyEx<vmf*>("vmf", g_vmf_file);
-	nodet_mask_layout.setPropertyEx<unsigned int>("layers", TAR_CHANNEL_LAYOUT);
-	nodet_mask_layout.setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
-	nodet_mask_layout.setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
-	nodet_mask_layout.compute();
+	// == Buyzone mask
+	nodet_mask_buyzone = new TARCF::NodeInstance(1024, 1024, "vmf.mask");
+	nodet_mask_buyzone->setPropertyEx<vmf*>("vmf", g_vmf_file);
+	nodet_mask_buyzone->setPropertyEx<unsigned int>("layers", TAR_CHANNEL_BUYZONE);
+	nodet_mask_buyzone->setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
+	nodet_mask_buyzone->setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
+	nodet_mask_buyzone->compute();
 
-	glowTest = new GRAPHS::OutlineWithGlow(&nodet_maskt, 0);
+	nodet_mask_layout = new TARCF::NodeInstance(1024, 1024, "vmf.mask");
+	nodet_mask_layout->setPropertyEx<vmf*>("vmf", g_vmf_file);
+	nodet_mask_layout->setPropertyEx<unsigned int>("layers", TAR_CHANNEL_LAYOUT);
+	nodet_mask_layout->setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
+	nodet_mask_layout->setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
+	nodet_mask_layout->compute();
+
+	nodet_mask_overlap = new TARCF::NodeInstance(1024, 1024, "vmf.mask");
+	nodet_mask_overlap->setPropertyEx<vmf*>("vmf", g_vmf_file);
+	nodet_mask_overlap->setPropertyEx<unsigned int>("layers", TAR_CHANNEL_LAYOUT_1);
+	nodet_mask_overlap->setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
+	nodet_mask_overlap->setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
+	nodet_mask_overlap->compute();
+
+	nodet_mask_cover = new TARCF::NodeInstance(1024, 1024, "vmf.mask");
+	nodet_mask_cover->setPropertyEx<vmf*>("vmf", g_vmf_file);
+	nodet_mask_cover->setPropertyEx<unsigned int>("layers", TAR_CHANNEL_COVER);
+	nodet_mask_cover->setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
+	nodet_mask_cover->setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
+	nodet_mask_cover->compute();
+
+	TARCF::NodeInstance nodet_tex_modulate = TARCF::NodeInstance(1024, 1024, "texture");
+	nodet_tex_modulate.setProperty("source", "textures/modulate.png");
+
+	glowTest = new GRAPHS::OutlineWithGlow(nodet_maskt, &nodet_tex_modulate);
+	glow_buyzone = new GRAPHS::OutlineWithGlow(nodet_mask_buyzone, &nodet_tex_modulate);
+	
 
 	// Glowy ==============================================================================================
 
@@ -588,6 +751,11 @@ int app(int argc, char** argv) {
 	nodet_ao->setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
 	nodet_ao->setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
 	nodet_ao->setPropertyEx<float>("radius", 256.0f);
+
+	nodet_ao_overlap = new TARCF::NodeInstance(1024, 1024, "aopass");
+	nodet_ao_overlap->setPropertyEx<glm::mat4>("matrix.view", g_tar_config->m_pmView);
+	nodet_ao_overlap->setPropertyEx<glm::mat4>("matrix.proj", g_tar_config->m_pmPersp);
+	nodet_ao_overlap->setPropertyEx<float>("radius", 256.0f);
 
 	TARCF::NodeInstance nBlackOver = TARCF::NodeInstance(2, 2, "color");
 	nBlackOver.setPropertyEx<glm::vec4>("color", glm::vec4(0, 0, 0, 1));
@@ -601,32 +769,87 @@ int app(int argc, char** argv) {
 	//nodet_shadow.setPropertyEx<glm::mat4>("matrix.proj", glm::ortho(g_tar_config->m_view_origin.x, g_tar_config->m_view_origin.x + g_tar_config->m_render_ortho_scale, g_tar_config->m_view_origin.y - g_tar_config->m_render_ortho_scale, g_tar_config->m_view_origin.y, -10000.0f, 10000.0f));
 	//nodet_shadow.setPropertyEx<float>("radius", 256.0f);
 
+	TARCF::NodeInstance nBlendPositionBuff = TARCF::NodeInstance(1024, 1024, "blendRGB16F");
+	TARCF::NodeInstance::connect(nodet_vmf, &nBlendPositionBuff, 0, 0);
+	TARCF::NodeInstance::connect(nodet_vmf_overlap, &nBlendPositionBuff, 0, 1);
+	TARCF::NodeInstance::connect(&nodet_tex_modulate, &nBlendPositionBuff, 0, 2);
+
 	nodet_gradient = new TARCF::NodeInstance(1024, 1024, "gradient");
-	nodet_gradient->setPropertyEx<int>("glGradientID", g_tar_config->m_gradient_texture);
+	nodet_gradient->setPropertyEx<int>("glGradientID", g_tar_config->m_gradient_textures[0]);
 	nodet_gradient->setPropertyEx<float>("min", g_tar_config->m_map_bounds.MIN.y);
 	nodet_gradient->setPropertyEx<float>("max", g_tar_config->m_map_bounds.MAX.y);
 	nodet_gradient->setPropertyEx<int>("channelID", 1);
 
-	TARCF::NodeInstance::connect(nodet_vmf, nodet_gradient, 0, 0);
+	TARCF::NodeInstance::connect(&nBlendPositionBuff, nodet_gradient, 0, 0);
 	TARCF::NodeInstance::connect(nodet_vmf, nodet_ao, 0, 0);
 	TARCF::NodeInstance::connect(nodet_vmf, nodet_ao, 1, 1);
+	TARCF::NodeInstance::connect(nodet_vmf_overlap, nodet_ao_overlap, 0, 0);
+	TARCF::NodeInstance::connect(nodet_vmf_overlap, nodet_ao_overlap, 1, 1);
+
+
+	TARCF::NodeInstance nBlendCoverBuf = TARCF::NodeInstance(1024, 1024, "blendRGB16F");
+	TARCF::NodeInstance::connect(nodet_rel1, &nBlendCoverBuf, 0, 0);
+	TARCF::NodeInstance::connect(nodet_rel2, &nBlendCoverBuf, 0, 1);
+	TARCF::NodeInstance::connect(&nodet_tex_modulate, &nBlendCoverBuf, 0, 2);
+
+	TARCF::NodeInstance extrMask = TARCF::NodeInstance(1024, 1024, "extractmask");
+	TARCF::NodeInstance::connect(&nBlendCoverBuf, &extrMask, 0, 0);
+
+	TARCF::NodeInstance extrMaskMul = TARCF::NodeInstance(1024, 1024, "blend");
+	TARCF::NodeInstance::connect(&extrMask, &extrMaskMul, 0, 0);
+	TARCF::NodeInstance::connect(nodet_mask_cover, &extrMaskMul, 0, 1);
+	extrMaskMul.setPropertyEx<signed int>("mode", TARCF::Atomic::Blend::BlendMode::BLEND_MUL);
+
+
+	nodet_gradient1 = new TARCF::NodeInstance(1024, 1024, "gradient");
+	nodet_gradient1->setPropertyEx<int>("glGradientID", g_tar_config->m_gradient_textures[1]);
+	nodet_gradient1->setPropertyEx<float>("min", 0.0f);
+	nodet_gradient1->setPropertyEx<float>("max", 512.0f);
+	nodet_gradient1->setPropertyEx<int>("channelID", 0);
+	TARCF::NodeInstance::connect(&nBlendCoverBuf, nodet_gradient1, 0, 0);
+
+	TARCF::NodeInstance blendGrad = TARCF::NodeInstance(1024, 1024, "blend");
+	TARCF::NodeInstance::connect(nodet_gradient, &blendGrad, 0, 0);
+	TARCF::NodeInstance::connect(nodet_gradient1, &blendGrad, 0, 1);
+	TARCF::NodeInstance::connect(&extrMaskMul, &blendGrad, 0, 2);
 
 	nodet_ao_color = new TARCF::NodeInstance(2, 2, "color");
 	nodet_ao_color->setPropertyEx<glm::vec4>("color", glm::vec4(0, 0, 0, 1));
 
+	TARCF::NodeInstance nAOModMaskBlend = TARCF::NodeInstance(1024, 1024, "blend");
+	nAOModMaskBlend.setPropertyEx<signed int>("mode", TARCF::Atomic::Blend::BlendMode::BLEND_MUL);
+
+	TARCF::NodeInstance::connect(&nodet_tex_modulate, &nAOModMaskBlend, 0, 0);
+	TARCF::NodeInstance::connect(nodet_mask_overlap, &nAOModMaskBlend, 0, 1);
+
+	
+	TARCF::NodeInstance nAOMod = TARCF::NodeInstance(1024, 1024, "blend");
+	TARCF::NodeInstance::connect(nodet_ao, &nAOMod, 0, 0);
+	TARCF::NodeInstance::connect(nodet_ao_overlap, &nAOMod, 0, 1);
+	TARCF::NodeInstance::connect(&nAOModMaskBlend, &nAOMod, 0, 2);
+
 	nodet_blend = new TARCF::NodeInstance(1024, 1024, "blend");
-	TARCF::NodeInstance::connect(nodet_gradient, nodet_blend, 0, 0);
+	TARCF::NodeInstance::connect(&blendGrad, nodet_blend, 0, 0);
 	TARCF::NodeInstance::connect(nodet_ao_color, nodet_blend, 0, 1);
-	TARCF::NodeInstance::connect(nodet_ao, nodet_blend, 0, 2);
+	TARCF::NodeInstance::connect(&nAOMod, nodet_blend, 0, 2);
 
 	TARCF::NodeInstance nodet_blend_bombsite = TARCF::NodeInstance(1024, 1024, "blend");
+	TARCF::NodeInstance nodet_blend_buyzone = TARCF::NodeInstance(1024, 1024, "blend");
 	
-	TARCF::NodeInstance nodet_bombsite_color = TARCF::NodeInstance(2, 2, "color");
-	nodet_bombsite_color.setPropertyEx<glm::vec4>("color", glm::vec4(1, 0, 0, 1));
+	nodet_bombsite_color = new TARCF::NodeInstance(2, 2, "color");
+	nodet_bombsite_color->setPropertyEx<glm::vec4>("color", g_tar_config->m_color_objective);
+
+	nodet_buyzone_color = new TARCF::NodeInstance(2, 2, "color");
+	nodet_buyzone_color->setPropertyEx<glm::vec4>("color", g_tar_config->m_color_buyzone);
 
 	glowTest->connect_output(&nodet_blend_bombsite, 2);
-	TARCF::NodeInstance::connect(&nodet_bombsite_color, &nodet_blend_bombsite, 0, 1);
+	TARCF::NodeInstance::connect(nodet_bombsite_color, &nodet_blend_bombsite, 0, 1);
 	TARCF::NodeInstance::connect(nodet_blend, &nodet_blend_bombsite, 0, 0);
+
+	glow_buyzone->connect_output(&nodet_blend_buyzone, 2);
+	TARCF::NodeInstance::connect(nodet_buyzone_color, &nodet_blend_buyzone, 0, 1);
+	TARCF::NodeInstance::connect(&nodet_blend_bombsite, &nodet_blend_buyzone, 0, 0);
+	
 
 	// Basically just transparent background
 	TARCF::NodeInstance transparent = TARCF::NodeInstance(2, 2, "color");
@@ -644,10 +867,10 @@ int app(int argc, char** argv) {
 	TARCF::NodeInstance nodet_background_image = TARCF::NodeInstance(1024, 1024, "texture");
 	nodet_background_image.setProperty("source", "textures/grid.png");
 
-	TARCF::NodeInstance nodet_bgblend = TARCF::NodeInstance(1024, 1024, "blend");
-	TARCF::NodeInstance::connect(&nodet_blend_bombsite, &nodet_bgblend, 0, 1);
-	TARCF::NodeInstance::connect(&nodet_background_image, &nodet_bgblend, 0, 0);
-	TARCF::NodeInstance::connect(&nodet_mask_layout, &nodet_bgblend, 0, 2);
+	nodet_bgblend = new TARCF::NodeInstance(1024, 1024, "blend");
+	TARCF::NodeInstance::connect(&nodet_blend_buyzone, nodet_bgblend, 0, 1);
+	TARCF::NodeInstance::connect(&nodet_background_image, nodet_bgblend, 0, 0);
+	TARCF::NodeInstance::connect(nodet_mask_layout, nodet_bgblend, 0, 2);
 
 
 	// Testing blur
@@ -679,11 +902,9 @@ int app(int argc, char** argv) {
 		}
 
 		
-		//glowTest->get_final()->compute();
-		nodet_bgblend.compute();
+		nodet_bgblend->compute();
 		glViewport(0, 0, display_w, display_h);
-		nodet_bgblend.debug_fs();
-		//glowTest->get_final()->debug_fs();
+		nodet_bgblend->debug_fs();
 
 #pragma region ImGui
 
@@ -816,7 +1037,7 @@ void selection_update(GLFWwindow* hWindow) {
 			//	10000.0f));	// FARZ);
 			////vmf_render_mask_preview(g_vmf_file, g_buff_maskpreview, g_tar_config., g_camera_main->getProjectionMatrix(display_w, display_h));
 
-			nodet_vmf->markChainDirt();
+			routine_vmf_changed(g_group_write);
 
 			return;
 		}

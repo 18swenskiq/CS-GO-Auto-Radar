@@ -852,8 +852,9 @@ public:
 		return v;
 	}
 
-	void DrawWorld(Shader* shader, glm::mat4 transformMatrix, std::function<void(solid*, entity*)> stateChange, const bool& stateChangeRecurse = true) {
-		shader->setMatrix("model", transformMatrix);
+	void DrawWorld(Shader* srcshader, glm::mat4 transformMatrix, std::function<void(solid*, entity*)> stateChange, const bool& stateChangeRecurse = true, Shader** shaderswitch = NULL) {
+		Shader** shader = shaderswitch? shaderswitch: &srcshader;
+		(*shader)->setMatrix("model", transformMatrix);
 
 		// Draw solids
 		for (auto&& solid: this->m_solids) {
@@ -862,7 +863,7 @@ public:
 			if (!solid.m_isShown()) continue;
 
 			stateChange(&solid, NULL);
-			solid.Draw(shader);
+			solid.Draw(*shader);
 		}
 
 		// Draw models
@@ -888,7 +889,7 @@ public:
 				tModel = glm::rotate(tModel, glm::radians(ent.m_angles.y), glm::vec3(1, 0, 0)); // rollzsd
 
 				tModel = glm::scale(tModel, glm::vec3(::atof(kv::tryGetStringValue(ent.m_keyvalues, "uniformscale", "1").c_str())));
-				shader->setMatrix("model", transformMatrix * tModel);
+				(*shader)->setMatrix("model", transformMatrix * tModel);
 
 				if (ent.mdl) {
 					ent.mdl->Bind();
@@ -897,9 +898,9 @@ public:
 			}
 			else { // Solid entities
 				stateChange(NULL, &ent);
-				shader->setMatrix("model", transformMatrix); // Reset model back to normal
+				(*shader)->setMatrix("model", transformMatrix); // Reset model back to normal
 				for (auto&& s: ent.m_internal_solids) {
-					s.Draw(shader);
+					s.Draw(*shader);
 				}
 			}
 		}
@@ -920,7 +921,7 @@ public:
 			tModel = glm::rotate(tModel, glm::radians(instance->m_angles.y), glm::vec3(1, 0, 0)); // rollzsd
 			
 			vmf* ptrvmf = this->m_sub_vmfs[kv::tryGetStringValue(instance->m_keyvalues, "file", "")];
-			if (ptrvmf != NULL) { ptrvmf->DrawWorld(shader, transformMatrix * tModel, stateChangeRecurse? stateChange: [](solid* s, entity* e) {}); }
+			if (ptrvmf != NULL) { ptrvmf->DrawWorld(*shader, transformMatrix * tModel, stateChangeRecurse? stateChange: [](solid* s, entity* e) {}); }
 		}
 	}
 

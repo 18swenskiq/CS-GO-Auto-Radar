@@ -26,6 +26,7 @@ class GBuffer {
 public:
 	inline static Mesh* s_previewMesh;
 	inline static Shader* s_gbufferwriteShader;
+	inline static Shader* s_gbufferwrite_cleanShader;
 
 	// 14 byte/px
 	// 14 megabyte @ 1024x1024
@@ -136,6 +137,7 @@ public:
 		// Shader
 		GBuffer::s_previewShader = new Shader("shaders/engine/screenbase.vs", "shaders/engine/gb.preview.fs", "shader.gbuffer.preview");
 		GBuffer::s_gbufferwriteShader = new Shader("shaders/source/se.gbuffer.vs", "shaders/source/se.gbuffer.fs", "shader.gbuffer.write");
+		GBuffer::s_gbufferwrite_cleanShader = new Shader("shaders/source/se.gbuffer.vs", "shaders/source/se.gbuffer.clean.fs", "shader.gbuffer.clean.write");
 	}
 
 	// Binds shader, mesh etc..
