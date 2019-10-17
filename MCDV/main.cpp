@@ -1,806 +1,1025 @@
-#include "globals.h"
+// Credits etc...
+#include "strings.h"
 
-/* Entry point */
-#ifdef entry_point_main
+// Imgui
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+#include "imgui_color_gradient.h"
+#include "imgui_color_gradient_presets.h"
+#include "imgui_themes.h"
 
-// STDLib
-#include <iostream>
+// STL
+#include <stdio.h>
 
-// OPENGL related
+// CXXOpts
+#include "cxxopts.hpp"
+
+// Loguru
+#include "loguru.hpp"
+
+// Source SDK
+#include "vfilesys.hpp"
+#include "studiomdl.hpp"
+#include "vmf.hpp"
+#include "tar_config.hpp"
+
 #include <glad\glad.h>
 #include <GLFW\glfw3.h>
-#include <glm\glm.hpp>
-#include "GLFWUtil.hpp"
 
-// Engine header files
+// Engine
+#include "Camera.hpp"
+#include "CompositorFrame.hpp"
+#include "CompositorGraphs.hpp"
+#include "vmftarcf.hpp"
+
+// Opengl
 #include "Shader.hpp"
-#include "Texture.hpp"
+#include "GBuffer.hpp"
 #include "FrameBuffer.hpp"
 
-// Valve header files
-#include "vmf.hpp"
+#include <glm\glm.hpp>
+#include <glm\gtc\matrix_transform.hpp>
+#include <glm\gtc\type_ptr.hpp>
 
-// Util
-#include "cxxopts.hpp"
-#include "interpolation.h"
-#include "vfilesys.hpp"
+// STB lib
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
-// Image stuff
-#define STBI_MSC_SECURE_CRT
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "stb_image_write.h"
-#include "dds.hpp"
-#include "GradientMap.hpp"
+// OpenGL error callback.
+void APIENTRY openglCallbackFunction(GLenum source,
+	GLenum type,
+	GLuint id,
+	GLenum severity,
+	GLsizei length,
+	const GLchar* message,
+	const void* userParam) {
+	if (type == GL_DEBUG_TYPE_OTHER) return; // We dont want general openGL spam.
 
-// Experimental
-//#define TAR_EXPERIMENTAL
+	LOG_F(WARNING, "--------------------------------------------------------- OPENGL ERROR ---------------------------------------------------------");
+	LOG_F(WARNING, "OpenGL message: %s", message);
 
-/* Grabs the currently bound framebuffer and saves it to a .png */
-void render_to_png(int x, int y, const char* filepath){
-	void* data = malloc(4 * x * y);
+	switch (type) {
+	case GL_DEBUG_TYPE_ERROR:
+		LOG_F(ERROR, "Type: ERROR"); break;
+	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
+		LOG_F(WARNING, "Type: DEPRECATED_BEHAVIOR"); break;
+	case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
+		LOG_F(ERROR, "Type: UNDEFINED_BEHAVIOR"); break;
+	case GL_DEBUG_TYPE_PORTABILITY:
+		LOG_F(WARNING, "Type: PORTABILITY"); break;
+	case GL_DEBUG_TYPE_PERFORMANCE:
+		LOG_F(WARNING, "Type: PERFORMANCE"); break;
+	case GL_DEBUG_TYPE_OTHER:
+		LOG_F(WARNING, "Type: OTHER"); break;
+	}
 
-	glReadPixels(0, 0, x, y, GL_RGBA, GL_UNSIGNED_BYTE, data);
+	LOG_F(WARNING, "ID: %u", id);
+	switch (severity) {
+	case GL_DEBUG_SEVERITY_LOW:
+		LOG_F(WARNING, "Severity: LOW"); break;
+	case GL_DEBUG_SEVERITY_MEDIUM:
+		LOG_F(WARNING, "Severity: MEDIUM"); break;
+	case GL_DEBUG_SEVERITY_HIGH:
+		LOG_F(WARNING, "Severity: HIGH"); break;
+	}
 
-	stbi_flip_vertically_on_write(true);
-	stbi_write_png(filepath, x, y, 4, data, x * 4);
-
-	free(data);
+	LOG_F(WARNING, "--------------------------------------------------------------------------------------------------------------------------------");
 }
 
-/* Grabs the currently bound framebuffer and saves it to a .dds */
-void save_to_dds(int x, int y, const char* filepath, IMG imgmode = IMG::MODE_DXT1) {
-	void* data = malloc(4 * x * y);
-
-	glReadPixels(0, 0, x, y, GL_RGB, GL_UNSIGNED_BYTE, data);
-
-	dds_write((uint8_t*)data, filepath, x, y, imgmode);
-
-	free(data);
+// GLFW function declerations
+static void glfw_error_callback(int error, const char* description) {
+	LOG_F(ERROR, "GLFW Error %d: %s", error, description);
 }
 
-/* Renders opengl in opaque mode (normal) */
-void opengl_render_opaque() {
-	glDisable(GL_BLEND);
-	glEnable(GL_DEPTH_TEST);
-	glDepthMask(GL_TRUE);
+void mouse_callback(GLFWwindow* window, double xpos, double ypos);
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
+
+// Source sdk config
+std::string g_game_path = "D:/SteamLibrary/steamapps/common/Counter-Strike Global Offensive/csgo";
+std::string g_mapfile_path = "sample_stuff/de_tavr_test";
+
+// shaders
+Shader* g_shader_color;
+Shader* g_shader_id;
+
+// Runtime
+Camera* g_camera_main;
+ImGuiIO* io;
+UIBuffer* g_buff_selection;
+FrameBuffer* g_buff_maskpreview;
+
+glm::vec3 g_debug_line_orig;
+glm::vec3 g_debug_line_point;
+
+vmf* g_vmf_file;
+tar_config* g_tar_config;
+
+// Main node graph
+// Todo: move to seperate header.
+
+TARCF::NodeInstance* nodet_gradient;
+TARCF::NodeInstance* nodet_gradient1;
+TARCF::NodeInstance* nodet_blend;
+
+TARCF::NodeInstance* nodet_ao_color;
+TARCF::NodeInstance* nodet_ao;
+TARCF::NodeInstance* nodet_ao_overlap;
+
+TARCF::NodeInstance* nodet_rel1;
+TARCF::NodeInstance* nodet_rel2;
+
+TARCF::NodeInstance* nodet_vmf;
+TARCF::NodeInstance* nodet_vmf_cleanheight;
+TARCF::NodeInstance* nodet_vmf_overlap;
+TARCF::NodeInstance* nodet_vmf_overlap_cleanheight;
+TARCF::NodeInstance* nodet_mask_layout;
+TARCF::NodeInstance* nodet_mask_overlap;
+TARCF::NodeInstance* nodet_mask_cover;
+TARCF::NodeInstance* nodet_maskt;
+TARCF::NodeInstance* nodet_mask_buyzone;
+
+TARCF::NodeInstance* nodet_blur;
+TARCF::NodeInstance* nodet_bombsite_color;
+TARCF::NodeInstance* nodet_buyzone_color;
+TARCF::NodeInstance* nodet_bgblend;
+
+GRAPHS::OutlineWithGlow* glowTest;
+GRAPHS::OutlineWithGlow* glow_buyzone;
+
+void routine_vmf_changed(uint32_t specid) {
+	BoundingBox prev = g_tar_config->m_map_bounds;
+	g_tar_config->recalc_bounds();
+	
+	bool proj_change = false;
+
+	// Update projections if boundaries change
+	if (prev.MIN != g_tar_config->m_map_bounds.MIN || prev.MAX != g_tar_config->m_map_bounds.MAX) {
+		proj_change = true;
+	}
+
+	// VMF projection nodes
+	nodet_vmf->markChainDirt();
+	nodet_vmf_cleanheight->markChainDirt();
+	nodet_vmf_overlap->markChainDirt();
+	nodet_vmf_overlap_cleanheight->markChainDirt();
+
+	// Projective merge nodes
+	nodet_rel1->markChainDirt();
+	nodet_rel2->markChainDirt();
+
+	// MASKS
+	nodet_mask_layout->markChainDirt();
+	nodet_mask_cover->markChainDirt();
+	nodet_mask_overlap->markChainDirt();
+	nodet_maskt->markChainDirt();
+	nodet_mask_buyzone->markChainDirt();
+
+	// AO Nodes
+	nodet_ao->markChainDirt();
+	nodet_ao_overlap->markChainDirt();
 }
 
-/* Renders opengl in addative mode */
-void opengl_render_additive() {
-	glDepthMask(GL_TRUE);
-	glEnable(GL_BLEND);
+int display_w, display_h;
 
-	// I still do not fully understand OPENGL blend modes. However these equations looks nice for the grid floor.
-	glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
-	glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ZERO, GL_ONE);
-}
+void setupconsole();
 
-/* Command line variables */
-#ifndef _DEBUG
-std::string m_mapfile_path;
-std::string m_game_path;
-#endif
-#ifdef _DEBUG
-std::string m_mapfile_path = "sample_stuff/de_tavr_test";
-std::string m_game_path = "D:/SteamLibrary/steamapps/common/Counter-Strike Global Offensive/csgo";
-#endif
+void viewmode_editgroups();
+void viewmode_fullradar();
+int viewmode = 0;
 
-//derived strings
-std::string m_mapfile_name;
-std::string m_overviews_folder;
-std::string m_resources_folder;
+// Terminate safely
+int safe_terminate() {
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
 
-vfilesys* filesys = NULL;
-
-#ifdef _DEBUG
-bool m_outputMasks = true;
-bool m_onlyOutputMasks;
-
-bool m_comp_shadows_enable = true;
-bool m_comp_ao_enable = true;
-#endif
-
-#ifndef _DEBUG
-bool m_outputMasks;
-bool m_onlyOutputMasks;
-
-bool m_comp_shadows_enable;
-bool m_comp_ao_enable;
-#endif
-
-//tar_config overrides
-uint32_t m_renderWidth = 1024;
-uint32_t m_renderHeight = 1024;
-bool m_enable_maskgen_supersample = true;
-
-bool tar_cfg_enableAO = true;
-int tar_cfg_aoSzie = 16;
-
-bool tar_cfg_enableShadows = false;
-
-bool tar_cfg_enableOutline = false;
-int tar_cfg_outlineSize = 2;
-
-Texture* tar_cfg_gradientMap;
-
-/* Main program */
-int app(int argc, const char** argv) {
-#ifndef _DEBUG
-	cxxopts::Options options("AutoRadar", "Auto radar");
-	options.add_options()
-		("v,version", "Shows the software version")
-		("g,game", "(REQUIRED) Specify game path", cxxopts::value<std::string>()->default_value(""))
-		("m,mapfile", "(REQUIRED) Specify the map file (vmf)", cxxopts::value<std::string>()->default_value(""))
-
-		("d,dumpMasks", "Toggles whether auto radar should output mask images (resources/map_file.resources/)")
-		("o,onlyMasks", "Specift whether auto radar should only output mask images and do nothing else (resources/map_file.resources)")
-
-		("ao", "[OBSOLETE] Turn on AO in the compisotor")
-		("shadows", "[OBSOLETE] Turn on Shadows in the compositor")
-
-		("w,width", "[OBSOLETE] Render width in pixels (experimental)", cxxopts::value<uint32_t>()->default_value("1024"))
-		("h,height", "[OBSOLETE] Render height in pixels (experimental)", cxxopts::value<uint32_t>()->default_value("1024"))
-
-		// Experimental
-		("autoModulate", "Enables automatic height modulation between two levels")
-		("minHeightDiff", "Minumum height difference(units) to modulate between two levels", cxxopts::value<int>()->default_value("128"))
-		
-		// Future
-		("useVBSP", "Use VBSP.exe to pre-process brush unions automatically")
-		("useLightmaps", "Use lightmaps generated by vvis in the VBSP. (If this flag is set, Auto Radar must be ran after vvis.exe)")
-
-		("positional", "Positional parameters", cxxopts::value<std::vector<std::string>>());
-
-	options.parse_positional("positional");
-	auto result = options.parse(argc, argv);
-
-	/* Check required parameters */
-	if (result.count("game")) m_game_path = sutil::ReplaceAll(result["game"].as<std::string>(), "\n", "");
-	else throw cxxopts::option_required_exception("game");
-	
-	if(result.count("mapfile")) m_mapfile_path = result["mapfile"].as<std::string>();
-	else if (result.count("positional")) {
-		auto& positional = result["positional"].as<std::vector<std::string>>();
-		
-		m_mapfile_path = sutil::ReplaceAll(positional[0], "\n", "");
-	}
-	else throw cxxopts::option_required_exception("mapfile"); // We need a map file
-
-	//Clean paths to what we can deal with
-	m_mapfile_path = sutil::ReplaceAll(m_mapfile_path, "\\", "/");
-	m_game_path = sutil::ReplaceAll(m_game_path, "\\", "/");
-
-	/* Check the rest of the flags */
-	m_onlyOutputMasks = result["onlyMasks"].as<bool>();
-	m_outputMasks = result["dumpMasks"].as<bool>() || m_onlyOutputMasks;
-
-	/* Render options */
-	m_renderWidth = result["width"].as<uint32_t>();
-	m_renderHeight = result["height"].as<uint32_t>();
-
-	m_comp_ao_enable = result["ao"].as<bool>();
-	m_comp_shadows_enable = result["shadows"].as<bool>();
-
-#endif
-
-	//Derive the ones
-	m_mapfile_name = split(m_mapfile_path, '/').back();
-	m_overviews_folder = m_game_path + "/resource/overviews/";
-	m_resources_folder = m_overviews_folder + m_mapfile_name + ".resources/";
-
-	/*
-	std::cout << "Launching with options:\n";
-	std::cout << "  Render width:    " << m_renderWidth << "\n";
-	std::cout << "  Render height:   " << m_renderHeight << "\n";
-	std::cout << "  Save masks?      " << (m_outputMasks ? "YES" : "NO") << "\n";
-	std::cout << "  Output to game?  " << (!m_onlyOutputMasks ? "YES" : "NO") << "\n\n";
-	std::cout << "  Game path:       " << m_game_path << "\n";
-	std::cout << "  Map path:        " << m_mapfile_path << "\n";
-	std::cout << "\n  -------- RENDER SETTINGS -------\n";
-	std::cout << "    AO:              " << (m_comp_ao_enable ? "YES" : "NO") << "\n";
-	std::cout << "    Shadows:         " << (m_comp_shadows_enable ? "YES" : "NO") << "\n";
-	*/
-
-	try {
-		filesys = new vfilesys(m_game_path + "/gameinfo.txt");
-	}
-	catch (std::exception e) {
-		std::cout << "Error creating vfilesys:\n";
-		std::cout << e.what() << "\n";
-		system("PAUSE");
-		return 0;
-	}
-
-	filesys->debug_info();
-
-	std::cout << "Initializing OpenGL\n";
-
-#pragma region init_opengl
-
-	glfwInit();
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3); //We are using version 3.3 of openGL
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
-	glfwWindowHint(GLFW_VISIBLE, GL_FALSE); // Window le nope
-	
-	//Create window
-	GLFWwindow* window = glfwCreateWindow(1, 1, "If you are seeing this window, something is broken", NULL, NULL);
-
-	//Check if window open
-	if (window == NULL){
-		std::cout << "Failed to create GLFW window" << std::endl;
-		glfwTerminate(); return -1;
-	}
-	glfwMakeContextCurrent(window);
-
-	//Settingn up glad
-	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)){
-		std::cout << "Failed to initialize GLAD" << std::endl; return -1;
-	}
-
-	const unsigned char* glver = glGetString(GL_VERSION);
-	std::cout << "(required: min core 3.3.0) opengl version: " << glver << "\n";
-
-	glEnable(GL_DEPTH_TEST);
-
-	glViewport(0, 0, m_renderWidth, m_renderHeight);
-
-	glClearColor(0.00f, 0.00f, 0.00f, 0.00f);
-
-	std::cout << "Creating render buffers\n";
-
-	FrameBuffer fb_tex_playspace = FrameBuffer(m_renderWidth, m_renderHeight);
-	FrameBuffer fb_tex_objectives = FrameBuffer(m_renderWidth, m_renderHeight);
-	FrameBuffer fb_comp = FrameBuffer(m_renderWidth * 2, m_renderHeight * 2);
-	FrameBuffer fb_comp_1 = FrameBuffer(m_renderWidth * 2, m_renderHeight * 2); //Reverse ordered frame buffer
-	FrameBuffer fb_final = FrameBuffer(m_renderWidth, m_renderHeight);
-
-	// Screenspace quad
-	std::cout << "Creating screenspace mesh\n";
-
-	std::vector<float> __meshData = {
-		-1, -1,
-		-1, 1,
-		1, -1,
-		-1, 1,
-		1, 1,
-		1, -1
-	};
-
-	Mesh* mesh_screen_quad = new Mesh(__meshData, MeshMode::SCREEN_SPACE_UV);
-
-#pragma endregion
-
-#pragma region shader_compilation
-
-	std::cout << "Compiling Shaders\n";
-	std::cout << "______________________________________________________________\n\n";
-
-	// Internal engine shaders
-	Shader shader_depth("shaders/depth.vs", "shaders/depth.fs");
-	Shader shader_unlit("shaders/unlit.vs", "shaders/unlit.fs");
-
-	// Compositing shaders
-	Shader shader_comp_main("shaders/fullscreenbase.vs", "shaders/ss_comp_main.fs"); // le big one
-	Shader shader_precomp_playspace("shaders/fullscreenbase.vs", "shaders/ss_precomp_playspace.fs"); // computes distance map
-	Shader shader_precomp_objectives("shaders/fullscreenbase.vs", "shaders/ss_precomp_objectives.fs"); // computes distance map
-
-	if (shader_depth.compileUnsuccessful || 
-		shader_unlit.compileUnsuccessful || 
-		shader_comp_main.compileUnsuccessful || 
-		shader_precomp_playspace.compileUnsuccessful || 
-		shader_precomp_objectives.compileUnsuccessful) {
-
-		std::cout << "______________________________________________________________\n";
-		std::cout << "Shader compilation step failed.\n";
-		glfwTerminate();
-#ifdef _DEBUG
-		system("PAUSE");
-#endif
-		return 1;
-	}
-
-	std::cout << "______________________________________________________________\n";
-	std::cout << "Shader compilation successful\n\n";
-
-	std::cout << "Loading textures... ";
-
-	Texture tex_background = Texture("textures/grid.png");
-	//Texture tex_gradient = Texture("textures/gradients/gradientmap_6.png", true);
-	Texture tex_height_modulate = Texture("textures/modulate.png");
-	
-	//GradientTexture gtex_gradient = GradientTexture(std::string("32 68 136 255"), std::string("149 0 0 255"), std::string("178 113 65"));
-
-	std::cout << "done!\n\n";
-
-#pragma endregion
-
-#pragma region map_load
-
-	std::cout << "Loading map file...\n";
-
-	vmf::vmf vmf_main(m_mapfile_path + ".vmf");
-	//vmf_main.setup_main();
-	//vmf_main.genVMFReferences(); // Load all our func_instances
-
-	//std::cout << "Generating Meshes...\n";
-
-	vmf_main.ComputeGLMeshes();
-	vmf_main.ComputeDisplacements();
-
-	// TAR entities
-	std::vector<vmf::Entity*> tavr_ent_tar_config = vmf_main.findEntitiesByClassName("tar_config");
-
-	if (tavr_ent_tar_config.size() > 1) {
-		std::cout << "More than 1 tar config found! Currently unsupported... Using last.\n";
-	}
-
-	vmf::Entity* tar_config = NULL;
-	if (tavr_ent_tar_config.size() > 0) {
-		tar_config = tavr_ent_tar_config.back();
-
-		// Color scheme
-		std::string schemeNum = kv::tryGetStringValue(tar_config->keyValues, "colorScheme", "0");
-		if (schemeNum == "-1") { // Custom color scheme
-			tar_cfg_gradientMap = new GradientTexture(
-				kv::tryGetStringValue(tar_config->keyValues, "customCol0", "0   0   0   255"),
-				kv::tryGetStringValue(tar_config->keyValues, "customCol1", "128 128 128 255"),
-				kv::tryGetStringValue(tar_config->keyValues, "customCol2", "255 255 255 255"));
-		} else {
-			tar_cfg_gradientMap = new Texture("textures/gradients/gradientmap_" + schemeNum + ".png", true);
-		}
-
-		// Ambient occlusion
-		tar_cfg_enableAO = (kv::tryGetStringValue(tar_config->keyValues, "enableAO", "1") == "1");
-		tar_cfg_aoSzie = kv::tryGetValue(tar_config->keyValues, "aoSize", 16);
-
-		// Outline
-		tar_cfg_enableOutline = (kv::tryGetStringValue(tar_config->keyValues, "enableOutline", "0") == "1");
-		tar_cfg_outlineSize = kv::tryGetValue(tar_config->keyValues, "outlineWidth", 2);
-
-		// Shadows
-		tar_cfg_enableShadows = (kv::tryGetStringValue(tar_config->keyValues, "enableShadows", "0") == "1");
-	}
-	else {
-		tar_cfg_gradientMap = new Texture("textures/gradients/gradientmap_6.png", true);
-	}
-
-	std::cout << "Collecting Objects... \n";
-	std::vector<vmf::Solid*> tavr_solids = vmf_main.getAllBrushesInVisGroup(tar_config == NULL? "tar_layout" : kv::tryGetStringValue(tar_config->keyValues, "vgroup_layout", "tar_layout"));
-	std::vector<vmf::Solid*> tavr_solids_negative = vmf_main.getAllBrushesInVisGroup(tar_config == NULL? "tar_mask" : kv::tryGetStringValue(tar_config->keyValues, "vgroup_negative", "tar_mask"));
-	std::vector<vmf::Solid*> tavr_entire_brushlist = vmf_main.getAllRenderBrushes();
-	std::vector<vmf::Solid*> tavr_cover = vmf_main.getAllBrushesInVisGroup(tar_config == NULL ? "tar_cover" : kv::tryGetStringValue(tar_config->keyValues, "vgroup_cover", "tar_cover"));
-	for (auto && v : tavr_cover) { v->temp_mark = true; tavr_solids.push_back(v); }
-
-	//std::vector<vmf::Solid*> tavr_solids_funcbrush = vmf_main.getAllBrushesByClassName("func_brush");
-	std::vector<vmf::Solid*> tavr_buyzones = vmf_main.getAllBrushesByClassName("func_buyzone");
-	std::vector<vmf::Solid*> tavr_bombtargets = vmf_main.getAllBrushesByClassName("func_bomb_target");
-
-	std::vector<vmf::Entity*> tavr_ent_tavr_height_min = vmf_main.findEntitiesByClassName("tar_min");
-	std::vector<vmf::Entity*> tavr_ent_tavr_height_max = vmf_main.findEntitiesByClassName("tar_max");
-
-	//Collect models
-	std::cout << "Collecting models... \n";
-	vmf_main.populateModelDict(filesys);
-	vmf_main.populatePropList(tar_config == NULL ? "tar_cover" : kv::tryGetStringValue(tar_config->keyValues, "vgroup_cover", "tar_cover"));
-
-	std::cout << "done!\n";
-
-#pragma region bounds
-	std::cout << "Calculating bounds... ";
-
-	vmf::BoundingBox limits = vmf::getSolidListBounds(tavr_solids);
-	float z_render_min = limits.SEL.y;
-	float z_render_max = limits.NWU.y;
-
-	// Overide entity heights
-	if (tavr_ent_tavr_height_min.size()) z_render_min = tavr_ent_tavr_height_min[0]->origin.z;
-	if (tavr_ent_tavr_height_max.size()) z_render_max = tavr_ent_tavr_height_max[0]->origin.z;
-
-	float padding = 128.0f;
-
-	float x_bounds_min = -limits.NWU.x - padding; //inflate distances slightly
-	float x_bounds_max = -limits.SEL.x + padding;
-
-	float y_bounds_min = limits.SEL.z - padding;
-	float y_bounds_max = limits.NWU.z + padding;
-
-	float dist_x = x_bounds_max - x_bounds_min;
-	float dist_y = y_bounds_max - y_bounds_min;
-
-	float mx_dist = glm::max(dist_x, dist_y);
-
-	float justify_x = (mx_dist - dist_x) * 0.5f;
-	float justify_y = (mx_dist - dist_y) * 0.5f;
-
-	float render_ortho_scale = glm::round((mx_dist / 1024.0f) / 0.01f) * 0.01f * 1024.0f; // Take largest, scale up a tiny bit. Clamp to 1024 min. Do some rounding.
-	glm::vec2 view_origin = glm::vec2(x_bounds_min - justify_x, y_bounds_max + justify_y);
-
-	std::cout << "done\n\n";
-#pragma endregion 
-
-#pragma endregion
-
-#pragma region OpenGLRender
-
-	std::cout << "Starting OpenGL Render\n";
-
-#pragma region render_playable_space
-	std::cout << "Rendering playable space... ";
-
-	// ======================================================== REGULAR ORDER ========================================================
-
-	glViewport(0, 0, m_renderWidth * 2, m_renderHeight * 2);
-
-	fb_comp.Bind(); //Bind framebuffer
-
-	glClearColor(0.00f, 0.00f, 0.00f, 1.00f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glPolygonMode(GL_FRONT, GL_FILL);
-	
-	shader_depth.use();
-	shader_depth.setMatrix("projection", glm::ortho(view_origin.x, view_origin.x + render_ortho_scale , view_origin.y - render_ortho_scale, view_origin.y, -1024.0f, 1024.0f));
-	shader_depth.setMatrix("view", glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, -1.0f, 0), glm::vec3(0, 0, 1)));
-		
-	glm::mat4 model = glm::mat4();
-	shader_depth.setMatrix("model", model);
-
-	shader_depth.setFloat("HEIGHT_MIN", z_render_min);
-	shader_depth.setFloat("HEIGHT_MAX", z_render_max);
-	shader_depth.setFloat("write_playable", 0.0f);
-
-	// Render entire map first
-	for (auto && brush : tavr_entire_brushlist) {
-		shader_depth.setFloat("write_cover", brush->temp_mark ? 1.0f : 0.0f);
-		brush->mesh->Draw();
-	}
-	glClear(GL_DEPTH_BUFFER_BIT);
-
-	// Render playable area over it
-	shader_depth.setFloat("write_playable", 1.0f);
-	for (auto && s_solid : tavr_solids) {
-		shader_depth.setFloat("write_cover", s_solid->temp_mark ? 1.0f : 0.0f);
-		if (!s_solid->containsDisplacements)
-			s_solid->mesh->Draw();
-		else {
-			for (auto && f : s_solid->faces) {
-				if (f.displacement != NULL) {
-					f.displacement->glMesh->Draw();
-				}
-			}
-		}
-	}
-
-#ifdef TAR_EXPERIMENTAL
-	// Render instances (experimental)
-	for (auto && sub_vmf : vmf_main.findEntitiesByClassName("func_instance")) {
-		std::string mapname = kv::tryGetStringValue(sub_vmf->keyValues, "file", "");
-
-		if (mapname == "") continue; //Something went wrong...
-
-		model = glm::mat4();
-
-		// do transforms
-		model = glm::translate(model, glm::vec3(-sub_vmf->origin.x, sub_vmf->origin.z, sub_vmf->origin.y));
-
-		// upload
-		shader_depth.setMatrix("model", model);
-
-		for (auto && solid : vmf_main.subvmf_references[mapname]->getAllBrushesInVisGroup("tar_cover")) {
-			shader_depth.setFloat("write_cover", solid->temp_mark ? 1.0f : 1.0f);
-			if (!solid->containsDisplacements)
-				solid->mesh->Draw();
-			else {
-				for (auto && f : solid->faces) {
-					if (f.displacement != NULL) {
-						f.displacement->glMesh->Draw();
-					}
-				}
-			}
-		}
-	}
-#endif // TAR_EXPERIMENTAL
-
-	// Render props
-	std::cout << "Rendering props\n";
-	shader_depth.setFloat("write_cover", 1.0f);
-	for (auto && s_prop : vmf_main.props) {
-		if (vmf_main.modelCache[s_prop.modelID] == NULL) continue; // Skip uncanched / errored models. This shouldn't happen if the vmf references everything normally and all files exist.
-
-		model = glm::mat4();
-		model = glm::translate(model, s_prop.origin); // Position
-		model = glm::rotate(model, glm::radians(s_prop.rotation.y), glm::vec3(0, 1, 0)); // Yaw 
-		model = glm::rotate(model, glm::radians(s_prop.rotation.x), glm::vec3(0, 0, 1)); // ROOOOOLLLLL
-		model = glm::rotate(model, -glm::radians(s_prop.rotation.z), glm::vec3(1, 0, 0)); // Pitch 
-		model = glm::scale(model, glm::vec3(s_prop.unifromScale)); // Scale
-
-		shader_depth.setMatrix("model", model);
-		vmf_main.modelCache[s_prop.modelID]->Draw();
-	}
-
-	model = glm::mat4();
-	shader_depth.setMatrix("model", model);
-
-	// Re render subtractive brushes
-	shader_depth.setFloat("write_playable", 0.0f);
-	for (auto && s_solid : tavr_solids_negative) {
-		shader_depth.setFloat("write_cover", s_solid->temp_mark ? 1.0f : 0.0f);
-		if (!s_solid->containsDisplacements)
-			s_solid->mesh->Draw();
-		else {
-			for (auto && f : s_solid->faces) {
-				if (f.displacement != NULL) {
-					f.displacement->glMesh->Draw();
-				}
-			}
-		}
-	}
-
-	// ======================================================== REVERSE ORDER ========================================================
-
-	fb_comp_1.Bind();
-
-	// Reverse rendering
-	glClearDepth(0);
-	glEnable(GL_CULL_FACE);
-	glDepthFunc(GL_GREATER);
-
-	glClearColor(0.00f, 0.00f, 0.00f, 1.00f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glPolygonMode(GL_FRONT, GL_FILL);
-
-	shader_depth.setFloat("HEIGHT_MIN", z_render_min);
-	shader_depth.setFloat("HEIGHT_MAX", z_render_max);
-	shader_depth.setFloat("write_playable", 0.0f);
-
-	for (auto && s_solid : tavr_solids) {
-		if (!s_solid->containsDisplacements)
-			s_solid->mesh->Draw();
-		else {
-			for (auto && f : s_solid->faces) {
-				if (f.displacement != NULL) {
-					f.displacement->glMesh->Draw();
-				}
-			}
-		}
-	}
-
-	// regular depth testing
-	glClearDepth(1);
-	glDepthFunc(GL_LESS);
-	glDisable(GL_CULL_FACE);
-
-	// ========================================================== PRE-COMP ===========================================================
-
-	glViewport(0, 0, m_renderWidth, m_renderHeight);
-
-	// Apply diffusion
-	fb_tex_playspace.Bind();
-
-	glClearColor(0.00f, 0.00f, 0.00f, 0.00f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glDisable(GL_DEPTH_TEST);
-	glPolygonMode(GL_FRONT, GL_FILL);
-
-	shader_precomp_playspace.use();
-
-	//shader_precomp_playspace.setFloat("HEIGHT_MIN", z_render_min);
-	//shader_precomp_playspace.setFloat("HEIGHT_MAX", z_render_max);
-
-	fb_comp.BindRTtoTexSlot(0);
-	shader_precomp_playspace.setInt("tex_in", 0);
-
-	fb_comp_1.BindRTtoTexSlot(1);
-	shader_precomp_playspace.setInt("tex_in_1", 1);
-
-	//tex_height_modulate.bindOnSlot(2);
-	//shader_precomp_playspace.setInt("tex_modulate", 2);
-
-	mesh_screen_quad->Draw();
-
-	glEnable(GL_DEPTH_TEST);
-
-	if(m_outputMasks) render_to_png(m_renderWidth, m_renderHeight, filesys->create_output_filepath("resource/overviews/" + m_mapfile_name + ".resources/playspace.png", true).c_str());
-
-	std::cout << "done!\n";
-#pragma endregion 
-
-#pragma region render_objectives
-	std::cout << "Rendering bombsites & buyzones space... ";
-
-	glViewport(0, 0, m_renderWidth * 2, m_renderHeight * 2);
-
-	fb_comp.Bind();
-
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glPolygonMode(GL_FRONT, GL_FILL);
-	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
-	shader_unlit.use();
-	shader_unlit.setMatrix("projection", glm::ortho(view_origin.x, view_origin.x + render_ortho_scale, view_origin.y - render_ortho_scale, view_origin.y, -1024.0f, 1024.0f));
-	shader_unlit.setMatrix("view", glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, -1.0f, 0), glm::vec3(0, 0, 1)));
-	shader_unlit.setMatrix("model", model);
-
-	shader_unlit.setVec3("color", 0.0f, 1.0f, 0.0f);
-
-	for (auto && s_solid : tavr_buyzones) {
-		s_solid->mesh->Draw();
-	}
-
-	fb_comp_1.Bind();
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	shader_unlit.setVec3("color", 1.0f, 0.0f, 0.0f);
-
-	for (auto && s_solid : tavr_bombtargets) {
-		s_solid->mesh->Draw();
-	}
-
-	// Apply diffusion
-	glViewport(0, 0, m_renderWidth, m_renderHeight);
-
-	fb_tex_objectives.Bind();
-
-	glClearColor(0.00f, 0.00f, 0.00f, 0.00f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glDisable(GL_DEPTH_TEST);
-	glPolygonMode(GL_FRONT, GL_FILL);
-
-	shader_precomp_objectives.use();
-
-	fb_comp.BindRTtoTexSlot(0);
-	shader_precomp_objectives.setInt("tex_in", 0);
-
-	fb_comp_1.BindRTtoTexSlot(1);
-	shader_precomp_objectives.setInt("tex_in_1", 1);
-
-	fb_tex_playspace.BindRTtoTexSlot(2);
-	shader_precomp_objectives.setInt("tex_in_2", 2);
-
-	mesh_screen_quad->Draw();
-
-	if (m_outputMasks) render_to_png(m_renderWidth, m_renderHeight, filesys->create_output_filepath("resource/overviews/" + m_mapfile_name + ".resources/buyzones_bombtargets.png", true).c_str());
-
-	glEnable(GL_DEPTH_TEST);
-	std::cout << "done!\n";
-#pragma endregion 
-
-#pragma region compositing
-	std::cout << "Compositing... \n";
-
-	fb_final.Bind();
-
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glPolygonMode(GL_FRONT, GL_FILL);
-
-	shader_comp_main.use();
-
-	/* Fill out shader uniforms */
-	/*
-		vec3 bounds_NWU     	North-West-Upper coordinate of the playspace (worldspace)
-		vec3 bounds_SEL 		South-East-Lower coordinate of the playspace (worldspace)
-		**vec2 bounds_NWU_SS 	North-West coordinate of the playspace (screen space)
-		**vec2 bounds_SEL_SS 	South-East coordinate of the playspace (screen space)
-
-		**vec2 pos_spawn_ct 	Location of the CT Spawn	(0-1)
-		**vec2 pos_spawn_t 		Location of the T Spawn	(0-1)
-		**vec2 bombsite_a 		Location of bomsite A	(0-1)
-		**vec2 bombsite_b  		Location of bombsite B	(0-1)
-	*/
-	shader_comp_main.setVec3("bounds_NWU", glm::vec3(x_bounds_min, y_bounds_max, z_render_max));
-	shader_comp_main.setVec3("bounds_SEL", glm::vec3(x_bounds_max, y_bounds_min, z_render_min));
-
-	/* Render flags */
-	shader_comp_main.setInt("cmdl_shadows_enable", tar_cfg_enableShadows ? 1 : 0);
-	shader_comp_main.setInt("cmdl_ao_enable", tar_cfg_enableAO ? 1 : 0);
-	shader_comp_main.setInt("cmdl_ao_size", tar_cfg_aoSzie);
-	shader_comp_main.setInt("cmdl_outline_enable", tar_cfg_enableOutline);
-	shader_comp_main.setInt("cmdl_outline_size", tar_cfg_outlineSize);
-
-	shader_comp_main.setVec4("outline_color", parseVec4(kv::tryGetStringValue(tar_config->keyValues, "zColOutline", "255 255 255 255")));
-	shader_comp_main.setVec4("ao_color", parseVec4(kv::tryGetStringValue(tar_config->keyValues, "zColAO", "255 255 255 255")));
-
-	shader_comp_main.setVec4("buyzone_color", parseVec4(kv::tryGetStringValue(tar_config->keyValues, "zColBuyzone", "255 255 255 255")));
-	shader_comp_main.setVec4("objective_color", parseVec4(kv::tryGetStringValue(tar_config->keyValues, "zColObjective", "255 255 255 255")));
-	shader_comp_main.setVec4("cover_color", parseVec4(kv::tryGetStringValue(tar_config->keyValues, "zColCover", "255 255 255 255")));
-
-	/* Bind texture samplers */
-	tex_background.bindOnSlot(0);
-	shader_comp_main.setInt("tex_background", 0);
-
-	fb_tex_playspace.BindRTtoTexSlot(1);
-	shader_comp_main.setInt("tex_playspace", 1);
-
-	fb_tex_objectives.BindRTtoTexSlot(2);
-	shader_comp_main.setInt("tex_objectives", 2);
-
-	tar_cfg_gradientMap->bindOnSlot(4);
-	shader_comp_main.setInt("tex_gradient", 4);
-
-	mesh_screen_quad->Draw();
-
-	std::cout << "done!\n";
-
-#pragma endregion 
-
-#pragma endregion
-
-#pragma region auto_export_game
-
-	if (!m_onlyOutputMasks) save_to_dds(m_renderWidth, m_renderHeight, filesys->create_output_filepath("resource/overviews/" + m_mapfile_name + "_radar.dds", true).c_str(), IMG::MODE_DXT1);
-	if (m_outputMasks) render_to_png(m_renderWidth, m_renderHeight, filesys->create_output_filepath("resource/overviews/" + m_mapfile_name + ".resources/raw.png", true).c_str());
-
-#pragma region generate_radar_txt
-
-	std::cout << "Generating radar .TXT... ";
-
-	kv::DataBlock node_radar = kv::DataBlock();
-	node_radar.name = m_mapfile_name;
-	node_radar.Values.insert({ "material", "overviews/" + m_mapfile_name });
-
-	node_radar.Values.insert({ "pos_x", std::to_string(view_origin.x) });
-	node_radar.Values.insert({ "pos_y", std::to_string(view_origin.y) });
-	node_radar.Values.insert({ "scale", std::to_string(render_ortho_scale / 1024.0f) });
-
-	// Try resolve spawn positions
-	glm::vec3* loc_spawnCT = vmf_main.calculateSpawnLocation(vmf::team::counter_terrorist);
-	glm::vec3* loc_spawnT = vmf_main.calculateSpawnLocation(vmf::team::terrorist);
-
-	if (loc_spawnCT != NULL) {
-		node_radar.Values.insert({ "CTSpawn_x", std::to_string(util::roundf(remap(loc_spawnCT->x, view_origin.x, view_origin.x + render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
-		node_radar.Values.insert({ "CTSpawn_y", std::to_string(util::roundf(remap(loc_spawnCT->y, view_origin.y, view_origin.y - render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
-	}
-	if (loc_spawnT != NULL) {
-		node_radar.Values.insert({ "TSpawn_x", std::to_string(util::roundf(remap(loc_spawnT->x, view_origin.x, view_origin.x + render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
-		node_radar.Values.insert({ "TSpawn_y", std::to_string(util::roundf(remap(loc_spawnT->y, view_origin.y, view_origin.y - render_ortho_scale, 0.0f, 1.0f), 0.01f)) });
-	}
-
-	std::ofstream out(filesys->create_output_filepath("resource/overviews/" + m_mapfile_name + ".txt", true).c_str());
-	out << "// TAVR - AUTO RADAR. v 2.0.0\n";
-	node_radar.Serialize(out);
-	out.close();
-
-	std::cout << "done!";
-
-#pragma endregion 
-#pragma endregion
-
-	std::cout << "\n- Radar generation successful... cleaning up. -\n";
-
-	//Exit safely
+	SHADER_CLEAR_ALL
 	glfwTerminate();
-#ifdef _DEBUG
-	system("PAUSE");
-#endif
-
 	return 0;
 }
 
+uint32_t g_group_write = TAR_CHANNEL_LAYOUT_0;
+uint32_t g_group_lock = TAR_CHANNEL_NONE;
 
-int main(int argc, const char** argv) {
+Texture* tex_ui_padlock;
+Texture* tex_ui_unpadlock;
+Texture* tex_ui_rubbish;
+
+void clear_channel(vmf* vmf, uint32_t channels) {
+	for (auto&& i: vmf->m_solids)	{ i.m_visibility = (i.m_visibility & ~channels); if(i.m_visibility == TAR_CHANNEL_NONE) i.m_visibility |= TAR_CHANNEL_DEFAULT; }
+	for (auto&& i: vmf->m_entities) { i.m_visibility = (i.m_visibility & ~channels); if(i.m_visibility == TAR_CHANNEL_NONE) i.m_visibility |= TAR_CHANNEL_DEFAULT; }
+}
+
+void ui_clear_conf(const char* id, uint32_t clearChannel) {
+	if (ImGui::BeginPopupModal(id, NULL, ImGuiWindowFlags_AlwaysAutoResize)){
+		ImGui::Text("This operation cannot be undone!\n\n");
+		ImGui::Separator();
+
+		if (ImGui::Button("OK", ImVec2(120, 0))) { 
+			ImGui::CloseCurrentPopup(); 
+			clear_channel(g_vmf_file, clearChannel); 
+			
+			// Update VMF dependent TARCF nodes.
+			//nodet_vmf->markChainDirt(); nodet_mask_layout->markChainDirt(); 
+			//nodet_vmf_overlap->markChainDirt(); nodet_mask_overlap->markChainDirt();
+			routine_vmf_changed(clearChannel);
+		}
+
+
+		ImGui::SetItemDefaultFocus();
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel", ImVec2(120, 0))) { ImGui::CloseCurrentPopup(); }
+		ImGui::EndPopup();
+	}
+}
+
+void ui_sub_vgroup(const char* name, const ImVec4& color, const uint32_t& groupid) {
+	ImGui::PushID((std::string(name) + "_lock").c_str());
+	if (ImGui::ImageButton((void*)((g_group_lock & groupid) ? tex_ui_padlock->texture_id : tex_ui_unpadlock->texture_id), ImVec2(18, 18), ImVec2(1, 1), ImVec2(0, 0), 0, ImVec4(0.0f, 0.0f, 0.0f, 1.0f)))
+	{ g_group_lock ^= groupid; }
+	ImGui::PopID();
+	ImGui::SameLine();
+	ImGui::PushID((std::string(name) + "_delete").c_str());
+	if (ImGui::ImageButton((void*)tex_ui_rubbish->texture_id, ImVec2(18, 18), ImVec2(1, 1), ImVec2(0, 0), 0, ImVec4(0.0f, 0.0f, 0.0f, 1.0f)))
+	{ ImGui::OpenPopup(("Clear " + std::string(name) + " group?").c_str()); std::cout << "YEET\n";}
+	ui_clear_conf(("Clear " + std::string(name) + " group?").c_str(), groupid);
+	ImGui::PopID();
+	ImGui::SameLine();
+
+	if (TARChannel::_compFlags(&g_group_lock, groupid)) { ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.6f); }
+	ImGui::PushStyleColor(ImGuiCol_Button,			ImVec4(color.x * 0.5, color.y * 0.5, color.z * 0.5, color.w));
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered,	ImVec4(color.x * 0.8, color.y * 0.8, color.z * 0.8, color.w));
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive,	color);
+	if (ImGui::Button(name)) { g_group_write = groupid; }
+	ImGui::PopStyleColor(3);
+	if (TARChannel::_compFlags(&g_group_lock, groupid)) ImGui::PopStyleVar();
+}
+
+// UI voids
+void ui_render_vgroup_edit() {
+	ImGui::Begin("Editor", (bool*)0);
+
+	ImGui::Text("Edit group:");
+
+	ui_sub_vgroup("layout", ImVec4(0.7f, 0.8f, 0.9f, 1.0f), TAR_CHANNEL_LAYOUT_0);
+	ui_sub_vgroup("overlap", ImVec4(0.3f, 0.6f, 0.9f, 1.0f), TAR_CHANNEL_LAYOUT_1);
+	ui_sub_vgroup("mask", ImVec4(0.9f, 0.0f, 0.0f, 1.0f), TAR_CHANNEL_MASK);
+	ui_sub_vgroup("cover", ImVec4(0.3f, 0.9f, 0.0f, 1.0f), TAR_CHANNEL_COVER);
+
+	ImGui::Separator();
+
+	ImGui::Text("Preview:");
+	ImGui::Image((void*)nodet_bgblend->m_gl_texture_ids[0], ImVec2(300, 300), ImVec2(0, 1), ImVec2(1, 0), ImVec4(1,1,1,1), ImVec4(0,0,0,1));
+}
+
+// Main menu and related 'main' windows
+void ui_render_main() {
+	static bool s_ui_window_about = false;
+
+	// ============================= FILE MENU =====================================
+	if (ImGui::BeginMainMenuBar()) {
+		if (ImGui::BeginMenu("File")) {
+			ImGui::MenuItem("(dummy menu)", NULL, false, false);
+			if (ImGui::MenuItem("New")) {}
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Help")) {
+			if (ImGui::MenuItem("Documentation")) {
+				// Open documentation
+			}
+			if (ImGui::MenuItem("About TAR")) {
+				s_ui_window_about = true;
+			}
+			ImGui::EndMenu();
+		}
+
+		ImGui::EndMainMenuBar();
+	}
+
+	// ============================= ABOUT TAR ======================================
+	if (s_ui_window_about) {
+		ImGui::SetNextWindowPos(ImVec2(io->DisplaySize.x / 2, io->DisplaySize.y / 2), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+		ImGui::SetNextWindowSize(ImVec2(600, -1), ImGuiCond_Always);
+		ImGui::Begin("About TAR", &s_ui_window_about, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
+
+		ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.4f), "Version: %s", tar_version);
+		ImGui::TextWrapped("%s", tar_credits_about);
+		ImGui::Separator();
+		ImGui::TextWrapped("Super mega cool donators:\n%s", tar_credits_donators);
+		ImGui::Separator();
+		ImGui::TextWrapped("Free software used:\n%s", tar_credits_freesoft);
+
+		if (ImGui::Button("                                       Close                                      ")) {
+			s_ui_window_about = false;
+		}
+
+		ImGui::End();
+	}
+}
+
+void vmf_render_mask_preview(vmf* v, FrameBuffer* fb, const glm::mat4& viewm, const glm::mat4& projm) {
+	fb->Bind();
+	glClearColor(0.1, 0.1, 0.1, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	static std::map<uint32_t, glm::vec3> color_lookup = {
+		{ TAR_CHANNEL_LAYOUT_0, glm::vec3(0.8f, 0.8f, 0.8f) },
+		{ TAR_CHANNEL_LAYOUT_1, glm::vec3(0.9f, 0.9f, 0.9f) },
+		{ TAR_CHANNEL_COVER,	glm::vec3(0.5f, 0.5f, 0.5f) },
+		{ TAR_CHANNEL_MASK,		glm::vec3(0.1f, 0.1f, 0.1f) }
+	};
+
+	TARChannel::setChannels( TAR_CHANNEL_LAYOUT | TAR_CHANNEL_COVER | TAR_CHANNEL_MASK );
+	g_shader_color->use();
+	g_shader_color->setMatrix("view", viewm);
+	g_shader_color->setMatrix("projection", projm);
+	g_vmf_file->DrawWorld(g_shader_color, glm::mat4(1.0f), [](solid* ptrSolid, entity* ptrEnt) {
+		if(ptrSolid) g_shader_color->setVec3("color", color_lookup[ptrSolid->m_visibility] );
+		if(ptrEnt) g_shader_color->setVec3("color", color_lookup[ptrEnt->m_visibility]);
+	});
+
+	FrameBuffer::Unbind();
+}
+
+ImGradient gradient;
+ImGradient gradient1;
+
+float blurtestr = 10.0f;
+
+void ui_render_dev() {
+	static bool s_ui_show_gradient = false;
+	static bool s_ui_show_gradient1 = false;
+
+	static ImGradientMark* draggingMark = nullptr;
+	static ImGradientMark* selectedMark = nullptr;
+
+	static ImGradientMark* draggingMark1 = nullptr;
+	static ImGradientMark* selectedMark1 = nullptr;
+
+	ImGui::SetNextWindowPos(ImVec2(io->DisplaySize.x, 19), ImGuiCond_FirstUseEver, ImVec2(1.0f, 0.0f));
+	//ImGui::Begin("Editor", (bool*)0, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
+	ImGui::Begin("Editor", (bool*)0);
+
+	// ============================= LIGHTING TAB ==========================================
+	ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
+
+	if (ImGui::CollapsingHeader("Lighting Options")) {
+		if (ImGui::BeginTabBar("Lighting")) {
+			if (ImGui::BeginTabItem("Occlusion"))
+			{
+				if (ImGui::Checkbox("Enable AO", &g_tar_config->m_ao_enable)) {
+					nodet_blend->setPropertyEx<float>("factor", g_tar_config->m_ao_enable ? 1.0f: 0.0f);
+				}
+
+				if (g_tar_config->m_ao_enable) {
+					if (ImGui::SliderFloat("AO Scale", &g_tar_config->m_ao_scale, 1.0f, 1500.0f, "%.1f")) {
+						nodet_ao->setPropertyEx<float>("radius", g_tar_config->m_ao_scale);
+					}
+
+					ImGui::Text("AO Color: ");
+					ImGui::SameLine();
+
+					if (ImGui::ColorEdit4("AO Color", glm::value_ptr(g_tar_config->m_color_ao), ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_AlphaBar)) {
+						nodet_ao_color->setPropertyEx<glm::vec4>("color", g_tar_config->m_color_ao);
+					}
+				}
+
+				ImGui::EndTabItem();
+			}
+
+			if (ImGui::BeginTabItem("Sun Light"))
+			{
+				ImGui::Checkbox("Shadows", &g_tar_config->m_shadows_enable);
+				if (g_tar_config->m_shadows_enable) {
+					ImGui::SliderFloat("Trace length", &g_tar_config->m_shadows_tracelength, 1.0f, 2048.0f, "%.1f");
+					ImGui::SliderInt("Sample Count", &g_tar_config->m_shadows_samplecount, 1, 512, "%d");
+				}
+
+				ImGui::EndTabItem();
+			}
+
+			ImGui::EndTabBar();
+		}
+	}
+
+	// ============================= GRADIENTS TAB ===========================================
+	ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
+	if (ImGui::CollapsingHeader("Gradient options")) {
+		ImGui::Text("Heightmap Colors:");
+
+		if (ImGui::GradientButton(&gradient)) {
+			s_ui_show_gradient = !s_ui_show_gradient;
+		}
+			
+		if (s_ui_show_gradient) {
+			ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
+			ImGui::Begin("Editing gradient: 'Heightmap Colors'", &s_ui_show_gradient, ImGuiWindowFlags_NoCollapse);
+			bool updated = ImGui::GradientEditor(&gradient, draggingMark, selectedMark);
+
+			ImGui::Separator();
+
+			ImGui::Text("Presets:");
+			if (ImGui::Button("Dust2")) { gradpreset::load_dust_2(&gradient); updated=true; } ImGui::SameLine();
+			if (ImGui::Button("Mirage")) { gradpreset::load_mirage(&gradient); updated=true; } ImGui::SameLine();
+			if (ImGui::Button("Overpass")) { gradpreset::load_overpass(&gradient); updated=true; } ImGui::SameLine();
+			if (ImGui::Button("Cache")) { gradpreset::load_cache(&gradient); updated=true; } ImGui::SameLine();
+			if (ImGui::Button("Inferno")) { gradpreset::load_inferno(&gradient); updated=true; } ImGui::SameLine();
+			if (ImGui::Button("Train")) { gradpreset::load_train(&gradient); updated=true; } ImGui::SameLine();
+			if (ImGui::Button("Nuke")) { gradpreset::load_nuke(&gradient); updated=true; } ImGui::SameLine();
+			if (ImGui::Button("Vertigo")) { gradpreset::load_vertigo(&gradient); updated=true; }
+			ImGui::End();
+
+			if (updated) {
+				// Routine update gradient ... 
+				g_tar_config->update_gradient(gradient);
+				nodet_gradient->markChainDirt();
+			}
+		}
+
+		ImGui::Text("Cover Colors:");
+
+		ImGui::PushID("tfbttn");
+		if (ImGui::GradientButton(&gradient1)) {
+			s_ui_show_gradient1 = !s_ui_show_gradient1;
+		}
+		ImGui::PopID();
+
+		if (s_ui_show_gradient1) {
+			ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
+			ImGui::Begin("Editing gradient: 'Cover Colors'", &s_ui_show_gradient1, ImGuiWindowFlags_NoCollapse);
+			bool updated = ImGui::GradientEditor(&gradient1, draggingMark1, selectedMark1);
+			ImGui::End();
+
+			if (updated) {
+				// Routine update gradient ... 
+				g_tar_config->update_gradient(gradient1, 1);
+				nodet_gradient1->markChainDirt();
+			}
+		}
+	} else { // onclose
+		s_ui_show_gradient = false;
+	}
+
+	// =============================== COLORS TAB ============================================
+	ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
+	if (ImGui::CollapsingHeader("Color Options")) {
+		glowTest->imgui_hook(nodet_bombsite_color, glm::value_ptr(g_tar_config->m_color_objective), "Objective");
+		glow_buyzone->imgui_hook(nodet_buyzone_color, glm::value_ptr(g_tar_config->m_color_buyzone), "Buyzone");
+	}
+	else { } // onclose
+	ImGui::End();
+}
+
+
+Mesh* mesh_debug_line;
+Shader* g_shader_test;
+
+int app(int argc, char** argv) {
+#pragma region loguru
+	setupconsole();
+
+	// Create log files ( log0 for me, contains everything. txt for user )
+	loguru::g_preamble_date = false;
+	loguru::g_preamble_time = false;
+	loguru::g_preamble_uptime = false;
+	loguru::g_preamble_thread = false;
+
+	loguru::init(argc, argv);
+	loguru::add_file("log.log0", loguru::FileMode::Truncate, loguru::Verbosity_MAX);
+	loguru::add_file("log.txt", loguru::FileMode::Truncate, loguru::Verbosity_INFO);
+
+	LOG_SCOPE_FUNCTION(INFO); // log main
+#pragma endregion
+
+#pragma region Source_SDK_setup
+
+	vfilesys* filesys = new vfilesys(g_game_path + "/gameinfo.txt");
+	vmf::LinkVFileSystem(filesys);
+
+
+	g_vmf_file = vmf::from_file(g_mapfile_path + ".vmf");
+	g_tar_config = new tar_config(g_vmf_file); // Create config
+
+#pragma endregion
+
+#pragma region opengl_setup
+	LOG_F(1, "Initializing GLFW");
+
+	// Setup window
+	glfwSetErrorCallback(glfw_error_callback);
+	glfwInit();
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+	//glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
+	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
+
+	//glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
+
+	GLFWwindow* window = glfwCreateWindow(800, 600, "Terri00's Auto Radar V3.0.0", NULL, NULL);
+	LOG_F(1, "Window created");
+
+	if (window == NULL) {
+		printf("GLFW died\n");
+		return safe_terminate();
+	}
+
+	glfwMaximizeWindow(window);
+	glfwMakeContextCurrent(window);
+	glfwSwapInterval(1);
+
+	// Set callbacks
+	glfwSetCursorPosCallback(window, mouse_callback);
+	glfwSetMouseButtonCallback(window, mouse_button_callback);
+
+	LOG_F(1, "Loading GLAD");
+
+	// Deal with GLAD
+	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+		LOG_F(ERROR, "Glad failed to initialize");
+		return safe_terminate();
+	}
+
+	const unsigned char* glver = glGetString(GL_VERSION);
+
+	LOG_F(1, "OpenGL context: %s", glver);
+
+	// Subscribe to error callbacks
+	if (glDebugMessageCallback) {
+		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+		glDebugMessageCallback(openglCallbackFunction, nullptr);
+		GLuint unusedIds = 0;
+		glDebugMessageControl(GL_DONT_CARE,
+			GL_DONT_CARE,
+			GL_DONT_CARE,
+			0,
+			&unusedIds,
+			true);
+	}
+	else {
+		LOG_F(ERROR, "glDebugMessageCallback not availible");
+	}
+
+#pragma endregion
+
+#pragma region Imgui_setup
+
+	// Setup Imgui context
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	io = &ImGui::GetIO(); (void)io;
+	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+
+	// Theme
+	//ImGui::theme_apply_psui();
+	//ImGui::theme_apply_eu4();
+
+	// Setup platform / renderer bindings
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init("#version 330 core");
+
+#pragma endregion
+
+#pragma region Opengl_setup2
+
+	glEnable(GL_DEPTH_TEST);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	glFrontFace(GL_CW);
+
+	// Initialize Gbuffer functions & create one
+	GBuffer::INIT();
+	GBuffer testBuffer = GBuffer(256, 256);
+	GBuffer layoutBuf2 = GBuffer(256, 256);
+	g_buff_selection = new UIBuffer(512, 512);
+	g_buff_maskpreview = new FrameBuffer(256, 256);
+
+	// Compile shaders block.
+	SHADER_COMPILE_START
+
+		GBuffer::compile_shaders();
+	UIBuffer::compile_shaders();
+	g_shader_test = new Shader("shaders/source/se.shaded.vs", "shaders/source/se.shaded.solid.fs", "shader.test");
+	g_shader_color = new Shader("shaders/engine/line.vs", "shaders/engine/line.fs");
+	g_shader_id = new Shader("shaders/engine/line.vs", "shaders/engine/id.fs");
+	TARCF::init();
+	TARCF::VMF_NODES_INIT();
+
+	if (!SHADER_COMPILE_END) return safe_terminate();
+
+	// Load textures
+	tex_ui_padlock = new Texture("textures/ui/lock_locked.png", false);
+	tex_ui_unpadlock = new Texture("textures/ui/lock_unlocked.png", false);
+	tex_ui_rubbish = new Texture("textures/ui/rubbish.png", false);
+
+	g_camera_main = new Camera(glm::vec3(0, 0, 0), glm::vec3(0, 0, 1));
+
+#pragma endregion
+
+#pragma region
+
+	mesh_debug_line = new Mesh({ 0,0,0, 0,0,-4096.0f, 0,0,0 }, MeshMode::POS_XYZ);
+
+#pragma endregion
+
+	g_tar_config->gen_textures(gradient, gradient1);
+	g_vmf_file->InitOpenglData();
+
+	glm::vec3 pos = glm::vec3(0.0, 4224.0, -4224.0);
+	glm::vec3 dir = glm::normalize(glm::vec3(0.0, -1.0, 1.0));
+
+	// Create test camera
+	glm::mat4 projm = glm::perspective(glm::radians(45.0f / 2.0f), (float)1024 / (float)1024, 32.0f, 100000.0f);
+	glm::mat4 viewm = glm::lookAt(pos, glm::vec3(0.0f), glm::vec3(0, 1, 0));
+
+	// Init gbuffer shader
+	GBuffer::s_gbufferwriteShader->use();
+	GBuffer::s_gbufferwriteShader->setMatrix("projection", projm);
+
+	gradpreset::load_vertigo(&gradient);
+	g_tar_config->update_gradient(gradient);
+
+	vmf_render_mask_preview(g_vmf_file, g_buff_maskpreview, glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, -1, 0), glm::vec3(0, 0, 1)), glm::ortho(0, 5000, -5000, 0, -4000, 4000));
+
+	nodet_vmf = TARCF::RenderBrushesGBuffer::instance( // VMF Gbuffer ==========================================================
+		1024, 1024, &g_tar_config->m_pmView, &g_tar_config->m_pmPersp, g_vmf_file, TAR_CHANNEL_LAYOUT_0 | TAR_CHANNEL_COVER
+	);
+
+	nodet_vmf_cleanheight = TARCF::RenderBrushesHeight::instance( // VMF height buffer (without cover) =========================
+		1024, 1024, &g_tar_config->m_pmView, &g_tar_config->m_pmPersp, g_vmf_file, TAR_CHANNEL_LAYOUT_0
+	);
+
+	nodet_vmf_overlap = TARCF::RenderBrushesGBuffer::instance( // VMF overlap Gbuffer ==========================================
+		1024, 1024, &g_tar_config->m_pmView, &g_tar_config->m_pmPersp, g_vmf_file, TAR_CHANNEL_LAYOUT | TAR_CHANNEL_COVER
+	);
+
+	nodet_vmf_overlap_cleanheight = TARCF::RenderBrushesHeight::instance( // Overlap height buffer =============================
+		1024, 1024, &g_tar_config->m_pmView, &g_tar_config->m_pmPersp, g_vmf_file, TAR_CHANNEL_LAYOUT
+	);
+
+	nodet_rel1 = TARCF::RelativeHeight::instance( // Cover difference (VMF) ====================================================
+		1024, 1024,
+		{ nodet_vmf },
+		{ nodet_vmf, 2 },
+		{ nodet_vmf_cleanheight },
+		{ nodet_vmf_overlap_cleanheight },
+		&g_tar_config->m_pmView, &g_tar_config->m_pmPersp
+	);
+
+	nodet_rel2 = TARCF::RelativeHeight::instance( // Cover difference (VMF Overlap) ============================================
+		1024, 1024,
+		{ nodet_vmf_overlap },
+		{ nodet_vmf_overlap, 2 },
+		{ nodet_vmf_cleanheight },
+		{ nodet_vmf_overlap_cleanheight },
+		&g_tar_config->m_pmView, &g_tar_config->m_pmPersp
+	);
+
+	// =========================================================================================================================
+
+	nodet_maskt = TARCF::RenderBrushesMask::instance( // Objective mask ========================================================
+		1024, 1024, &g_tar_config->m_pmView, &g_tar_config->m_pmPersp, g_vmf_file, TAR_CHANNEL_OBJECTIVES
+	);
+
+	nodet_mask_buyzone = TARCF::RenderBrushesMask::instance( // Buyzone mask ===================================================
+		1024, 1024, &g_tar_config->m_pmView, &g_tar_config->m_pmPersp, g_vmf_file, TAR_CHANNEL_BUYZONE
+	);
+
+	nodet_mask_layout = TARCF::RenderBrushesMask::instance( // Layout mask =====================================================
+		1024, 1024, &g_tar_config->m_pmView, &g_tar_config->m_pmPersp, g_vmf_file, TAR_CHANNEL_LAYOUT
+	);
+
+	nodet_mask_overlap = TARCF::RenderBrushesMask::instance( // Overlap mask ===================================================
+		1024, 1024, &g_tar_config->m_pmView, &g_tar_config->m_pmPersp, g_vmf_file, TAR_CHANNEL_LAYOUT_1
+	);
+
+	nodet_mask_cover = TARCF::RenderBrushesMask::instance( // Cover mask =======================================================
+		1024, 1024, &g_tar_config->m_pmView, &g_tar_config->m_pmPersp, g_vmf_file, TAR_CHANNEL_COVER
+	);
+
+	TARCF::NodeInstance* nodet_tex_modulate = TARCF::Atomic::TextureNode::instance( // Modulation texture ======================
+		1024, 1024, "textures/modulate.png"
+	);
+
+	// Glows for buzones and objections
+	// TODO: make this clean definitions... 
+	glowTest = new GRAPHS::OutlineWithGlow(nodet_maskt, nodet_tex_modulate);
+	glow_buyzone = new GRAPHS::OutlineWithGlow(nodet_mask_buyzone, nodet_tex_modulate);
+
+
+	// Glowy ===================================================================================================================
+
+	TARCF::NodeInstance* nBlackOver = TARCF::Atomic::Color::instance( // Black color for blending something ====================
+		2, 2, glm::vec4(0, 0, 0, 1)
+	);
+
+	TARCF::NodeInstance* nBlendPositionBuff = TARCF::Atomic::BlendRGB16F::instance( // Blending heightmaps based on modulate ===
+		1024, 1024,
+		{ nodet_vmf, 0 },
+		{ nodet_vmf_overlap, 0 },
+		{ nodet_tex_modulate, 0 }
+	);
+
+	nodet_gradient = TARCF::Atomic::GradientMap::instance( // Main height gradient =============================================
+		1024, 1024,
+		{ nBlendPositionBuff },
+		g_tar_config->m_gradient_textures[0], g_tar_config->m_map_bounds.MIN.y, g_tar_config->m_map_bounds.MAX.y, 1
+	);
+
+	nodet_ao = TARCF::Atomic::AmbientOcclusion::instance( // VMF AO ============================================================
+		1024, 1024,
+		{ nodet_vmf, 0 },
+		{ nodet_vmf, 1 },
+		&g_tar_config->m_pmView, &g_tar_config->m_pmPersp, 256.0f
+	);
+
+	nodet_ao_overlap = TARCF::Atomic::AmbientOcclusion::instance( // VMF AO ====================================================
+		1024, 1024,
+		{ nodet_vmf_overlap, 0 },
+		{ nodet_vmf_overlap, 1 },
+		&g_tar_config->m_pmView, &g_tar_config->m_pmPersp, 256.0f
+	);
+
+	TARCF::NodeInstance* nBlendCoverBuf = TARCF::Atomic::BlendRGB16F::instance( // Blending cover buffers together ============
+		1024, 1024,
+		{ nodet_rel1 },
+		{ nodet_rel2 },
+		{ nodet_tex_modulate }
+	);
+
+	TARCF::NodeInstance* extrMask = TARCF::Atomic::ExtractMask::instance( // Extract mask from relative height buffer =========
+		1024, 1024, 
+		{ nBlendCoverBuf }
+	);
+
+	TARCF::NodeInstance* extrMaskMul = TARCF::Atomic::Blend::instance( // Make sure cover mask is only cover ==================
+		1024, 1024,
+		{ extrMask },
+		{ nodet_mask_cover },
+		{},
+		TARCF::Atomic::Blend::BlendMode::BLEND_MUL
+	);
+
+	nodet_gradient1 = TARCF::Atomic::GradientMap::instance( // Cover gradient map =============================================
+		1024, 1024,
+		{ nBlendCoverBuf },
+		g_tar_config->m_gradient_textures[1], 0.0f, 512.0f, 0
+	);
+
+	TARCF::NodeInstance* blendGrad = TARCF::Atomic::Blend::instance( // Blending gradients together ===========================
+		1024, 1024,
+		{ nodet_gradient },
+		{ nodet_gradient1 },
+		{ extrMaskMul }
+	);
+
+	nodet_ao_color = TARCF::Atomic::Color::instance( // AO Color ==============================================================
+		2, 2, glm::vec4(0, 0, 0, 1)
+	);
+
+	TARCF::NodeInstance* extraBlend = TARCF::Atomic::Blend::instance(1024, 1024, // Mask blend modulation =====================
+
+		{ nodet_mask_overlap },
+		{ nodet_tex_modulate },
+		{},
+		TARCF::Atomic::Blend::BlendMode::BLEND_MUL
+	);
+
+	nodet_blend = TARCF::Atomic::Blend::instance( 1024, 1024, // Blend AO color with gradient =================================
+		{ blendGrad },
+		{ nodet_ao_color },
+
+		{ TARCF::Atomic::Blend::instance( 1024, 1024, // Blend both AO terms together =========================================
+			{ nodet_ao }, 
+			{ nodet_ao_overlap },
+			{ extraBlend }
+		)}
+	);
+
+	nodet_bombsite_color = TARCF::Atomic::Color::instance( 2, 2, g_tar_config->m_color_objective ); // Bombsite color =========
+	nodet_buyzone_color = TARCF::Atomic::Color::instance( 2, 2, g_tar_config->m_color_buyzone ); // Buyzone color =============
+
+	TARCF::NodeInstance* nodet_blend_bombsite = TARCF::Atomic::Blend::instance( // Blend bombsite color =======================
+		1024, 1024,
+		{ nodet_blend },
+		{ nodet_bombsite_color },
+		{ glowTest->get_final() }
+	);
+
+	TARCF::NodeInstance* nodet_blend_buyzone = TARCF::Atomic::Blend::instance( // Blend buyzone color =========================
+		1024, 1024,
+		{ nodet_blend_bombsite },
+		{ nodet_buyzone_color },
+		{ glow_buyzone->get_final() }
+	);
+
+	TARCF::NodeInstance* nodet_background_image = TARCF::Atomic::TextureNode::instance( // Radar background ===================
+		1024, 1024, "textures/grid.png"
+	);
+
+	nodet_bgblend = TARCF::Atomic::Blend::instance( // Final blend ============================================================
+		1024, 1024, 
+		{ nodet_background_image },
+		{ nodet_blend_buyzone },
+		{ nodet_mask_layout }
+	);
+
+	float time_last = 0.0f;
+	while (!glfwWindowShouldClose(window)) {
+		glfwPollEvents();
+
+		glfwGetFramebufferSize(window, &display_w, &display_h);
+		glViewport(0, 0, display_w, display_h);
+
+		float deltaTime = glfwGetTime() - time_last;
+		time_last = deltaTime + time_last;
+
+		g_camera_main->handleInput(window, deltaTime);
+
+		GBuffer::Unbind();
+
+		switch (viewmode) {
+		case(0): viewmode_editgroups(); break;
+		case(1): viewmode_fullradar(); break;
+		default: break;
+		}
+
+		
+		nodet_bgblend->compute();
+		glViewport(0, 0, display_w, display_h);
+		//nodet_bgblend->debug_fs();
+
+#pragma region ImGui
+
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
+		ui_render_main();
+		ui_render_vgroup_edit();
+		ui_render_dev();
+
+		ImGui::End();
+
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+#pragma endregion
+
+
+		glfwSwapBuffers(window);
+	}
+
+	return safe_terminate();
+}
+
+void viewmode_editgroups() {
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+	// Standard pass =================================================================================================================
+	g_shader_test->use();
+	g_shader_test->setMatrix("projection", g_camera_main->getProjectionMatrix(display_w, display_h));
+	g_shader_test->setMatrix("view", g_camera_main->getViewMatrix());
+
+	glClearColor(0.07, 0.07, 0.07, 0.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	static  std::map<uint32_t, glm::vec4> color_lookup = {
+		{ TAR_CHANNEL_LAYOUT_0, glm::vec4(0.4f, 0.5f, 0.6f, 1.0f) },
+		{ TAR_CHANNEL_LAYOUT_1, glm::vec4(0.1f, 0.3f, 0.6f, 1.0f) },
+		{ TAR_CHANNEL_COVER,	glm::vec4(0.1f, 0.6f, 0.0f, 1.0f) },
+		{ TAR_CHANNEL_MASK,		glm::vec4(0.6f, 0.0f, 0.0f, 1.0f) }
+	};
+
+	TARChannel::setChannels(TAR_CHANNEL_ALL);
+	g_vmf_file->DrawWorld(g_shader_test, glm::mat4(1.0f), [](solid* ptrSolid, entity* ptrEnt) {
+		g_shader_test->setVec4("color", glm::vec4(0.2, 0.2, 0.2, 0.2));
+		if(ptrSolid) if(color_lookup.count(ptrSolid->m_visibility)) g_shader_test->setVec4("color", color_lookup[ptrSolid->m_visibility] );
+		if(ptrEnt) if (color_lookup.count(ptrEnt->m_visibility)) g_shader_test->setVec4("color", color_lookup[ptrEnt->m_visibility]);
+	});
+
+
+}
+
+void viewmode_fullradar() {
+
+}
+
+void render_idmap() {
+	g_shader_id->use();
+	g_shader_id->setMatrix("projection", g_camera_main->getProjectionMatrix(display_w, display_h));
+	g_shader_id->setMatrix("view", g_camera_main->getViewMatrix());
+
+	g_buff_selection->Bind();
+	g_buff_selection->clear();
+
+	g_vmf_file->DrawWorld(g_shader_id, glm::mat4(1.0f), [](solid* solidPtr, entity* entPtr) {
+		if (solidPtr) g_shader_id->setUnsigned("id", solidPtr->_id);
+		if (entPtr) g_shader_id->setUnsigned("id", entPtr->_id);
+	}, false);
+
+	// Read pixels
+	UIBuffer::Unbind();
+}
+
+// Entry point
+int main(int argc, char** argv) {
 	try {
 		return app(argc, argv);
 	}
 	catch (cxxopts::OptionException& e) {
 		std::cerr << "Parse error: " << e.what() << "\n";
 	}
+	catch (std::exception& e) {
+		std::cerr << "Program error: " << e.what() << "\n";
+	}
 
+	system("PAUSE");
 	return 1;
 }
 
-
-/* 
-
-NVIDIA optimus systems will default to intel integrated graphics chips.
-These chips cause fatal memory issues when using opengl3.3 (even though they claim to generate correct contexts)
-
-This export gets picked up by NVIDIA drivers (v 302+).
-It will force usage of the dedicated video device in the machine, which likely has full coverage of 3.3
-
-*/
-extern "C" {
-	_declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
+// Does something to the console to make it readable with loguru
+#include <windows.h>
+void setupconsole() {
+	HWND console = GetConsoleWindow();
+	MoveWindow(console, 0, 0, 1900, 900, TRUE);
 }
 
-#endif
+bool g_is_clicking = false;
+bool g_is_rightclick = false;
+double g_mouse_x = 0;
+double g_mouse_y = 0;
+
+void selection_update(GLFWwindow* hWindow) {
+	if (g_is_rightclick) {
+		if (!io->WantCaptureMouse) {
+			g_debug_line_orig = g_camera_main->cameraPos;
+			g_debug_line_point = g_camera_main->getViewRay(g_mouse_x, g_mouse_y, display_w, display_h);
+
+			if (g_camera_main->isDirty) {
+				render_idmap(); g_camera_main->startFrame();
+			}
+
+			bool mod = glfwGetKey(hWindow, GLFW_KEY_LEFT_ALT);
+
+			unsigned int uid = g_buff_selection->pick_normalized_pixel(g_mouse_x, display_h - g_mouse_y, display_w, display_h);
+			for (auto&& i : g_vmf_file->m_solids) { if (i._id == uid) { if(i.m_visibility & ~g_group_lock) { i.m_setChannels(mod? TAR_CHANNEL_DEFAULT: g_group_write); } goto IL_FOUND; } }
+			for (auto&& i : g_vmf_file->m_entities) { if (i._id == uid) { if(i.m_visibility & ~g_group_lock) { i.m_setChannels(mod? TAR_CHANNEL_DEFAULT: g_group_write); } goto IL_FOUND; } }
+
+			//vmf_render_mask_preview(g_vmf_file, g_buff_maskpreview, glm::lookAt(glm::vec3(0,0,0), glm::vec3(0,-1,0), glm::vec3(0,0,1)), glm::ortho(0, 5000, -5000, 0, -4000, 4000));
+			
+			
+
+		IL_FOUND:
+			//vmf_render_mask_preview(g_vmf_file, g_buff_maskpreview, glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, -1, 0), glm::vec3(0, 0, 1)), glm::ortho(
+			//	g_tar_config->m_view_origin.x,										// -X
+			//	g_tar_config->m_view_origin.x + g_tar_config->m_render_ortho_scale,	// +X
+			//	g_tar_config->m_view_origin.y - g_tar_config->m_render_ortho_scale,	// -Y
+			//	g_tar_config->m_view_origin.y,										// +Y
+			//	-10000.0f,  // NEARZ
+			//	10000.0f));	// FARZ);
+			////vmf_render_mask_preview(g_vmf_file, g_buff_maskpreview, g_tar_config., g_camera_main->getProjectionMatrix(display_w, display_h));
+
+			routine_vmf_changed(g_group_write);
+
+			return;
+		}
+	}
+}
+
+// GLFW callback definitions
+void mouse_callback(GLFWwindow* window, double xpos, double ypos){
+	if(!io->WantCaptureMouse)
+	g_camera_main->mouseUpdate(xpos, ypos, g_is_clicking);
+
+	g_mouse_x = xpos;
+	g_mouse_y = ypos;
+
+	selection_update(window);
+}
+
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods){
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS){
+		if (!io->WantCaptureMouse) {
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+			g_is_clicking = true;
+		}
+	}
+	else{
+		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		g_is_clicking = false;
+	}
+
+	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
+		g_is_rightclick = true;
+		selection_update(window);
+	} else {
+		g_is_rightclick = false;
+	}
+}
+
+// NVIDIA Optimus systems and AMD equivilent
+extern "C" {
+	__declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
+	__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+}

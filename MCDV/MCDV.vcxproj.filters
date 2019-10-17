@@ -257,22 +257,13 @@
     <ClInclude Include="CompositorGraphs.hpp">
       <Filter>OpenGL\engine</Filter>
     </ClInclude>
+    <ClInclude Include="GLFWUtil.hpp">
+      <Filter>OpenGL\engine</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="glad.c">
       <Filter>OpenGL</Filter>
-    </ClCompile>
-    <ClCompile Include="GLFWUtil.hpp">
-      <Filter>OpenGL\engine</Filter>
-    </ClCompile>
-    <ClCompile Include="main2.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="main3.cpp">
-      <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="loguru.cpp">
       <Filter>Source Files\Dependencies</Filter>
@@ -300,6 +291,9 @@
     </ClCompile>
     <ClCompile Include="imgui_color_gradient.cpp">
       <Filter>Source Files\Imgui\galloscript</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

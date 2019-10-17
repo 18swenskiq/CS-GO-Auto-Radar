@@ -196,7 +196,7 @@ namespace TARCF {
 		std::vector<Pin> m_output_definitions;
 
 		// Constructor
-		BaseNode(Shader* sOpShader) :
+		BaseNode(Shader* sOpShader, const std::string& nodeid) :
 			m_operator_shader(sOpShader){
 		}
 
@@ -238,12 +238,12 @@ namespace TARCF {
 
 	// Bidirection connection struct
 	struct Connection {
-		NodeInstance* ptrNode; // Connected node
-		unsigned int uConID; // target connection ID
+		NodeInstance* ptrNode = nullptr; // Connected node
+		unsigned int uConID = 0; // target connection ID
 
 		Connection() {}
 
-		Connection(NodeInstance* _ptrNode, const unsigned int& _uConID)
+		Connection(NodeInstance* _ptrNode, const unsigned int& _uConID = 0)
 			: ptrNode(_ptrNode),
 			uConID(_uConID) {}
 	};
@@ -507,13 +507,48 @@ namespace TARCF {
 		return instance->m_gl_texture_w * instance->m_gl_texture_h * 4;
 	}
 
+	// Base class that uses projection matrices
+	class ProjectionBase: public BaseNode {
+	public:
+		ProjectionBase(Shader* sOpShader, const std::string& nodeid)
+			: BaseNode(sOpShader, nodeid)
+		{
+			m_prop_definitions.insert({ "matrix.view", prop::prop_explicit<glm::mat4>(GL_FLOAT_MAT4, glm::mat4(1.0), -1) });
+			m_prop_definitions.insert({ "matrix.proj", prop::prop_explicit<glm::mat4>(GL_FLOAT_MAT4, glm::mat4(1.0), -1) });
+
+			m_prop_definitions.insert({ "linked.matrix.view", prop::prop_explicit<glm::mat4*>(EXTRATYPE_RAWPTR, nullptr, -1) });
+			m_prop_definitions.insert({ "linked.matrix.proj", prop::prop_explicit<glm::mat4*>(EXTRATYPE_RAWPTR, nullptr, -1) });
+		}
+
+		// Uploads projection matrices to shader
+		inline void link_matrices(NodeInstance* node) {
+			// Check if linked availible and upload that, otherwise use builtin values
+			m_operator_shader->setMatrix("view",
+				node->m_properties["linked.matrix.view"].getValue<glm::mat4*>()? *(node->m_properties["linked.matrix.view"].getValue<glm::mat4*>()) :
+				node->m_properties["matrix.view"].getValue<glm::mat4>());
+
+			// projection matrix
+			m_operator_shader->setMatrix("projection",
+				node->m_properties["linked.matrix.proj"].getValue<glm::mat4*>()? *(node->m_properties["linked.matrix.proj"].getValue<glm::mat4*>()) :
+				node->m_properties["matrix.proj"].getValue<glm::mat4>());
+		}
+
+		// Setup linkeage easily
+		static inline void autolink(NodeInstance* ptrNode, glm::mat4* ptrPmView, glm::mat4* ptrPmPersp) {
+			ptrNode->setPropertyEx<glm::mat4*>("linked.matrix.view", ptrPmView);
+			ptrNode->setPropertyEx<glm::mat4*>("linked.matrix.proj", ptrPmPersp);
+		}
+	};
+
 	namespace Atomic {
 		// Node that loads texture from disk
 		class TextureNode: public BaseNode {
 		public:
+			inline static const char* nodeid = "texture";
+
 			// Constructor sets string property to path
 			TextureNode(const std::string& sSource):
-				BaseNode(SHADERLIB::node_shaders["passthrough"])
+				BaseNode(SHADERLIB::node_shaders["passthrough"], nodeid)
 			{
 				m_prop_definitions.insert({ "source", prop(EXTRATYPE_STRING, (void*)sSource.c_str()) });
 				m_output_definitions.push_back(Pin("output", 0));
@@ -559,13 +594,24 @@ namespace TARCF {
 
 				glDrawBuffers(1, attachments);
 			}
+
+			static inline NodeInstance* instance(
+				const uint32_t& w, const uint32_t& h,
+				const std::string& source
+			) {
+				NodeInstance* node = new NodeInstance(w, h, nodeid);
+				node->setProperty("source", (void*)source.c_str());
+				return node;
+			}
 		};
 
 		// Node that measures distance to nearest 'landmass'
 		class Distance: public BaseNode {
 		public:
+			inline static const char* nodeid = "distance";
+
 			Distance() :
-				BaseNode(SHADERLIB::node_shaders["distance"])
+				BaseNode(SHADERLIB::node_shaders["distance"], nodeid)
 			{
 				m_prop_definitions.insert({ "maxdist", prop::prop_explicit<int>(GL_INT, 255, -1) });
 
@@ -630,13 +676,26 @@ namespace TARCF {
 			uint64_t get_tex_memory_usage(const NodeInstance* instance) override {
 				return instance->m_gl_texture_w * instance->m_gl_texture_h * 1 * 2;
 			}
+
+			static inline NodeInstance* instance(
+				const uint32_t& w, const uint32_t& h,
+				Connection input,
+				const int& maxdist = 255
+			) {
+				NodeInstance* node = new NodeInstance(w, h, nodeid);
+				node->setPropertyEx<int>("maxdist", maxdist);
+				NodeInstance::connect(input.ptrNode, node, input.uConID, 0);
+				return node;
+			}
 		};
 
 		// Fast guassian blur implementation
 		class GuassBlur: public BaseNode {
 		public:
+			inline static const char* nodeid = "guassian";
+
 			GuassBlur() :
-				BaseNode(SHADERLIB::node_shaders["guass_multipass"])
+				BaseNode(SHADERLIB::node_shaders["guass_multipass"], nodeid)
 			{
 				m_prop_definitions.insert({ "iterations", prop::prop_explicit<int>(GL_INT, 8, -1) });
 				m_prop_definitions.insert({ "radius", prop::prop_explicit<float>(GL_FLOAT, 10.0f, -1) });
@@ -715,25 +774,38 @@ namespace TARCF {
 			uint64_t get_tex_memory_usage(const NodeInstance* instance) override {
 				return instance->m_gl_texture_w * instance->m_gl_texture_h * 4 * 2;
 			}
+
+			static inline NodeInstance* instance(
+				const uint32_t& w, const uint32_t& h,
+				Connection input,
+				const float& radius = 10.0f,
+				const int& iterations = 8
+			) {
+				NodeInstance* node = new NodeInstance(w, h, nodeid);
+				node->setPropertyEx<float>("radius", radius);
+				node->setPropertyEx<int>("iterations", iterations);
+
+				NodeInstance::connect(input.ptrNode, node, input.uConID, 0);
+
+				return node;
+			}
 		};
 
 		// Generic Ambient Occlusion
-		class AmbientOcclusion: public BaseNode {
+		class AmbientOcclusion: public ProjectionBase {
 			std::vector<glm::vec3> samples;
 			std::vector<glm::vec2> offsets;
 			unsigned int gl_noise_texture;
 		public:
+			inline static const char* nodeid = "aopass";
+
 			AmbientOcclusion() :
-				BaseNode(SHADERLIB::node_shaders["aopass"])
+				ProjectionBase(SHADERLIB::node_shaders["aopass"], nodeid)
 			{
 				m_prop_definitions.insert({ "radius", prop::prop_explicit<float>(GL_FLOAT, 256.0f, -1) });
 				m_prop_definitions.insert({ "iterations", prop::prop_explicit<int>(GL_INT, 16, -1) });
 				m_prop_definitions.insert({ "bias", prop::prop_explicit<float>(GL_FLOAT, 1.0f, -1) });
 				m_prop_definitions.insert({ "accum_divisor", prop::prop_explicit<float>(GL_FLOAT, 15.0f, -1) });
-
-				// For reprojection
-				m_prop_definitions.insert({ "matrix.proj", prop::prop_explicit<glm::mat4>(GL_FLOAT_MAT4, glm::mat4(1.0), -1) });
-				m_prop_definitions.insert({ "matrix.view", prop::prop_explicit<glm::mat4>(GL_FLOAT_MAT4, glm::mat4(1.0), -1) });
 
 				m_output_definitions.push_back(Pin("output", 0));
 
@@ -793,8 +865,8 @@ namespace TARCF {
 				m_operator_shader->setFloat("bias", node->m_properties["bias"].getValue<float>());
 				m_operator_shader->setFloat("ssaoScale", node->m_properties["radius"].getValue<float>());
 
-				m_operator_shader->setMatrix("projection", node->m_properties["matrix.proj"].getValue<glm::mat4>());
-				m_operator_shader->setMatrix("view", node->m_properties["matrix.view"].getValue<glm::mat4>());
+				link_matrices(node);
+
 				m_operator_shader->setVec2("noiseScale", glm::vec2(node->m_gl_texture_w / 256.0f, node->m_gl_texture_h / 256.0f));
 				m_operator_shader->setFloat("accum_divisor", node->m_properties["accum_divisor"].getValue<float>());
 
@@ -860,25 +932,48 @@ namespace TARCF {
 			uint64_t get_tex_memory_usage(const NodeInstance* instance) override {
 				return instance->m_gl_texture_w * instance->m_gl_texture_h * 1 * 4;
 			}
+
+			static inline NodeInstance* instance(
+				const uint32_t& w, const uint32_t& h,
+				Connection inputGPos,
+				Connection inputGNorm,
+				glm::mat4* ptrMatView,
+				glm::mat4* ptrMatProj,
+				const float& radius = 256.0f,
+				const int& iterations = 16,
+				const float& bias = 1.0f,
+				const float& accum_divisor = 15.0f
+			) {
+				NodeInstance* node = new NodeInstance(w, h, nodeid);
+				node->setPropertyEx<float>("radius", radius);
+				node->setPropertyEx<int>("iterations", iterations);
+				node->setPropertyEx<float>("bias", bias);
+				node->setPropertyEx<float>("accum_divisor", accum_divisor);
+
+				ProjectionBase::autolink(node, ptrMatView, ptrMatProj);
+
+				NodeInstance::connect(inputGPos.ptrNode, node, inputGPos.uConID, 0);
+				NodeInstance::connect(inputGNorm.ptrNode, node, inputGNorm.uConID, 1);
+
+				return node;
+			}
 		};
 
 		// Soft shadowing
-		class SoftShadow : public BaseNode {
+		class SoftShadow: public ProjectionBase {
 			std::vector<glm::vec2> offsets;
 			unsigned int gl_noise_texture;
 		public:
+			inline static const char* nodeid = "shadowpass";
+
 			SoftShadow() :
-				BaseNode(SHADERLIB::node_shaders["shadowpass"])
+				ProjectionBase(SHADERLIB::node_shaders["shadowpass"], nodeid)
 			{
 				m_prop_definitions.insert({ "radius", prop::prop_explicit<float>(GL_FLOAT, 32.0f, -1) });
 				m_prop_definitions.insert({ "sundir", prop::prop_explicit<glm::vec3>(GL_FLOAT_VEC3, glm::vec3(0.67,0.76,0.88)) });
 				m_prop_definitions.insert({ "iterations", prop::prop_explicit<int>(GL_INT, 256, -1) });
 				m_prop_definitions.insert({ "bias", prop::prop_explicit<float>(GL_FLOAT, 0.25f, -1) });
 				m_prop_definitions.insert({ "accum_divisor", prop::prop_explicit<float>(GL_FLOAT, 8.0f, -1) });
-
-				// For reprojection
-				m_prop_definitions.insert({ "matrix.proj", prop::prop_explicit<glm::mat4>(GL_FLOAT_MAT4, glm::mat4(1.0), -1) });
-				m_prop_definitions.insert({ "matrix.view", prop::prop_explicit<glm::mat4>(GL_FLOAT_MAT4, glm::mat4(1.0), -1) });
 
 				m_output_definitions.push_back(Pin("output", 0));
 
@@ -889,7 +984,6 @@ namespace TARCF {
 				// Generate SSAO kernel
 				std::uniform_real_distribution<float> randomFloats(0.0, 1.0);
 				std::default_random_engine generator;
-
 
 				// Create random offsets for many many sampling innit
 				for (int i = 0; i < 128; i++) {
@@ -925,8 +1019,8 @@ namespace TARCF {
 				m_operator_shader->setFloat("bias", node->m_properties["bias"].getValue<float>());
 				m_operator_shader->setFloat("ssaoScale", node->m_properties["radius"].getValue<float>());
 
-				m_operator_shader->setMatrix("projection", node->m_properties["matrix.proj"].getValue<glm::mat4>());
-				m_operator_shader->setMatrix("view", node->m_properties["matrix.view"].getValue<glm::mat4>());
+				link_matrices(node);
+
 				m_operator_shader->setVec2("noiseScale", glm::vec2(node->m_gl_texture_w / 256.0f, node->m_gl_texture_h / 256.0f));
 				m_operator_shader->setFloat("accum_divisor", node->m_properties["accum_divisor"].getValue<float>());
 				m_operator_shader->setVec3("sun_dir", node->m_properties["sundir"].getValue<glm::vec3>());
@@ -990,11 +1084,40 @@ namespace TARCF {
 			uint64_t get_tex_memory_usage(const NodeInstance* instance) override {
 				return instance->m_gl_texture_w * instance->m_gl_texture_h * 4 * 4;
 			}
+
+			static inline NodeInstance* instance(
+				const uint32_t& w, const uint32_t& h,
+				Connection inputGPos,
+				Connection inputGNorm,
+				glm::mat4* ptrMatView,
+				glm::mat4* ptrMatProj,
+				const float& radius = 32.0f,
+				const glm::vec3& sundir = glm::vec3(0.67, 0.76, 0.88),
+				const int& iterations = 256,
+				const float& bias = 1.0f,
+				const float& accum_divisor = 8.0f
+			) {
+				NodeInstance* node = new NodeInstance(w, h, nodeid);
+				node->setPropertyEx<float>("radius", radius);
+				node->setPropertyEx<int>("iterations", iterations);
+				node->setPropertyEx<float>("bias", bias);
+				node->setPropertyEx<float>("accum_divisor", accum_divisor);
+				node->setPropertyEx<glm::vec3>("sundir", sundir);
+
+				ProjectionBase::autolink(node, ptrMatView, ptrMatProj);
+
+				NodeInstance::connect(inputGPos.ptrNode, node, inputGPos.uConID, 0);
+				NodeInstance::connect(inputGNorm.ptrNode, node, inputGNorm.uConID, 1);
+
+				return node;
+			}
 		};
 
 		// Simple blend node.
 		class Blend: public BaseNode{
 		public:
+			inline static const char* nodeid = "blend";
+
 			enum BlendMode: signed int {
 				BLEND_MIX,
 				BLEND_ADD,
@@ -1002,8 +1125,8 @@ namespace TARCF {
 				BLEND_MUL
 			};
 
-			Blend()
-				: BaseNode(SHADERLIB::node_shaders["blend.mix"])
+			Blend(const std::string& _nodeid = nodeid)
+				: BaseNode(SHADERLIB::node_shaders["blend.mix"], nodeid)
 			{
 				m_input_definitions.push_back(Pin("Base", 0));
 				m_input_definitions.push_back(Pin("Layer", 1));
@@ -1050,10 +1173,38 @@ namespace TARCF {
 
 				glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			}
+
+			static inline NodeInstance* instance(
+				const uint32_t& w, const uint32_t& h,
+				Connection inputBase,
+				Connection inputLayer,
+				Connection inputMask,
+				const BlendMode& blendMode = BlendMode::BLEND_MIX,
+				const float& factor = 1.0f,
+				const int& maskChannelID = 0
+			) {
+				NodeInstance* node = new NodeInstance(w, h, nodeid);
+				node->setPropertyEx<int>("mode", blendMode);
+				node->setPropertyEx<float>("factor", factor);
+				node->setPropertyEx<int>("maskChannelID", maskChannelID);
+
+				NodeInstance::connect(inputBase.ptrNode, node, inputBase.uConID, 0);
+				NodeInstance::connect(inputLayer.ptrNode, node, inputLayer.uConID, 1);
+
+				if(inputMask.ptrNode) NodeInstance::connect(inputMask.ptrNode, node, inputMask.uConID, 2);
+
+				return node;
+			}
 		};
 
 		// Specialized RGB16F blending
 		class BlendRGB16F: public Blend {
+		public:
+			inline static const char* nodeid = "blendRGB16F";
+
+			BlendRGB16F() :
+				Blend(nodeid) {}
+
 			void v_gen_tex_memory(NodeInstance* instance) override {
 				glBindFramebuffer(GL_FRAMEBUFFER, instance->m_gl_framebuffers[0]);
 				glGenTextures(1, &instance->m_gl_texture_ids[0]);
@@ -1077,13 +1228,36 @@ namespace TARCF {
 			uint64_t get_tex_memory_usage(const NodeInstance* instance) override {
 				return instance->m_gl_texture_w * instance->m_gl_texture_h * 3 * 2;
 			}
+
+			static inline NodeInstance* instance(
+				const uint32_t& w, const uint32_t& h,
+				Connection inputBase,
+				Connection inputLayer,
+				Connection inputMask,
+				const BlendMode& blendMode = BlendMode::BLEND_MIX,
+				const float& factor = 1.0f,
+				const int& maskChannelID = 0
+			) {
+				NodeInstance* node = new NodeInstance(w, h, nodeid);
+				node->setPropertyEx<int>("mode", blendMode);
+				node->setPropertyEx<float>("factor", factor);
+				node->setPropertyEx<int>("maskChannelID", maskChannelID);
+
+				NodeInstance::connect(inputBase.ptrNode, node, inputBase.uConID, 0);
+				NodeInstance::connect(inputLayer.ptrNode, node, inputLayer.uConID, 1);
+				if(inputMask.ptrNode) NodeInstance::connect(inputMask.ptrNode, node, inputMask.uConID, 2);
+
+				return node;
+			}
 		};
 
 		// Simple solid color
 		class Color : public BaseNode {
 		public:
+			inline static const char* nodeid = "color";
+
 			Color()
-				: BaseNode(NULL)
+				: BaseNode(NULL, nodeid)
 			{
 				m_output_definitions.push_back(Pin("output", 0));
 				m_prop_definitions.insert({ "color", prop::prop_explicit<glm::vec4>(GL_FLOAT_VEC4,glm::vec4(1.0f), -1) });
@@ -1100,13 +1274,24 @@ namespace TARCF {
 
 				glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			}
+
+			static inline NodeInstance* instance(
+				const uint32_t& w, const uint32_t& h,
+				const glm::vec4& color = glm::vec4(1.0f)
+			) {
+				NodeInstance* node = new NodeInstance(w, h, nodeid);
+				node->setPropertyEx<glm::vec4>("color", color);
+				return node;
+			}
 		};
 
 		// Maps a gradient to channel
 		class GradientMap: public BaseNode {
 		public:
+			inline static const char* nodeid = "gradient";
+
 			GradientMap()
-				: BaseNode(SHADERLIB::node_shaders["gradient"])
+				: BaseNode(SHADERLIB::node_shaders["gradient"], nodeid)
 			{
 				m_input_definitions.push_back(Pin("Layer", 0));
 				m_output_definitions.push_back(Pin("output", 0));
@@ -1137,13 +1322,32 @@ namespace TARCF {
 
 				glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			}
+
+			static inline NodeInstance* instance(
+				const uint32_t& w, const uint32_t& h,
+				Connection input,
+				const int& glGradientID,
+				const float& min = 0.0f,
+				const float& max = 1.0f,
+				const int& channelID = 0
+			) {
+				NodeInstance* node = new NodeInstance(w, h, nodeid);
+				node->setPropertyEx<int>("glGradientID", glGradientID);
+				node->setPropertyEx<float>("min", min);
+				node->setPropertyEx<float>("max", max);
+				node->setPropertyEx<int>("channelID", channelID);
+
+				NodeInstance::connect(input.ptrNode, node, input.uConID, 0);
+
+				return node;
+			}
 		};
 
 		// Base class that takes an input and outputs
 		class StdTransformitive: public BaseNode {
 		public:
-			StdTransformitive(Shader* shader)
-				: BaseNode(shader)
+			StdTransformitive(Shader* shader, const std::string& nodeid)
+				: BaseNode(shader, nodeid)
 			{
 				m_input_definitions.push_back(Pin("input", 0));
 				m_output_definitions.push_back(Pin("output", 0));
@@ -1153,8 +1357,10 @@ namespace TARCF {
 		// Histogram step
 		class Step: public BaseNode {
 		public:
+			inline static const char* nodeid = "step";
+
 			Step()
-				: BaseNode(SHADERLIB::node_shaders["step"])
+				: BaseNode(SHADERLIB::node_shaders["step"], nodeid)
 			{
 				m_input_definitions.push_back(Pin("Layer", 0));
 				m_output_definitions.push_back(Pin("output", 0));
@@ -1195,13 +1401,28 @@ namespace TARCF {
 			uint64_t get_tex_memory_usage(const NodeInstance* instance) override {
 				return instance->m_gl_texture_w * instance->m_gl_texture_h * 1;
 			}
+
+			static inline NodeInstance* instance(
+				const uint32_t& w, const uint32_t& h,
+				Connection input,
+				const float& edge = 0.5f
+			) {
+				NodeInstance* node = new NodeInstance(w, h, nodeid);
+				node->setPropertyEx<float>("edge", edge);
+
+				NodeInstance::connect(input.ptrNode, node, input.uConID, 0);
+
+				return node;
+			}
 		};
 
 		// Histogram step
 		class Pow: public BaseNode {
 		public:
+			inline static const char* nodeid = "pow";
+
 			Pow()
-				: BaseNode(SHADERLIB::node_shaders["pow"])
+				: BaseNode(SHADERLIB::node_shaders["pow"], nodeid)
 			{
 				m_input_definitions.push_back(Pin("Layer", 0));
 				m_output_definitions.push_back(Pin("output", 0));
@@ -1242,38 +1463,103 @@ namespace TARCF {
 			uint64_t get_tex_memory_usage(const NodeInstance* instance) override {
 				return instance->m_gl_texture_w * instance->m_gl_texture_h * 1;
 			}
+
+			static inline NodeInstance* instance(
+				const uint32_t& w, const uint32_t& h,
+				Connection input,
+				const float& value = 2.0f
+			) {
+				NodeInstance* node = new NodeInstance(w, h, nodeid);
+				node->setPropertyEx<float>("value", value);
+
+				NodeInstance::connect(input.ptrNode, node, input.uConID, 0);
+
+				return node;
+			}
 		};
 
 		// Inverts input on RGB
 		class Invert : public StdTransformitive {
 		public:
+			inline static const char* nodeid = "invert";
+
 			Invert()
-				: StdTransformitive(SHADERLIB::node_shaders["invert"])
+				: StdTransformitive(SHADERLIB::node_shaders["invert"], nodeid)
 			{ }
+
+			static inline NodeInstance* instance(
+				const uint32_t& w, const uint32_t& h,
+				Connection input
+			) {
+				NodeInstance* node = new NodeInstance(w, h, nodeid);
+
+				NodeInstance::connect(input.ptrNode, node, input.uConID, 0);
+
+				return node;
+			}
 		};
 
 		// Creates a mask from an RGB image specify channel
-		class GenMask : public StdTransformitive {
+		class GenMask: public StdTransformitive {
 		public:
+			inline static const char* nodeid = "genmask";
+
 			GenMask()
-				: StdTransformitive(SHADERLIB::node_shaders["genmask"])
+				: StdTransformitive(SHADERLIB::node_shaders["genmask"], nodeid)
 			{ }
+
+			static inline NodeInstance* instance(
+				const uint32_t& w, const uint32_t& h,
+				Connection input
+			) {
+				NodeInstance* node = new NodeInstance(w, h, nodeid);
+
+				NodeInstance::connect(input.ptrNode, node, input.uConID, 0);
+
+				return node;
+			}
 		};
 
 		// Just moves input->output
 		class Passthrough: public StdTransformitive {
 		public:
+			inline static const char* nodeid = "passthrough";
+
 			Passthrough()
-				: StdTransformitive(SHADERLIB::node_shaders["passthrough"])
+				: StdTransformitive(SHADERLIB::node_shaders["passthrough"], nodeid)
 			{ }
+
+			static inline NodeInstance* instance(
+				const uint32_t& w, const uint32_t& h,
+				Connection input
+			) {
+				NodeInstance* node = new NodeInstance(w, h, nodeid);
+
+				NodeInstance::connect(input.ptrNode, node, input.uConID, 0);
+
+				return node;
+			}
 		};
 
 		// Extracts mask from R16F buffers where x>0
 		class ExtractMask: public StdTransformitive {
 		public:
+			inline static const char* nodeid = "extractmask";
+
 			ExtractMask()
-				: StdTransformitive(SHADERLIB::node_shaders["extractmask"])
+				: StdTransformitive(SHADERLIB::node_shaders["extractmask"], nodeid)
 			{}
+
+			static inline NodeInstance* instance(
+				const uint32_t& w, const uint32_t& h,
+				Connection input
+			) {
+				NodeInstance* node = new NodeInstance(w, h, nodeid);
+
+				NodeInstance::connect(input.ptrNode, node, input.uConID, 0);
+
+				return node;
+			}
 		};
 	}
 
@@ -1300,19 +1586,19 @@ namespace TARCF {
 		}
 
 		// Get these nodes mapped into the library
-		NODELIB.insert({ "texture",		new Atomic::TextureNode("textures/modulate.png") });
-		NODELIB.insert({ "distance",	new Atomic::Distance() });
-		NODELIB.insert({ "guassian",	new Atomic::GuassBlur() });
-		NODELIB.insert({ "aopass",		new Atomic::AmbientOcclusion() });
-		NODELIB.insert({ "shadowpass",	new Atomic::SoftShadow() });
-		NODELIB.insert({ "invert",		new Atomic::Invert() });
-		NODELIB.insert({ "passthrough", new Atomic::Passthrough() });
-		NODELIB.insert({ "extractmask", new Atomic::ExtractMask() });
-		NODELIB.insert({ "blend",		new Atomic::Blend() });
-		NODELIB.insert({ "blendRGB16F", new Atomic::BlendRGB16F() });
-		NODELIB.insert({ "color",		new Atomic::Color() });
-		NODELIB.insert({ "gradient",	new Atomic::GradientMap() });
-		NODELIB.insert({ "step",		new Atomic::Step() });
-		NODELIB.insert({ "pow",			new Atomic::Pow() });
+		NODELIB.insert({ Atomic::TextureNode::nodeid,		new Atomic::TextureNode("textures/modulate.png") });
+		NODELIB.insert({ Atomic::Distance::nodeid,			new Atomic::Distance() });
+		NODELIB.insert({ Atomic::GuassBlur::nodeid,			new Atomic::GuassBlur() });
+		NODELIB.insert({ Atomic::AmbientOcclusion::nodeid,	new Atomic::AmbientOcclusion() });
+		NODELIB.insert({ Atomic::SoftShadow::nodeid,		new Atomic::SoftShadow() });
+		NODELIB.insert({ Atomic::Invert::nodeid,			new Atomic::Invert() });
+		NODELIB.insert({ Atomic::Passthrough::nodeid,		new Atomic::Passthrough() });
+		NODELIB.insert({ Atomic::ExtractMask::nodeid,		new Atomic::ExtractMask() });
+		NODELIB.insert({ Atomic::Blend::nodeid,				new Atomic::Blend() });
+		NODELIB.insert({ Atomic::BlendRGB16F::nodeid,		new Atomic::BlendRGB16F() });
+		NODELIB.insert({ Atomic::Color::nodeid,				new Atomic::Color() });
+		NODELIB.insert({ Atomic::GradientMap::nodeid,		new Atomic::GradientMap() });
+		NODELIB.insert({ Atomic::Step::nodeid,				new Atomic::Step() });
+		NODELIB.insert({ Atomic::Pow::nodeid,				new Atomic::Pow() });
 	}
 }

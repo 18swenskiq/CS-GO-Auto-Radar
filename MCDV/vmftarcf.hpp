@@ -12,15 +12,15 @@ namespace TARCF {
 	Shader* s_shader_compheight;
 
 	// Fast guassian blur implementation
-	class RenderBrushesHeight: public BaseNode {
+	class RenderBrushesHeight: public ProjectionBase {
 	public:
+		inline static const char* nodeid = "vmf.height";
+
 		RenderBrushesHeight() :
-			BaseNode(GBuffer::s_gbufferwrite_cleanShader)
+			ProjectionBase(GBuffer::s_gbufferwrite_cleanShader, nodeid)
 		{
 			m_prop_definitions.insert({ "vmf", prop::prop_explicit<vmf*>(EXTRATYPE_RAWPTR, 0, -1) });
 			m_prop_definitions.insert({ "layers", prop::prop_explicit<unsigned int>(GL_INT, TAR_CHANNEL_NONRESERVE, -1) });
-			m_prop_definitions.insert({ "matrix.view", prop::prop_explicit<glm::mat4>(GL_FLOAT_MAT4, glm::mat4(1.0), -1) });
-			m_prop_definitions.insert({ "matrix.proj", prop::prop_explicit<glm::mat4>(GL_FLOAT_MAT4, glm::mat4(1.0), -1) });
 
 			m_output_definitions.push_back(Pin("GBuffer", 0));
 		}
@@ -33,13 +33,9 @@ namespace TARCF {
 			glClearColor(0, 99999.9f, 0, 1);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-			//LOG_F(INFO, "rendering vmf");
-
 			GBuffer::s_gbufferwrite_cleanShader->use();
 
-			// Set matrices
-			GBuffer::s_gbufferwrite_cleanShader->setMatrix("view", node->m_properties["matrix.view"].getValue<glm::mat4>());
-			GBuffer::s_gbufferwrite_cleanShader->setMatrix("projection", node->m_properties["matrix.proj"].getValue<glm::mat4>());
+			link_matrices(node);
 
 			unsigned int mask1 = node->m_properties["layers"].getValue<unsigned int>();
 			TARChannel::setChannels(mask1 | TAR_CHANNEL_MASK);
@@ -96,17 +92,33 @@ namespace TARCF {
 		uint64_t get_tex_memory_usage(const NodeInstance* instance) override {
 			return instance->m_gl_texture_w * instance->m_gl_texture_h * (3 + 3 + 3 + 3);
 		}
+
+		static inline NodeInstance* instance(
+			const uint32_t& w, const uint32_t& h,
+			glm::mat4* ptrMatView,
+			glm::mat4* ptrMatProj,
+			vmf* _vmf,
+			const unsigned int& layers = TAR_CHANNEL_NONRESERVE
+		) {
+			NodeInstance* node = new NodeInstance(w, h, nodeid);
+			node->setPropertyEx<vmf*>("vmf", _vmf);
+			node->setPropertyEx<unsigned int>("layers", layers);
+
+			ProjectionBase::autolink(node, ptrMatView, ptrMatProj);
+
+			return node;
+		}
 	};
 
-	class RenderBrushesGBuffer : public BaseNode {
+	class RenderBrushesGBuffer: public ProjectionBase {
 	public:
-		RenderBrushesGBuffer() :
-			BaseNode(GBuffer::s_gbufferwriteShader)
+		inline static const char* nodeid = "vmf.gbuffer";
+
+		RenderBrushesGBuffer():
+			ProjectionBase(GBuffer::s_gbufferwriteShader, nodeid)
 		{
 			m_prop_definitions.insert({ "vmf", prop::prop_explicit<vmf*>(EXTRATYPE_RAWPTR, 0, -1) });
 			m_prop_definitions.insert({ "layers", prop::prop_explicit<unsigned int>(GL_INT, TAR_CHANNEL_NONRESERVE, -1) });
-			m_prop_definitions.insert({ "matrix.view", prop::prop_explicit<glm::mat4>(GL_FLOAT_MAT4, glm::mat4(1.0), -1) });
-			m_prop_definitions.insert({ "matrix.proj", prop::prop_explicit<glm::mat4>(GL_FLOAT_MAT4, glm::mat4(1.0), -1) });
 
 			m_output_definitions.push_back(Pin("GBuffer", 0));
 			m_output_definitions.push_back(Pin("NBuffer", 1));
@@ -121,13 +133,10 @@ namespace TARCF {
 			glClearColor(0, 99999.9f, 0, 1);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-			//LOG_F(INFO, "rendering vmf");
-
 			GBuffer::s_gbufferwriteShader->use();
 
 			// Set matrices
-			GBuffer::s_gbufferwriteShader->setMatrix("view", node->m_properties["matrix.view"].getValue<glm::mat4>());
-			GBuffer::s_gbufferwriteShader->setMatrix("projection", node->m_properties["matrix.proj"].getValue<glm::mat4>());
+			link_matrices(node);
 
 			unsigned int mask1 = node->m_properties["layers"].getValue<unsigned int>();
 			TARChannel::setChannels(mask1 | TAR_CHANNEL_MASK);
@@ -211,17 +220,33 @@ namespace TARCF {
 		uint64_t get_tex_memory_usage(const NodeInstance* instance) override {
 			return instance->m_gl_texture_w * instance->m_gl_texture_h * (3 + 3 + 3 + 3);
 		}
+
+		static inline NodeInstance* instance(
+			const uint32_t& w, const uint32_t& h,
+			glm::mat4* ptrMatView,
+			glm::mat4* ptrMatProj,
+			vmf* _vmf,
+			const unsigned int& layers = TAR_CHANNEL_NONRESERVE
+		) {
+			NodeInstance* node = new NodeInstance(w, h, nodeid);
+			node->setPropertyEx<vmf*>("vmf", _vmf);
+			node->setPropertyEx<unsigned int>("layers", layers);
+
+			ProjectionBase::autolink(node, ptrMatView, ptrMatProj);
+
+			return node;
+		}
 	};
 
-	class RenderBrushesMask: public BaseNode {
+	class RenderBrushesMask: public ProjectionBase {
 	public:
+		inline static const char* nodeid = "vmf.mask";
+
 		RenderBrushesMask() :
-			BaseNode(s_shader_mask_write)
+			ProjectionBase(s_shader_mask_write, nodeid)
 		{
 			m_prop_definitions.insert({ "vmf", prop::prop_explicit<vmf*>(EXTRATYPE_RAWPTR, 0, -1) });
 			m_prop_definitions.insert({ "layers", prop::prop_explicit<unsigned int>(GL_INT, TAR_CHANNEL_NONRESERVE, -1) });
-			m_prop_definitions.insert({ "matrix.view", prop::prop_explicit<glm::mat4>(GL_FLOAT_MAT4, glm::mat4(1.0), -1) });
-			m_prop_definitions.insert({ "matrix.proj", prop::prop_explicit<glm::mat4>(GL_FLOAT_MAT4, glm::mat4(1.0), -1) });
 
 			m_output_definitions.push_back(Pin("Mask", 0));
 		}
@@ -240,8 +265,7 @@ namespace TARCF {
 			s_shader_mask_write->use();
 
 			// Set matrices
-			s_shader_mask_write->setMatrix("view", node->m_properties["matrix.view"].getValue<glm::mat4>());
-			s_shader_mask_write->setMatrix("projection", node->m_properties["matrix.proj"].getValue<glm::mat4>());
+			link_matrices(node);
 
 			// Draw vmf
 			node->m_properties["vmf"].getValue<vmf*>()->DrawWorld(s_shader_mask_write, glm::mat4(1.0f), [](solid* ptrSolid, entity* ptrEnt) {
@@ -295,12 +319,30 @@ namespace TARCF {
 		uint64_t get_tex_memory_usage(const NodeInstance* instance) override {
 			return instance->m_gl_texture_w * instance->m_gl_texture_h * ( 3 + 1 );
 		}
+
+		static inline NodeInstance* instance(
+			const uint32_t& w, const uint32_t& h,
+			glm::mat4* ptrMatView,
+			glm::mat4* ptrMatProj,
+			vmf* _vmf,
+			const unsigned int& layers = TAR_CHANNEL_NONRESERVE
+		) {
+			NodeInstance* node = new NodeInstance(w, h, nodeid);
+			node->setPropertyEx<vmf*>("vmf", _vmf);
+			node->setPropertyEx<unsigned int>("layers", layers);
+
+			ProjectionBase::autolink(node, ptrMatView, ptrMatProj);
+
+			return node;
+		}
 	};
 
-	class RelativeHeight : public BaseNode {
+	class RelativeHeight: public ProjectionBase {
 	public:
+		inline static const char* nodeid = "vmf.relativeheight";
+
 		RelativeHeight()
-			: BaseNode(s_shader_compheight)
+			: ProjectionBase(s_shader_compheight, nodeid)
 		{
 			m_input_definitions.push_back(Pin("gPos", 0));
 			m_input_definitions.push_back(Pin("gOrigin", 1));
@@ -308,9 +350,6 @@ namespace TARCF {
 			m_input_definitions.push_back(Pin("gRefHeight1", 2));
 
 			m_output_definitions.push_back(Pin("output", 0));
-
-			m_prop_definitions.insert({ "matrix.view", prop::prop_explicit<glm::mat4>(GL_FLOAT_MAT4, glm::mat4(1.0), -1) });
-			m_prop_definitions.insert({ "matrix.proj", prop::prop_explicit<glm::mat4>(GL_FLOAT_MAT4, glm::mat4(1.0), -1) });
 		}
 
 		void v_gen_tex_memory(NodeInstance* instance) override {
@@ -338,8 +377,7 @@ namespace TARCF {
 			
 			// Bind shader
 			m_operator_shader->use();
-			m_operator_shader->setMatrix("projection", node->m_properties["matrix.proj"].getValue<glm::mat4>());
-			m_operator_shader->setMatrix("view", node->m_properties["matrix.view"].getValue<glm::mat4>());
+			link_matrices(node);
 
 			m_operator_shader->setInt("gPos", 0);
 			m_operator_shader->setInt("gOrigin", 1);
@@ -357,6 +395,27 @@ namespace TARCF {
 		uint64_t get_tex_memory_usage(const NodeInstance* instance) override {
 			return instance->m_gl_texture_w * instance->m_gl_texture_h * 2;
 		}
+
+		static inline NodeInstance* instance(
+			const uint32_t& w, const uint32_t& h,
+			Connection inputGPos,
+			Connection inputGOrigin,
+			Connection inputGRefHeight,
+			Connection inputGRefHeight1,
+			glm::mat4* ptrMatView,
+			glm::mat4* ptrMatProj
+		) {
+			NodeInstance* node = new NodeInstance(w, h, nodeid);
+
+			ProjectionBase::autolink(node, ptrMatView, ptrMatProj);
+
+			NodeInstance::connect(inputGPos.ptrNode, node, inputGPos.uConID, 0);
+			NodeInstance::connect(inputGOrigin.ptrNode, node, inputGOrigin.uConID, 1);
+			NodeInstance::connect(inputGRefHeight.ptrNode, node, inputGRefHeight.uConID, 2);
+			NodeInstance::connect(inputGRefHeight1.ptrNode, node, inputGRefHeight1.uConID, 3);
+
+			return node;
+		}
 	};
 
 	void VMF_NODES_INIT() {
@@ -366,9 +425,9 @@ namespace TARCF {
 		s_shader_compheight = new Shader("shaders/engine/quadbase.vs", "shaders/engine/gb.hcomp.fs", "ref.height");
 
 		// Append to node lib
-		NODELIB.insert({ "vmf.gbuffer", new RenderBrushesGBuffer() });
-		NODELIB.insert({ "vmf.height", new RenderBrushesHeight() });
-		NODELIB.insert({ "vmf.mask",	new RenderBrushesMask() });
-		NODELIB.insert({ "vmf.relativeheight", new RelativeHeight() });
+		NODELIB.insert({ RenderBrushesGBuffer::nodeid,	new RenderBrushesGBuffer() });
+		NODELIB.insert({ RenderBrushesHeight::nodeid,	new RenderBrushesHeight() });
+		NODELIB.insert({ RenderBrushesMask::nodeid,		new RenderBrushesMask() });
+		NODELIB.insert({ RelativeHeight::nodeid,		new RelativeHeight() });
 	}
 }
