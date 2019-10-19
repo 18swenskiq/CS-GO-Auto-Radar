@@ -1,5 +1,7 @@
 #pragma once
 #include "vmf.hpp"
+#include "vdf.hpp"
+#include "base64.h"
 
 #include <vector>
 #include <map>
@@ -14,6 +16,187 @@
 #include "dds.hpp"
 
 #include "imgui_color_gradient.h"
+
+
+typedef kv::DataBlock node;
+
+class tar_style {
+public:
+	std::string stylerName;
+
+	struct Lighting { // Lighting struct to contain ambient occlusion, sunlight shadows etc
+
+		struct AmbientOcclusion {
+
+			bool enabled = true;
+			float radius = 1060.3f;
+			glm::vec4 colour = glm::vec4(0.051, 0.086, 0.216, 0.800);
+
+		}_ambientOcclusion;
+
+		struct Sun {
+
+			bool enabled = false;
+			glm::vec3 dir = glm::vec3(0, 0, 1);
+			float tracelength = 1024.0f;
+			float radius = 32.0f;
+			int	 samplecount = 128;
+
+		}_sun;
+
+	}_lighting;
+
+	struct Colours { // Contains all main colors
+
+		glm::vec4 buyzone;
+		glm::vec4 objective;
+
+		struct Layout {
+
+			ImGradient gradient;
+
+		}_layout;
+
+		struct Cover {
+
+			float maxHeight;
+			ImGradient gradient;
+
+		}_cover;
+
+	}_colours;
+
+	// Default styler
+	tar_style() {
+
+	}
+
+	// Tar styler from vdf data
+	tar_style(kv::DataBlock* ptrDataSrc) {
+		this->stylerName = kv::tryGetStringValue(ptrDataSrc->Values, "name", "Default Styler");
+
+		// read lighting block
+		kv::DataBlock* ptrLighting = ptrDataSrc->GetFirstByName("Lighting");
+		if (ptrLighting) {
+			kv::DataBlock* ptrAO = ptrLighting->GetFirstByName("AmbientOcclusion");
+			if (ptrAO) {
+				this->_lighting._ambientOcclusion.enabled = kv::tryGetValue<bool>(ptrAO->Values, "enabled", true);
+				this->_lighting._ambientOcclusion.radius = kv::tryGetValue<float>(ptrAO->Values, "radius", 1060.3f);
+				this->_lighting._ambientOcclusion.colour = parseVec4(kv::tryGetStringValue(ptrAO->Values, "colour", "0 0 0 1"));
+			}
+
+			node* ptrSun = ptrLighting->GetFirstByName("Sun");
+			if (ptrSun) {
+				this->_lighting._sun.dir = parseVec4(kv::tryGetStringValue(ptrSun->Values, "angles", "0 0 1"));
+				this->_lighting._sun.enabled = kv::tryGetValue<bool>(ptrAO->Values, "enabled", true);
+			}
+		}
+
+		// Read colour block
+		kv::DataBlock* ptrColour = ptrDataSrc->GetFirstByName("Colours");
+		if (ptrColour) {
+			this->_colours.buyzone = parseVec4(kv::tryGetStringValue(ptrColour->Values, "buyzone", "0 0 0 1"));
+			this->_colours.objective = parseVec4(kv::tryGetStringValue(ptrColour->Values, "objective", "0 0 0 1"));
+
+			node* layout = ptrColour->GetFirstByName("layout");
+			if (layout) { read_gradient(&this->_colours._layout.gradient, layout); }
+
+			node* cover = ptrColour->GetFirstByName("cover");
+			if (cover) {
+				this->_colours._cover.maxHeight = kv::tryGetValue<float>(cover->Values, "MaxHeight", 512.0f);
+
+				read_gradient(&this->_colours._cover.gradient, cover);
+			}
+		}
+	}
+
+	// Tar styler from VDF string ^
+	tar_style(const std::string& vdfData):
+		tar_style(kv::FileData(vdfData).headNode) {}
+
+	// Tar styler from tar_config entity ( get encoded base64, decode, and pass to VDF constructor ) ^
+	//tar_style(const tar_config& entConfig):
+	//	tar_style(base64_decode(entConfig.m_stylerBase64)) {}
+
+	static std::vector<node*> serialize_gradient(const ImGradient& grad) {
+		std::vector<node*> gradient_keys;
+
+		int i = 0;
+		for (auto&& gKey : grad.getMarks()) {
+			gradient_keys.push_back(new node("key",
+				{
+					{ "position", std::to_string(i++) },
+					{ "colour", std::to_string(gKey->color[0]) + " " + std::to_string(gKey->color[1]) + " " + std::to_string(gKey->color[2]) + " " + std::to_string(gKey->color[3]) }
+				}, {}
+			));
+		}
+
+		return gradient_keys;
+	}
+
+	// Read gradient from kv node.
+	static void read_gradient(ImGradient* gradient, node* ptrSrc) {
+		gradient->clear();
+
+		for (auto&& i: ptrSrc->GetAllByName("key")) {
+			glm::vec4 g = parseVec4(kv::tryGetStringValue(ptrSrc->Values, "colour", "0 0 0 1"));
+			gradient->addMark(kv::tryGetValue<float>(ptrSrc->Values, "position", 0.0f), ImColor(g.x,g.y,g.z,g.w));
+		}
+
+		// Add some black color if the gradient is errornous
+		if (!gradient->getMarks().size()) {
+			gradient->addMark(0.0f, ImColor(0, 0, 0, 1));
+		}
+	}
+
+	// Convert this styler to a serialized VDF format
+	std::string serialize_vdf() {
+		return node("Style",
+			{
+				{ "name", stylerName }
+			},
+			{
+				new node("Lighting",
+					{},
+					{
+						new node("AmbientOcclusion",
+							{
+								{ "enabled", _lighting._ambientOcclusion.enabled ? "1" : "0" },
+								{ "radius", std::to_string(_lighting._ambientOcclusion.radius) },
+								{ "coloru", serializeVec4(_lighting._ambientOcclusion.colour) }
+							}, {}
+						),
+						new node("Sun",
+							{},
+							{}
+						)
+					}
+				),
+				new node("Colors",
+					{
+						{ "buyzone", serializeVec4(_colours.buyzone) },
+						{ "objective", serializeVec4(_colours.objective) }
+					},
+					{
+						new node("Layout", {}, serialize_gradient(_colours._layout.gradient)),
+						new node("Cover", 
+							{
+								{ "MaxHeight", std::to_string(_colours._cover.maxHeight) }
+							}, 
+							{ serialize_gradient(_colours._cover.gradient) }
+						)
+					}
+				)
+			}
+		)._Serialize();
+	}
+
+	// Convert this styler to base64 format
+	std::string serialize_base64() {
+		std::string vdf = serialize_vdf();
+		return base64_encode((unsigned char*)vdf.c_str(), vdf.length());
+	}
+};
 
 struct tar_config_layer {
 	float layer_max;
@@ -86,6 +269,9 @@ public:
 	std::string		m_visgroup_mask;
 	std::string		m_visgroup_cover;
 	std::string		m_visgroup_overlap;
+
+	//3.0+
+	std::string		m_stylerBase64;
 
 	tar_config() {}
 
@@ -293,4 +479,6 @@ public:
 		glActiveTexture(GL_TEXTURE0 + slot);
 		glBindTexture(GL_TEXTURE_2D, this->m_gradient_textures[id]);
 	}
+
+	tar_style tStyle;
 };

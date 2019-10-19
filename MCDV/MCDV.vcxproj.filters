@@ -260,6 +260,9 @@
     <ClInclude Include="GLFWUtil.hpp">
       <Filter>OpenGL\engine</Filter>
     </ClInclude>
+    <ClInclude Include="base64.h">
+      <Filter>Header Files\util</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="glad.c">
@@ -293,6 +296,9 @@
       <Filter>Source Files\Imgui\galloscript</Filter>
     </ClCompile>
     <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="main2.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -463,6 +469,15 @@
       <Filter>OpenGL\Shader Files\engine</Filter>
     </None>
     <None Include="shaders\engine\tarcfnode\extractmask.fs">
+      <Filter>OpenGL\Shader Files\engine\tarcfnode</Filter>
+    </None>
+    <None Include="shaders\engine\tarcfnode\shadowpass.fs">
+      <Filter>OpenGL\Shader Files\engine\tarcfnode</Filter>
+    </None>
+    <None Include="shaders\engine\tarcfnode\guass_nonuniform.fs">
+      <Filter>OpenGL\Shader Files\engine\tarcfnode</Filter>
+    </None>
+    <None Include="shaders\engine\tarcfnode\color.fs">
       <Filter>OpenGL\Shader Files\engine\tarcfnode</Filter>
     </None>
   </ItemGroup>

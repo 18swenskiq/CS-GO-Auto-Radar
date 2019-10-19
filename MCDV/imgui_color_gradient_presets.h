@@ -3,7 +3,7 @@
 
 namespace gradpreset {
 	void load_dust_2(ImGradient* grad) {
-		grad->getMarks().clear(); // clear gradient
+		grad->clear();
 
 		grad->addMark(0.0f,		ImColor(43,  56,  60));
 		grad->addMark(0.5f,		ImColor(60,  70,  73));
@@ -11,7 +11,7 @@ namespace gradpreset {
 	}
 
 	void load_mirage(ImGradient* grad) {
-		grad->getMarks().clear();
+		grad->clear();
 
 		grad->addMark(0.0f,		ImColor(42,  74,  77));
 		grad->addMark(0.45f,	ImColor(68,  75,  80));
@@ -19,7 +19,7 @@ namespace gradpreset {
 	}
 
 	void load_overpass(ImGradient* grad) {
-		grad->getMarks().clear();
+		grad->clear();
 
 		grad->addMark(0.0f,		ImColor(42,  74,  77));
 		grad->addMark(0.40f,	ImColor(57,  70,  80));
@@ -27,7 +27,7 @@ namespace gradpreset {
 	}
 
 	void load_cache(ImGradient* grad) {
-		grad->getMarks().clear();
+		grad->clear();
 
 		grad->addMark(0.0f,		ImColor(56,  71,  76));
 		grad->addMark(0.5f,		ImColor(70,  70,  80));
@@ -35,7 +35,7 @@ namespace gradpreset {
 	}
 
 	void load_inferno(ImGradient* grad) {
-		grad->getMarks().clear();
+		grad->clear();
 
 		grad->addMark(0.0f,		ImColor(41, 74, 76));
 		grad->addMark(0.5f,		ImColor(62, 74, 80));
@@ -43,7 +43,7 @@ namespace gradpreset {
 	}
 
 	void load_train(ImGradient* grad) {
-		grad->getMarks().clear();
+		grad->clear();
 
 		grad->addMark(0.0f,		ImColor(40, 68, 76));
 		grad->addMark(0.5f,		ImColor(72, 79, 90));
@@ -51,7 +51,7 @@ namespace gradpreset {
 	}
 
 	void load_nuke(ImGradient* grad) {
-		grad->getMarks().clear();
+		grad->clear();
 
 		grad->addMark(0.0f,		ImColor(57, 56, 71));
 		grad->addMark(0.25f,	ImColor(29, 56, 65));
@@ -60,7 +60,7 @@ namespace gradpreset {
 	}
 
 	void load_vertigo(ImGradient* grad) {
-		grad->getMarks().clear();
+		grad->clear();
 
 		grad->addMark(0.0f,		ImColor(52, 31, 46));
 		grad->addMark(0.5f,		ImColor(88, 58, 49));

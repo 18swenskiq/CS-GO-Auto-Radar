@@ -961,95 +961,79 @@ namespace TARCF {
 
 		// Soft shadowing
 		class SoftShadow: public ProjectionBase {
-			std::vector<glm::vec2> offsets;
-			unsigned int gl_noise_texture;
 		public:
 			inline static const char* nodeid = "shadowpass";
+
+			std::vector<glm::vec3> samples;
+			int sIndex;
 
 			SoftShadow() :
 				ProjectionBase(SHADERLIB::node_shaders["shadowpass"], nodeid)
 			{
 				m_prop_definitions.insert({ "radius", prop::prop_explicit<float>(GL_FLOAT, 32.0f, -1) });
 				m_prop_definitions.insert({ "sundir", prop::prop_explicit<glm::vec3>(GL_FLOAT_VEC3, glm::vec3(0.67,0.76,0.88)) });
-				m_prop_definitions.insert({ "iterations", prop::prop_explicit<int>(GL_INT, 256, -1) });
-				m_prop_definitions.insert({ "bias", prop::prop_explicit<float>(GL_FLOAT, 0.25f, -1) });
-				m_prop_definitions.insert({ "accum_divisor", prop::prop_explicit<float>(GL_FLOAT, 8.0f, -1) });
+				m_prop_definitions.insert({ "iterations", prop::prop_explicit<int>(GL_INT, 32, -1) });
 
 				m_output_definitions.push_back(Pin("output", 0));
 
 				// Inputs are from gbuffer
 				m_input_definitions.push_back(Pin("gposition", 0));
-				m_input_definitions.push_back(Pin("gnormal", 1));
 
 				// Generate SSAO kernel
 				std::uniform_real_distribution<float> randomFloats(0.0, 1.0);
 				std::default_random_engine generator;
 
-				// Create random offsets for many many sampling innit
-				for (int i = 0; i < 128; i++) {
-					offsets.push_back(glm::vec2(randomFloats(generator), randomFloats(generator)));
-				}
-
-				// Generate noise texture
-				std::vector<glm::vec3> noise;
-
-				for (int i = 0; i < 65536; i++) {
-					glm::vec3 s(
-						randomFloats(generator),
-						randomFloats(generator),
-						randomFloats(generator)
+				for (int i = 0; i < 64; ++i) {
+					glm::vec3 sample(
+						randomFloats(generator) * 2.0 - 1.0,
+						randomFloats(generator) * 2.0 - 1.0,
+						randomFloats(generator) * 2.0 - 1.0
 					);
-					noise.push_back(glm::normalize(s));
+					samples.push_back(sample);
 				}
-
-				glGenTextures(1, &gl_noise_texture);
-				glBindTexture(GL_TEXTURE_2D, gl_noise_texture);
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, 256, 256, 0, GL_RGB, GL_FLOAT, &noise[0]);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 			}
 
 			void compute(NodeInstance* node) override {
 				glViewport(0, 0, node->m_gl_texture_w, node->m_gl_texture_h);
-				// Bind shader
-				m_operator_shader->use();
-				m_operator_shader->setFloat("blendFac", 1.0f / (float)node->m_properties["iterations"].getValue<int>());
-				m_operator_shader->setFloat("bias", node->m_properties["bias"].getValue<float>());
-				m_operator_shader->setFloat("ssaoScale", node->m_properties["radius"].getValue<float>());
 
-				link_matrices(node);
-
-				m_operator_shader->setVec2("noiseScale", glm::vec2(node->m_gl_texture_w / 256.0f, node->m_gl_texture_h / 256.0f));
-				m_operator_shader->setFloat("accum_divisor", node->m_properties["accum_divisor"].getValue<float>());
-				m_operator_shader->setVec3("sun_dir", node->m_properties["sundir"].getValue<glm::vec3>());
-
-				// Bind rotation texture
-				glActiveTexture(GL_TEXTURE2);
-				glBindTexture(GL_TEXTURE_2D, gl_noise_texture);
-				m_operator_shader->setInt("ssaoRotations", 2);
-
-				// Dragged inputs
-				m_operator_shader->setInt("gbuffer_position", 0);
-				m_operator_shader->setInt("gbuffer_normal", 1);
-
+				
 				glBindFramebuffer(GL_FRAMEBUFFER, node->m_gl_framebuffers[0]);
 
 				glClearColor(0, 0, 0, 1);
 				glClear(GL_COLOR_BUFFER_BIT);
 
 				glEnable(GL_BLEND);
-				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+				glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+				
+
+				glBlendEquation(GL_FUNC_SUBTRACT);
+
+				// Clearing wash.
+				SHADERLIB::node_shaders["color"]->use();
+				SHADERLIB::node_shaders["color"]->setVec4("color", glm::vec4(1.0f / 255.0f, .0f, .0f, 1.0f));
+				s_mesh_quad->Draw();
+
 				glBlendEquation(GL_FUNC_ADD);
 
-				int iter = node->m_properties["iterations"].getValue<int>();
-				for (int i = 0; i < glm::min(iter, 128); i++) {
-					m_operator_shader->setVec2("noiseOffset", offsets[i]);
+				// Bind shader
+				m_operator_shader->use();
+
+				link_matrices(node);
+
+				// Dragged inputs
+				m_operator_shader->setInt("gbuffer_position", 0);
+				m_operator_shader->setVec3("sun_dir", node->m_properties["sundir"].getValue<glm::vec3>());
+				m_operator_shader->setFloat("accum_divisor", 1.0f / 96.0f);//(float)node->m_properties["iterations"].getValue<int>());
+				m_operator_shader->setFloat("spread_factor", node->m_properties["radius"].getValue<float>());
+
+				for (int i = 0; i < node->m_properties["iterations"].getValue<int>(); i++) {
+					m_operator_shader->setVec3("secondary", samples[i]);
+					if (sIndex >= 63) sIndex = 0;
 					s_mesh_quad->Draw();
 				}
 
 				glDisable(GL_BLEND);
+
 				glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			}
 
@@ -1064,21 +1048,16 @@ namespace TARCF {
 				glBindFramebuffer(GL_FRAMEBUFFER, instance->m_gl_framebuffers[0]); // bind framebuffer
 				glGenTextures(1, &instance->m_gl_texture_ids[0]);
 				glBindTexture(GL_TEXTURE_2D, instance->m_gl_texture_ids[0]);
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, instance->m_gl_texture_w, instance->m_gl_texture_h, 0, GL_RGBA, GL_FLOAT, NULL);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, instance->m_gl_texture_w, instance->m_gl_texture_h, 0, GL_RED, GL_UNSIGNED_BYTE, NULL);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, instance->m_gl_texture_ids[0], 0);
 
 				unsigned int attachments[1] = {
 					GL_COLOR_ATTACHMENT0
 				};
-
-				glDrawBuffers(1, attachments);
-			}
-
-			// Clear mem from noise texture
-			~SoftShadow() {
-				glDeleteTextures(1, &gl_noise_texture);
 			}
 
 			uint64_t get_tex_memory_usage(const NodeInstance* instance) override {
@@ -1088,26 +1067,22 @@ namespace TARCF {
 			static inline NodeInstance* instance(
 				const uint32_t& w, const uint32_t& h,
 				Connection inputGPos,
-				Connection inputGNorm,
 				glm::mat4* ptrMatView,
 				glm::mat4* ptrMatProj,
 				const float& radius = 32.0f,
 				const glm::vec3& sundir = glm::vec3(0.67, 0.76, 0.88),
-				const int& iterations = 256,
+				const int& iterations = 32,
 				const float& bias = 1.0f,
 				const float& accum_divisor = 8.0f
 			) {
 				NodeInstance* node = new NodeInstance(w, h, nodeid);
 				node->setPropertyEx<float>("radius", radius);
 				node->setPropertyEx<int>("iterations", iterations);
-				node->setPropertyEx<float>("bias", bias);
-				node->setPropertyEx<float>("accum_divisor", accum_divisor);
 				node->setPropertyEx<glm::vec3>("sundir", sundir);
 
 				ProjectionBase::autolink(node, ptrMatView, ptrMatProj);
 
 				NodeInstance::connect(inputGPos.ptrNode, node, inputGPos.uConID, 0);
-				NodeInstance::connect(inputGNorm.ptrNode, node, inputGNorm.uConID, 1);
 
 				return node;
 			}

@@ -129,6 +129,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="AtomicNodes.hpp" />
+    <ClInclude Include="base64.h" />
     <ClInclude Include="Camera.hpp" />
     <ClInclude Include="CompositorFrame.hpp" />
     <ClInclude Include="CompositorGraphs.hpp" />
@@ -203,6 +204,7 @@
     <ClCompile Include="imgui_widgets.cpp" />
     <ClCompile Include="loguru.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="main2.cpp" />
     <ClCompile Include="vmf.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -228,13 +230,16 @@
     <None Include="shaders\engine\tarcfnode\blend.mul.fs" />
     <None Include="shaders\engine\tarcfnode\blend.mul.masked.fs" />
     <None Include="shaders\engine\tarcfnode\blend.sub.fs" />
+    <None Include="shaders\engine\tarcfnode\color.fs" />
     <None Include="shaders\engine\tarcfnode\distance.fs" />
     <None Include="shaders\engine\tarcfnode\extractmask.fs" />
     <None Include="shaders\engine\tarcfnode\guass_multipass.fs" />
+    <None Include="shaders\engine\tarcfnode\guass_nonuniform.fs" />
     <None Include="shaders\engine\tarcfnode\invert.fs" />
     <None Include="shaders\engine\tarcfnode\outline.fs" />
     <None Include="shaders\engine\tarcfnode\passthrough.fs" />
     <None Include="shaders\engine\tarcfnode\pow.fs" />
+    <None Include="shaders\engine\tarcfnode\shadowpass.fs" />
     <None Include="shaders\engine\tarcfnode\step.fs" />
     <None Include="shaders\fullscreenbase.fs" />
     <None Include="shaders\fullscreenbase.vs" />

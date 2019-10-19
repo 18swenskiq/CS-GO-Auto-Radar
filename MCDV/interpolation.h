@@ -3,6 +3,7 @@
 #include <glm\gtc\matrix_transform.hpp>
 #include <glm\gtc\type_ptr.hpp>
 #include <string>
+#include <vector>
 
 //Linear interpolation between two floats, given time
 static float lerpf(float a, float b, float f) {
@@ -42,4 +43,8 @@ glm::vec4 parseVec4(std::string src) {
 	if (strings.size() >= 4) out.a = (float)::atoi(strings[3].c_str()) / 255.0f;
 
 	return out;
+}
+
+inline std::string serializeVec4(const glm::vec4& src) {
+	return std::to_string(src.r) + " " + std::to_string(src.g) + " " + std::to_string(src.b) + " " + std::to_string(src.a);
 }

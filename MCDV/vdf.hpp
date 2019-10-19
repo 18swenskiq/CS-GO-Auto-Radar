@@ -100,8 +100,13 @@ namespace kv{
 			}
 		}
 
+		// For nice C++ construction
+		DataBlock(const std::string& _name = "", const std::map<std::string, std::string>& values = {}, const std::vector<DataBlock*> subBlocks = {})
+		: name(_name), Values(values), SubBlocks(subBlocks){}
+
 		// Take this node and write it and all other sub-nodes into filestream
-		void Serialize(std::ofstream& stream, int depth = 0){
+		template<typename T>
+		void Serialize(T& stream, int depth = 0){
 			//Build indentation levels
 			std::string indenta = "";
 			for (int i = 0; i < depth; i++)
@@ -121,6 +126,12 @@ namespace kv{
 
 			if (depth >= 0)
 				stream << indenta << "}" << std::endl;
+		}
+
+		std::string _Serialize() {
+			std::ostringstream stream;
+			Serialize(stream);
+			return stream.str();
 		}
 
 		// Gets the first data block by name. Returns null if not found

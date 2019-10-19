@@ -12,6 +12,8 @@ uniform sampler2D ssaoRotations;
 uniform sampler2D gbuffer_position;
 uniform sampler2D gbuffer_normal;
 uniform vec3 sun_dir;
+uniform vec3 secondary;
+uniform float spread_factor;
 
 // for reprojection
 uniform mat4 projection;
@@ -21,18 +23,10 @@ uniform mat4 view;
 uniform vec2 noiseScale;
 uniform vec2 noiseOffset;
 
-void main()
-{
-	// Get samples from position and normal buffers
-	vec4 s_position = texture(gbuffer_position, TexCoords);
-	vec4 s_normal = texture(gbuffer_normal, TexCoords);
-
-	vec3 s_noise = texture(ssaoRotations, (TexCoords * noiseScale) + noiseOffset).rgb;
-
-	float occlusion = 0.0;
-	for(int i = 0; i < 128; i++)
-	{
-		vec3 sample = s_position.xyz + normalize((sun_dir * 1024.0) + (s_noise * pow((i/128.0), 2.0) * 128.0)) * (i/128.0) * 1024.0;
+float trace(vec3 start, vec3 dir, float mxDist){
+	for(int i = 0; i < 128; i++){
+		
+		vec3 sample = start + (normalize(dir) * (i/128.0) * mxDist);
 
 		vec4 offset = vec4(sample, 1.0);
 		offset = projection * view * offset;
@@ -40,11 +34,24 @@ void main()
 		offset.xyz = offset.xyz * 0.5 + 0.5;
 
 		float depth = texture(gbuffer_position, offset.xy).y;
+		if(depth > 9900) continue;
 
-		occlusion += (depth >= sample.y + bias ? 1.0 : 0.0);
+		if(depth >= sample.y + 0.01) 
+		{
+			return 1.0;
+		}
 	}
-	
-	occlusion /= accum_divisor;
 
-	FragColor = vec4(1, 0, 0, clamp(occlusion * blendFac, 0, 1));
+	return 0.0;
+}
+
+void main()
+{
+	// Get samples from position and normal buffers
+	vec4 s_position = texture(gbuffer_position, TexCoords);
+	vec4 s_normal = texture(gbuffer_normal, TexCoords);
+
+	vec3 s_noise = texture(ssaoRotations, (TexCoords * noiseScale) + noiseOffset).rgb;
+	
+	FragColor = vec4(trace(s_position.xyz, sun_dir + (secondary * spread_factor), 1024.0) * accum_divisor, 0, 0, 1);
 }

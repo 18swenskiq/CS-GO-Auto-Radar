@@ -1,3 +1,6 @@
+#include "globals.h"
+#ifdef entry_point_revis
+
 // Credits etc...
 #include "strings.h"
 
@@ -138,11 +141,14 @@ TARCF::NodeInstance* nodet_mask_overlap;
 TARCF::NodeInstance* nodet_mask_cover;
 TARCF::NodeInstance* nodet_maskt;
 TARCF::NodeInstance* nodet_mask_buyzone;
+TARCF::NodeInstance* add_shadow;
 
 TARCF::NodeInstance* nodet_blur;
 TARCF::NodeInstance* nodet_bombsite_color;
 TARCF::NodeInstance* nodet_buyzone_color;
 TARCF::NodeInstance* nodet_bgblend;
+
+TARCF::NodeInstance* nodet_shadowpass;
 
 GRAPHS::OutlineWithGlow* glowTest;
 GRAPHS::OutlineWithGlow* glow_buyzone;
@@ -391,9 +397,22 @@ void ui_render_dev() {
 			if (ImGui::BeginTabItem("Sun Light"))
 			{
 				ImGui::Checkbox("Shadows", &g_tar_config->m_shadows_enable);
-				if (g_tar_config->m_shadows_enable) {
-					ImGui::SliderFloat("Trace length", &g_tar_config->m_shadows_tracelength, 1.0f, 2048.0f, "%.1f");
-					ImGui::SliderInt("Sample Count", &g_tar_config->m_shadows_samplecount, 1, 512, "%d");
+				if (true) {
+					if (ImGui::SliderFloat("Shadow amount", &g_tar_config->m_shadows_tracelength, 0.0f, 1.0f, "%.3f")) {
+						add_shadow->setPropertyEx<float>("factor", g_tar_config->m_shadows_tracelength);
+					}
+					
+					if (ImGui::SliderInt("Sample Count", &g_tar_config->m_shadows_samplecount, 1, 64, "%d")) {
+						nodet_shadowpass->setPropertyEx<int>("iterations", g_tar_config->m_shadows_samplecount);
+					}
+
+					if (ImGui::SliderFloat3("Sun DIR x", &g_tar_config->tStyle._lighting._sun.dir[0], -1.0f, 1.0f, "%.1f")) {
+						nodet_shadowpass->setPropertyEx<glm::vec3>("sundir", g_tar_config->tStyle._lighting._sun.dir);
+					}
+
+					if (ImGui::SliderFloat("Sun spread", &g_tar_config->tStyle._lighting._sun.radius, 0.0f, 4.0f, "%.3f")) {
+						nodet_shadowpass->setPropertyEx<float>("radius", g_tar_config->tStyle._lighting._sun.radius);
+					}
 				}
 
 				ImGui::EndTabItem();
@@ -740,6 +759,12 @@ int app(int argc, char** argv) {
 		&g_tar_config->m_pmView, &g_tar_config->m_pmPersp, 256.0f
 	);
 
+	nodet_shadowpass = TARCF::Atomic::SoftShadow::instance(
+		512, 512,
+		{ nodet_vmf, 0 },
+		&g_tar_config->m_pmView, &g_tar_config->m_pmPersp, 32.0f, g_tar_config->tStyle._lighting._sun.dir, 2
+	);
+
 	TARCF::NodeInstance* nBlendCoverBuf = TARCF::Atomic::BlendRGB16F::instance( // Blending cover buffers together ============
 		1024, 1024,
 		{ nodet_rel1 },
@@ -785,16 +810,25 @@ int app(int argc, char** argv) {
 		TARCF::Atomic::Blend::BlendMode::BLEND_MUL
 	);
 
+	add_shadow = TARCF::Atomic::Blend::instance(1024, 1024,
+		{ TARCF::Atomic::Blend::instance(1024, 1024, // Blend both AO terms together =========================================
+			{ nodet_ao },
+			{ nodet_ao_overlap },
+			{ extraBlend }
+		) },
+		{ nodet_shadowpass },
+		{},
+		TARCF::Atomic::Blend::BlendMode::BLEND_ADD
+	);
+
 	nodet_blend = TARCF::Atomic::Blend::instance( 1024, 1024, // Blend AO color with gradient =================================
 		{ blendGrad },
 		{ nodet_ao_color },
 
-		{ TARCF::Atomic::Blend::instance( 1024, 1024, // Blend both AO terms together =========================================
-			{ nodet_ao }, 
-			{ nodet_ao_overlap },
-			{ extraBlend }
-		)}
+		{ add_shadow }
 	);
+
+
 
 	nodet_bombsite_color = TARCF::Atomic::Color::instance( 2, 2, g_tar_config->m_color_objective ); // Bombsite color =========
 	nodet_buyzone_color = TARCF::Atomic::Color::instance( 2, 2, g_tar_config->m_color_buyzone ); // Buyzone color =============
@@ -846,8 +880,9 @@ int app(int argc, char** argv) {
 
 		
 		nodet_bgblend->compute();
+		//nodet_shadowpass->compute();
 		glViewport(0, 0, display_w, display_h);
-		//nodet_bgblend->debug_fs();
+		nodet_bgblend->debug_fs();
 
 #pragma region ImGui
 
@@ -1023,3 +1058,5 @@ extern "C" {
 	__declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
 	__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
+
+#endif
