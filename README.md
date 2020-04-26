@@ -3,17 +3,15 @@ Automatically make a radar with every compile of a map you do:
 
 Specify the layout in hammer by adding brushes to a visgroup named 'tar_layout', and Auto Radar will do the rest.
 
-![](https://i.imgur.com/98QEtMx.gif)
+Image: generated radar for de_distillery created by [Chuck Wilson](https://www.aspaceman.com/)
+![](http://terri.tech/img/tar/radar.jpg)
 
-Editable GLSL compositor engine for CS:GO Radars, many features to come.
 
-Notable things up ahead:
-- ~~Prop support~~ Done!
-- func_instances
-- baked lighting & ~~even better AO~~ Done
-- Auto CSG geometry for even better masking
+Editable GLSL compositor engine for CS:GO Radars.
 
-Want to support development? https://www.paypal.me/terri00 :)
+# Notes:
+- Some GPU's are having issues with the FXAA shader I used, if you radar is cut half way from the top for example or completely black, you should change the anti-aliasing mode in the tar-config entity.
+- Instances and Func_details do not show up as part of layout groups!!
 
 # Download:
 This tool requires Visual C++ 2017 redistributables, you can donwload them here (both should be installed if Auto Radar won't start):
