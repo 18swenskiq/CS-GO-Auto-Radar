@@ -19,7 +19,7 @@ This tool requires Visual C++ 2017 redistributables, you can donwload them here 
 - https://aka.ms/vs/15/release/vc_redist.x64.exe (64 bit)
 - https://aka.ms/vs/15/release/vc_redist.x86.exe (32 bit)
 
-Download the latest release of AutoRadar here: https://github.com/Terri00/MCDV/releases
+Download the latest release of AutoRadar here: https://github.com/18swenskiq/CS-GO-Auto-Radar/releases
 
 Run the AutoRadar_installer.exe to copy all the necessary files into the correct locations. (Make sure hammer is closed)
 
@@ -66,10 +66,8 @@ The AutoRadar installer set up a new compile profile in the 'expert' mode. Enter
 
 ### Using this software with Yanzl's Radar graph:
 *This works with versions below 2.5 only.
-https://github.com/Terri00/CS-GO-Auto-Radar/blob/tavr/radar-graph.md
+https://github.com/18swenskiq/CS-GO-Auto-Radar/blob/tavr/radar-graph.md
 
 ### Free software used:
 - Headers from the amazing STB collection: https://github.com/nothings/stb
 - cxxopts: https://github.com/jarro2783/cxxopts
-
-###### Looking for the old height map generator? https://github.com/Terri00/MCDV/tree/master
