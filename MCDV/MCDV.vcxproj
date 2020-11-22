@@ -139,7 +139,6 @@
     <ClInclude Include="fuzzy_select.h" />
     <ClInclude Include="gamelump.hpp" />
     <ClInclude Include="GBuffer.hpp" />
-    <ClInclude Include="globals.h" />
     <ClInclude Include="GradientMap.hpp" />
     <ClInclude Include="interpolation.h" />
     <ClInclude Include="generic.hpp" />

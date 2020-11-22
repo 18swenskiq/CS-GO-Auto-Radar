@@ -134,9 +134,6 @@
     <ClInclude Include="wc.hpp">
       <Filter>Header Files\valve</Filter>
     </ClInclude>
-    <ClInclude Include="globals.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="GradientMap.hpp">
       <Filter>OpenGL\engine</Filter>
     </ClInclude>

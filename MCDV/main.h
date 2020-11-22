@@ -1,6 +1,5 @@
 #pragma once
 
-#include "globals.h"
 #include "vmf_new.hpp"
 
 #include <glad\glad.h>

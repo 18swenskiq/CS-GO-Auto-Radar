@@ -10,6 +10,10 @@ std::string g_folder_resources;
 bool		g_onlyMasks = false;
 bool		g_Masks		= false;
 
+#define GLBUILD
+//#define DXBUILD
+
+#ifdef GLBUILD
 Shader* g_shader_gBuffer;
 Shader* g_shader_iBuffer;
 Shader* g_shader_comp;
@@ -38,6 +42,7 @@ Texture* g_ssao_rotations;
 uint32_t g_renderWidth = 1024;
 uint32_t g_renderHeight = 1024;
 uint32_t g_msaa_mul = 1;
+#endif
 
 
 int main(int argc, const char** argv) {
@@ -76,9 +81,9 @@ void save_to_dds(int x, int y, const char* filepath, IMG imgmode)
 
 int app(int argc, const char** argv) {
 
-#ifndef _DEBUG
+	#ifndef _DEBUG
 
-#pragma region cxxopts
+	// -----------Command line options-----------
 	cxxopts::Options options("AutoRadar", "Auto radar");
 	options.add_options()
 		("v,version",	"Shows the software version")
@@ -113,14 +118,19 @@ int app(int argc, const char** argv) {
 	g_onlyMasks = result["onlyMasks"].as<bool>();
 	g_Masks = result["dumpMasks"].as<bool>() || g_onlyMasks;
 
-#pragma endregion
-#endif
+	#endif
 
+
+
+	// -----------Output stuff-----------
 	g_mapfile_name = split(g_mapfile_path, '/').back();
 	g_folder_overviews = g_game_path + "/resource/overviews/";
 	g_folder_resources = g_folder_overviews + g_mapfile_name + ".resources/";
 
-#pragma region opengl_setup
+
+
+	// -----------Set up graphics API-----------
+	#ifdef GLBUILD
 	glfwInit();
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -130,7 +140,6 @@ int app(int argc, const char** argv) {
 	glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
 
 	GLFWwindow* window = glfwCreateWindow(g_renderWidth, g_renderHeight, "Ceci n'est pas une window", NULL, NULL);
-
 	if (window == NULL) {
 		printf("GLFW died\n");
 		glfwTerminate();
@@ -144,20 +153,26 @@ int app(int argc, const char** argv) {
 		printf("GLAD died\n");
 		return -1;
 	}
-
 	const unsigned char* glver = glGetString(GL_VERSION);
 	printf("(required: min core 3.3.0) opengl version: %s\n", glver);
-#pragma endregion
+	#endif
 
+
+
+
+	// -----------Various filesystem things-----------
 	vfilesys* filesys = new vfilesys(g_game_path + "/gameinfo.txt");
-
 	vmf::LinkVFileSystem(filesys);
 	g_vmf_file = vmf::from_file(g_mapfile_path + ".vmf");
 	g_vmf_file->InitModelDict();
 	g_tar_config = new tar_config(g_vmf_file);
 
-#pragma region opengl_extra
 
+
+
+
+	// -----------Other graphics API setup-----------
+	#ifdef GLBUILD
 	std::vector<float> __meshData = {
 		-1, -1,
 		-1, 1,
@@ -199,10 +214,12 @@ int app(int argc, const char** argv) {
 	glEnable(GL_DEPTH_TEST);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	glFrontFace(GL_CW);
+	#endif
 
-#pragma endregion
 
-#pragma region render
+
+
+	// -----------Render It-----------
 
 	std::map<tar_config_layer*, FBuffer*> _flayers;
 
@@ -324,7 +341,10 @@ int app(int argc, const char** argv) {
 		FBuffer::Unbind();
 	}
 
-#pragma endregion
+
+
+
+	// -----------Write text file-----------
 	if (g_tar_config->m_write_txt)
 	{
 		std::cout << "Generating radar .TXT... ";
@@ -391,9 +411,12 @@ int app(int argc, const char** argv) {
 	return 0;
 }
 
+
+
+
+// ----------- Buffer gen geo -----------
 void render_config(tar_config_layer layer, const std::string& layerName, FBuffer* drawTarget) {
 	// G BUFFER GENERATION ======================================================================================
-#pragma region buffer_gen_geo
 
 	glm::mat4 l_mat4_projm = glm::ortho(
 		g_tar_config->m_view_origin.x,										// -X
@@ -464,10 +487,11 @@ void render_config(tar_config_layer layer, const std::string& layerName, FBuffer
 
 	GBuffer::Unbind();
 
-#pragma endregion
 
-#pragma region mask_gen
 
+
+
+	//-----------Mask Gen-----------
 	g_mask_playspace->Bind();
 	glClearColor(0.0, 0.0, 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -507,10 +531,10 @@ void render_config(tar_config_layer layer, const std::string& layerName, FBuffer
 	g_vmf_file->SetFilters({}, { "func_buyzone" });
 	g_vmf_file->DrawEntities(g_shader_iBuffer);
 
-#pragma endregion
 
-	// FINAL COMPOSITE ===============================================================
-#pragma region final_composite
+
+
+	// ----------- FINAL COMPOSITE -----------
 
 	MBuffer::Unbind(); // Release any frame buffer
 
@@ -583,8 +607,6 @@ void render_config(tar_config_layer layer, const std::string& layerName, FBuffer
 	g_shader_comp->setInt("mssascale", g_msaa_mul);
 
 	g_mesh_screen_quad->Draw();
-
-#pragma endregion
 }
 
 
