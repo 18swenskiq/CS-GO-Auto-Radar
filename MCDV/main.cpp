@@ -1,6 +1,6 @@
 #include "main.h"
 
-std::string g_game_path = "D:/SteamLibrary/steamapps/common/Counter-Strike Global Offensive/csgo";
+std::string g_game_path = "H:/SteamLibrary/steamapps/common/Counter-Strike Global Offensive/csgo";
 std::string g_mapfile_path = "sample_stuff/de_tavr_test";
 std::string g_mapname;
 std::string g_mapfile_name;
