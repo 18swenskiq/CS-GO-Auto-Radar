@@ -800,6 +800,7 @@ public:
 					meshData.push_back(vvd->verticesLOD0[vert].m_vecNormal.y);
 				}
 
+				// TODO: Make a DX mesh somehow
 				vmf::s_model_dict.insert({ modelName, new Mesh(meshData, MeshMode::POS_XYZ_NORMAL_XYZ) }); // Add to our list
 				break;
 			}

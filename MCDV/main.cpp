@@ -10,8 +10,28 @@ std::string g_folder_resources;
 bool		g_onlyMasks = false;
 bool		g_Masks		= false;
 
-#define GLBUILD
-//#define DXBUILD
+vmf* g_vmf_file;
+tar_config* g_tar_config;
+
+//#define GLBUILD
+#define DXBUILD
+
+
+#ifdef DXBUILD
+DXShaderCombo* dx_shader_gBuffer;
+DXShaderCombo* dx_shader_iBuffer;
+DXShaderCombo* dx_shader_comp;
+DXShaderCombo* dx_shader_multilayer_blend;
+DXShaderCombo* dx_shader_multilayer_final;
+DXShaderCombo* dx_shader_fxaa;
+DXShaderCombo* dx_shader_msaa;
+
+uint32_t dx_renderWidth = 1024;
+uint32_t dx_renderHeight = 1024;
+uint32_t dx_msaa_mul = 1;
+#endif
+
+
 
 #ifdef GLBUILD
 Shader* g_shader_gBuffer;
@@ -29,9 +49,6 @@ MBuffer* g_mask_buyzone;
 MBuffer* g_mask_objectives;
 FBuffer* g_fbuffer_generic;
 FBuffer* g_fbuffer_generic1;
-
-vmf* g_vmf_file;
-tar_config* g_tar_config;
 
 Mesh* g_mesh_screen_quad;
 Texture* g_texture_background;
@@ -57,7 +74,9 @@ int main(int argc, const char** argv) {
 }
 
 
-void render_to_png(int x, int y, const char* filepath) {
+void render_to_png(int x, int y, const char* filepath) 
+{
+	#ifdef GLBUILD
 	void* data = malloc(4 * x * y);
 
 	glReadPixels(0, 0, x, y, GL_RGBA, GL_UNSIGNED_BYTE, data);
@@ -66,10 +85,12 @@ void render_to_png(int x, int y, const char* filepath) {
 	stbi_write_png(filepath, x, y, 4, data, x * 4);
 
 	free(data);
+	#endif
 }
 
 void save_to_dds(int x, int y, const char* filepath, IMG imgmode)
 {
+	#ifdef GLBUILD
 	void* data = malloc(6 * x * y);
 
 	glReadPixels(0, 0, x, y, GL_RGBA, GL_UNSIGNED_BYTE, data);
@@ -77,6 +98,7 @@ void save_to_dds(int x, int y, const char* filepath, IMG imgmode)
 	dds_write((uint8_t*)data, filepath, x, y, imgmode);
 
 	free(data);
+	#endif GLBUILD
 }
 
 int app(int argc, const char** argv) {
@@ -122,6 +144,9 @@ int app(int argc, const char** argv) {
 
 
 
+
+
+
 	// -----------Output stuff-----------
 	g_mapfile_name = split(g_mapfile_path, '/').back();
 	g_folder_overviews = g_game_path + "/resource/overviews/";
@@ -129,8 +154,15 @@ int app(int argc, const char** argv) {
 
 
 
+
+	#ifdef DXBUILD
 	// -----------Set up graphics API-----------
+	DXRendering* dxr = new DXRendering();
+	dxr->PrintVersion();
+	#endif
+
 	#ifdef GLBUILD
+	// -----------Set up graphics API-----------
 	glfwInit();
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -171,8 +203,41 @@ int app(int argc, const char** argv) {
 
 
 
+	#ifdef DXBUILD
 	// -----------Other graphics API setup-----------
+	
+	const std::wstring gBufferV = L"shaders/gBufferV.cso";
+	const std::wstring gBufferP = L"shaders/gBufferP.cso";
+	const std::wstring iBufferP = L"shaders/iBufferP.cso";
+	const std::wstring fullscreenBaseV = L"shaders/fullscreenbaseV.cso";
+	const std::wstring fullscreenBaseP = L"shaders/fullscreenbaseP.cso";
+	const std::wstring multilayerBlendP = L"shaders/ss_comp_multilayer_blendP.cso";
+	const std::wstring multilayerFinalP = L"shaders/ss_comp_multilayer_finalstageP.cso";
+	const std::wstring ss_fxaaP = L"shaders/ss_fxaaP.cso";
+	const std::wstring ss_msaaP = L"shaders/ss_msaaP.cso";
+
+	dx_shader_gBuffer = new DXShaderCombo(dxr->LoadVertexShader(gBufferV), dxr->LoadPixelShader(gBufferP));
+	dx_shader_iBuffer = new DXShaderCombo(dxr->LoadVertexShader(gBufferV), dxr->LoadPixelShader(iBufferP));
+	dx_shader_comp = new DXShaderCombo(dxr->LoadVertexShader(fullscreenBaseV), dxr->LoadPixelShader(fullscreenBaseP));
+	dx_shader_multilayer_blend = new DXShaderCombo(dxr->LoadVertexShader(fullscreenBaseV), dxr->LoadPixelShader(multilayerBlendP));
+	dx_shader_multilayer_final = new DXShaderCombo(dxr->LoadVertexShader(fullscreenBaseV), dxr->LoadPixelShader(multilayerFinalP));
+	dx_shader_fxaa = new DXShaderCombo(dxr->LoadVertexShader(fullscreenBaseV), dxr->LoadPixelShader(ss_fxaaP));
+	dx_shader_msaa = new DXShaderCombo(dxr->LoadVertexShader(fullscreenBaseV), dxr->LoadPixelShader(ss_msaaP));
+
+	if (g_tar_config->m_sampling_mode == sampling_mode::MSAA4x || g_tar_config->m_sampling_mode == sampling_mode::MSAA16x)
+	{
+		dx_msaa_mul = g_tar_config->m_sampling_mode;
+	}
+
+	// Set up draw buffers
+
+	// Load Textures
+
+	#endif
+
+
 	#ifdef GLBUILD
+	// -----------Other graphics API setup-----------
 	std::vector<float> __meshData = {
 		-1, -1,
 		-1, 1,
@@ -219,6 +284,7 @@ int app(int argc, const char** argv) {
 
 
 
+#ifdef GLBUILD
 	// -----------Render It-----------
 
 	std::map<tar_config_layer*, FBuffer*> _flayers;
@@ -340,7 +406,7 @@ int app(int argc, const char** argv) {
 		}
 		FBuffer::Unbind();
 	}
-
+#endif 
 
 
 
@@ -355,7 +421,12 @@ int app(int argc, const char** argv) {
 
 		node_radar.Values.insert({ "pos_x", std::to_string(g_tar_config->m_view_origin.x) });
 		node_radar.Values.insert({ "pos_y", std::to_string(g_tar_config->m_view_origin.y) });
+
+		#ifdef GLBUILD
 		node_radar.Values.insert({ "scale", std::to_string(g_tar_config->m_render_ortho_scale / g_renderWidth) });
+		#else
+		node_radar.Values.insert({ "scale", std::to_string(g_tar_config->m_render_ortho_scale / dx_renderWidth) });
+		#endif
 
 		if (g_tar_config->layers.size() > 1) {
 			kv::DataBlock node_vsections = kv::DataBlock();
@@ -403,8 +474,10 @@ int app(int argc, const char** argv) {
 		out.close();
 	}
 
+	#ifdef GLBUILD
 	IL_EXIT:
 	glfwTerminate();
+	#endif
 #ifdef _DEBUG
 	system("PAUSE");
 #endif
@@ -414,6 +487,7 @@ int app(int argc, const char** argv) {
 
 
 
+#ifdef GLBUILD
 // ----------- Buffer gen geo -----------
 void render_config(tar_config_layer layer, const std::string& layerName, FBuffer* drawTarget) {
 	// G BUFFER GENERATION ======================================================================================
@@ -608,6 +682,8 @@ void render_config(tar_config_layer layer, const std::string& layerName, FBuffer
 
 	g_mesh_screen_quad->Draw();
 }
+
+#endif
 
 
 /*
