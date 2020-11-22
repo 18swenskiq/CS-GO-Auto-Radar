@@ -466,7 +466,7 @@ int app(int argc, const char** argv) {
 		}
 
 		std::ofstream out(filesys->create_output_filepath("resource/overviews/" + g_mapfile_name + ".txt", true).c_str());
-		out << "// TAVR - AUTO RADAR. v 2.5.0a\n";
+		out << "// (Squidski's) TAVR - AUTO RADAR. v 3.0.0a\n";
 		node_radar.Serialize(out);
 		out.close();
 	}

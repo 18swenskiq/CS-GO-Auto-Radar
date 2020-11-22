@@ -140,6 +140,7 @@
     <ClInclude Include="convexPolytope.h" />
     <ClInclude Include="cxxopts.hpp" />
     <ClInclude Include="dds.hpp" />
+    <ClInclude Include="DXInterpolation.h" />
     <ClInclude Include="dxrendering.h" />
     <ClInclude Include="DXShaderCombo.h" />
     <ClInclude Include="DXVertexBuffer.h" />

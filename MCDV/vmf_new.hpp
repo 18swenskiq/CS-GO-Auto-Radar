@@ -10,12 +10,23 @@
 #include <map>
 #include <set>
 
+
+// directx
+#ifdef DXBUILD
+#include <d3d11.h>
+#include <DirectXMath.h>
+#endif
+
+
 // opengl
+#ifdef GLBUILD
 #include <glad\glad.h>
 #include <GLFW\glfw3.h>
 #include <glm\glm.hpp>
 #include <glm\gtc\matrix_transform.hpp>
 #include <glm\gtc\type_ptr.hpp>
+#endif
+
 
 //engine (directx)
 #ifdef DXBUILD
@@ -268,6 +279,30 @@ public:
 			return;
 		}
 
+#ifdef DXBUILD
+		// Match 'starting point'
+		std::map<float, DirectX::XMFLOAT3*> distancesToStart;
+		for (auto && p : this->m_source_side->m_vertices)
+			distancesToStart.insert({}); // find distance
+
+		// The corners of the displacement
+		DirectX::XMFLOAT3* SW = distancesToStart.begin()->second;
+
+		// Find what point in vector it was
+		int pos = 0;
+		for (auto&& point : this->m_source_side->m_vertices)
+			if (&point == SW) break; else pos++;
+
+		// Get the rest of the points, in clockwise order
+		DirectX::XMFLOAT3* NW = &this->m_source_side->m_vertices[(pos + 1) % 4];
+		DirectX::XMFLOAT3* NE = &this->m_source_side->m_vertices[(pos + 2) % 4];
+		DirectX::XMFLOAT3* SE = &this->m_source_side->m_vertices[(pos + 3) % 4];
+
+		int points = pow(2, this->power) + 1; // was GLM::Pow, will break anything?
+
+#endif
+
+#ifdef GLBUILD
 		// Match 'starting point'
 		std::map<float, glm::vec3*> distancesToStart;
 		for (auto && p : this->m_source_side->m_vertices)
@@ -289,10 +324,20 @@ public:
 		int points = glm::pow(2, this->power) + 1; // calculate the point count (5, 9, 17)
 
 												   // Initialize list for floats
+
+#endif
 		std::vector<float> meshData;
 
+		#ifdef DXBUILD
+		std::vector<DirectX::XMFLOAT3> finalPoints;
+		std::vector<DirectX::XMFLOAT3> finalNormals;
+		#endif
+
+		#ifdef GLBUILD
 		std::vector<glm::vec3> finalPoints;
 		std::vector<glm::vec3> finalNormals;
+		#endif
+
 
 		for (int row = 0; row < points; row++) {
 			for (int col = 0; col < points; col++) {
@@ -301,20 +346,38 @@ public:
 				float dx = (float)col / (float)(points - 1); //Time values for linear interpolation
 				float dy = (float)row / (float)(points - 1);
 
+				#ifdef DXBUILD
+				DirectX::XMFLOAT3 LWR = DirectX::XMVectorLerp(DirectX::XMLoadFloat3(*SW), *SE, dx);
+				DirectX::XMFLOAT3 UPR = DirectX::XMVectorLerp(*NW, *NE, dx);
+				DirectX::XMFLOAT3 P = DirectX::XMVectorLerp(LWR, UPR, dy);
+
+				DirectX::XMFLOAT3 offset = this->normals[col][row] * this->distances[col][row];
+				P = P + offset;
+				#endif
+
+				#ifdef GLBUILD
 				glm::vec3 LWR = lerp(*SW, *SE, dx);
 				glm::vec3 UPR = lerp(*NW, *NE, dx);
 				glm::vec3 P = lerp(LWR, UPR, dy); // Original point location
 
 				glm::vec3 offset = this->normals[col][row] * this->distances[col][row]; // Calculate offset
 				P = P + offset; //Add offset to P
-
+				#endif
 				finalPoints.push_back(P);
 			}
 		}
 
 		for (int row = 0; row < points; row++) {
 			for (int col = 0; col < points; col++) {
+
+				#ifdef DXBUILD
+				std::vector<DirectX::XMFLOAT3*> kernalpts = { NULL, NULL, NULL, NULL };
+				#endif
+
+				#ifdef GLBUILD
 				std::vector<glm::vec3*> kernalpts = { NULL, NULL, NULL, NULL };
+				#endif
+
 
 				if(row + 1 < points)	kernalpts[0] = &finalPoints[((row + 1) * points) + (col + 0)];
 				if(col - 1 > 0)			kernalpts[1] = &finalPoints[((row + 0) * points) + (col - 1)];
@@ -322,22 +385,54 @@ public:
 				if(row - 1 > 0)			kernalpts[2] = &finalPoints[((row - 1) * points) + (col + 0)];
 				if(col + 1 < points)	kernalpts[3] = &finalPoints[((row + 0) * points) + (col + 1)];
 
+				#ifdef DXBUILD
+				DirectX::XMFLOAT3* A = &finalPoints[((row + 0) * points) + (col + 0)];
+				DirectX::XMFLOAT3 cNorm = DirectX::XMFLOAT3(1, 0, 0);
+				#endif
+
+
+				#ifdef GLBUILD
 				glm::vec3* A = &finalPoints[((row + 0) * points) + (col + 0)];
 				glm::vec3 cNorm = glm::vec3(1, 0, 0);
+				#endif
+
 
 				for (int t = 0; t < 1; t++) {
+					#ifdef DXBUILD
+					DirectX::XMFLOAT3* B = kernalpts[(t + 0) % 4];
+					DirectX::XMFLOAT3* C = kernalpts[(t + 1) % 4];
+					#endif
+
+
+					#ifdef GLBUILD
 					glm::vec3* B = kernalpts[(t + 0) % 4];
 					glm::vec3* C = kernalpts[(t + 1) % 4];
+					#endif
 
 					if ((B != NULL) && (C != NULL)) {
+
+						#ifdef DXBUILD
+						DirectX::XMFLOAT3 v0 = *A - *C;
+						DirectX::XMFLOAT3 v1 = *B - *C;
+						DirectX::XMFLOAT3 n = DirectX::XMVector3Cross(DirectX::XMLoadFloat3(&v0), DirectX::XMLoadFloat3(&v1));
+						cNorm += DirectX::XMVector3Normalize(n);
+						#endif
+
+						#ifdef GLBUILD
 						glm::vec3 v0 = *A - *C;
 						glm::vec3 v1 = *B - *C;
 						glm::vec3 n = glm::cross(v0, v1);
 						cNorm += glm::normalize(n);
+						#endif
 					}
 				}
+				#ifdef DXBUILD
+				finalNormals.push_back(DirectX::XMVector3Normalize(cNorm));
+				#endif
 
+				#ifdef GLBUILD
 				finalNormals.push_back(glm::normalize(cNorm));
+				#endif
 			}
 		}
 
@@ -346,6 +441,14 @@ public:
 			for (int col = 0; col < points - 1; col++) {
 				// Gather point pointers
 				// hehe :(
+
+#ifdef DXBUILD
+				DirectX::XMVECTOR* SW = &finalPoints[((row + 0) * points) + (col + 0)];
+#endif
+
+
+
+#ifdef GLBUILD
 				glm::vec3* SW	=	&finalPoints	[((row + 0) * points) + (col + 0)];
 				glm::vec3* SW_N =	&finalNormals	[((row + 0) * points) + (col + 0)];
 				glm::vec3* SE	=	&finalPoints	[((row + 0) * points) + (col + 1)];
@@ -354,8 +457,9 @@ public:
 				glm::vec3* NW_N =	&finalNormals	[((row + 1) * points) + (col + 0)];
 				glm::vec3* NE	=	&finalPoints	[((row + 1) * points) + (col + 1)];
 				glm::vec3* NE_N =	&finalNormals	[((row + 1) * points) + (col + 1)];
+#endif
+				
 
-#pragma region lots of triangles
 				// Insert triangles.
 				if (i_condition++ % 2 == 0) {//Condition 0
 					glm::vec3 n1 = get_normal(*SW, *NW, *NE);
@@ -448,11 +552,12 @@ public:
 					meshData.push_back(n2.z);
 					meshData.push_back(n2.y);
 				}
-#pragma endregion
 
 			}
 			i_condition++;
 		}
+
+
 		#ifdef DXBUILD
 		// Might be fucky with pointers
 		this->m_mesh = new DXMesh(dxr, meshData, DXMeshMode::POS_XYZ_NORMAL_XYZ);

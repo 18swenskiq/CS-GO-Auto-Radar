@@ -18,18 +18,6 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="OpenGL">
-      <UniqueIdentifier>{35efb423-4a85-4253-8b28-3afbe1d90981}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="OpenGL\Shader Files">
-      <UniqueIdentifier>{4fc6d485-9fd0-4183-b874-e287a3ea1b54}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="OpenGL\stb">
-      <UniqueIdentifier>{8e9551e2-9fc1-4ae6-9979-c9ab83e8cfeb}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="OpenGL\engine">
-      <UniqueIdentifier>{ba697338-0a0c-4917-a742-5e182f96f7be}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Font Files">
       <UniqueIdentifier>{1d19365b-710e-41b8-862f-283759638b5c}</UniqueIdentifier>
     </Filter>
@@ -44,6 +32,18 @@
     </Filter>
     <Filter Include="DirectX\Header Files">
       <UniqueIdentifier>{96ff50f9-7002-4605-bd17-da3ceca8be36}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="OpenGL">
+      <UniqueIdentifier>{ba8c9445-cfb4-4e1b-9ac6-7a31808a7c70}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="OpenGL\engine">
+      <UniqueIdentifier>{ba697338-0a0c-4917-a742-5e182f96f7be}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="OpenGL\Shader Files">
+      <UniqueIdentifier>{4fc6d485-9fd0-4183-b874-e287a3ea1b54}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="OpenGL\stb">
+      <UniqueIdentifier>{8e9551e2-9fc1-4ae6-9979-c9ab83e8cfeb}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -152,9 +152,6 @@
     <ClInclude Include="GBuffer.hpp">
       <Filter>OpenGL\engine</Filter>
     </ClInclude>
-    <ClInclude Include="IRenderable.hpp">
-      <Filter>OpenGL</Filter>
-    </ClInclude>
     <ClInclude Include="vmf_new.hpp">
       <Filter>Header Files\valve</Filter>
     </ClInclude>
@@ -185,11 +182,14 @@
     <ClInclude Include="buildmode.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="IRenderable.hpp">
+      <Filter>OpenGL</Filter>
+    </ClInclude>
+    <ClInclude Include="DXInterpolation.h">
+      <Filter>DirectX\Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="glad.c">
-      <Filter>OpenGL</Filter>
-    </ClCompile>
     <ClCompile Include="GLFWUtil.hpp">
       <Filter>OpenGL\engine</Filter>
     </ClCompile>
@@ -198,6 +198,9 @@
     </ClCompile>
     <ClCompile Include="dxrendering.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="glad.c">
+      <Filter>OpenGL</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
