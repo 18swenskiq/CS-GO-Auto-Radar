@@ -81,8 +81,6 @@ uint32_t g_msaa_mul = 1;
 void render_to_png(int x, int y, const char* filepath);
 void save_to_dds(int x, int y, const char* filepath, IMG imgmode = IMG::MODE_DXT1);
 
-//#define _DEBUG
-
 int app(int argc, const char** argv) {
 #ifndef _DEBUG
 #pragma region cxxopts
@@ -120,9 +118,6 @@ int app(int argc, const char** argv) {
 	g_onlyMasks = result["onlyMasks"].as<bool>();
 	g_Masks = result["dumpMasks"].as<bool>() || g_onlyMasks;
 
-	/* Render options */
-	//m_renderWidth = result["width"].as<uint32_t>();
-	//m_renderHeight = result["height"].as<uint32_t>();
 #pragma endregion
 #endif
 
@@ -200,10 +195,6 @@ int app(int argc, const char** argv) {
 	g_fbuffer_generic = new FBuffer(g_renderWidth * g_msaa_mul, g_renderHeight * g_msaa_mul);
 	g_fbuffer_generic1 =new FBuffer(g_renderWidth * g_msaa_mul, g_renderHeight * g_msaa_mul);
 
-	// Setup camera projection matrices
-	//g_mat4_projm = glm::ortho(-2000.0f, 2000.0f, -2000.0f, 2000.0f, -1024.0f, 1024.0f);
-	//g_mat4_viewm = glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0, 0, 1));
-
 	// Load textures
 	g_texture_background = g_tar_config->m_texture_background;//new Texture("textures/grid.png");
 	g_texture_modulate = new Texture("textures/modulate.png");
@@ -236,10 +227,6 @@ int app(int argc, const char** argv) {
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glBlendEquation(GL_FUNC_ADD);
 
-
-	///g_gbuffer->BindPositionBufferToTexSlot(0);
-	///g_shader_multilayer_blend->setInt("gbuffer_position", 0);
-
 	int i = 0;
 	for (auto && megalayer : g_tar_config->layers){
 		g_fbuffer_generic->Bind();
@@ -270,8 +257,6 @@ int app(int argc, const char** argv) {
 			g_mesh_screen_quad->Draw();
 		}
 
-		//g_shader_multilayer_blend->setFloat("saturation", 1.0f);
-		//g_shader_multilayer_blend->setFloat("value", 1.0f);
 		g_shader_multilayer_blend->setFloat("active", 1.0f);
 		g_shader_multilayer_blend->setFloat("layer_min", megalayer.layer_min);
 		g_shader_multilayer_blend->setFloat("layer_max", megalayer.layer_max);
@@ -322,7 +307,6 @@ int app(int argc, const char** argv) {
 		}
 
 		// final composite
-		//render_to_png(1024, 1024, ("comp" + std::to_string(i++) + ".png").c_str());
 
 		if (i == 0) {
 			if(g_tar_config->m_write_dds)
@@ -484,9 +468,6 @@ void render_config(tar_config_layer layer, const std::string& layerName, FBuffer
 	g_vmf_file->DrawEntities(g_shader_gBuffer);
 
 	//// Draw cover with cover flag set
-	//g_vmf_file->SetFilters({ g_tar_config->m_visgroup_cover }, { "func_detail", "prop_static" });
-	//g_vmf_file->DrawWorld(g_shader_gBuffer, {}, TAR_MIBUFFER_COVER0);
-	//g_vmf_file->DrawEntities(g_shader_gBuffer, {}, TAR_MIBUFFER_COVER0);
 
 	GBuffer::Unbind();
 
@@ -570,8 +551,6 @@ void render_config(tar_config_layer layer, const std::string& layerName, FBuffer
 	g_shader_comp->use();
 
 	// Bind RT's
-	//g_texture_background->bindOnSlot		  ( 0 );
-	//g_shader_comp->setInt("tex_background",		0 );
 
 	g_tar_config->m_texture_gradient->bindOnSlot( 1 );
 	g_shader_comp->setInt("tex_gradient",		1 );
@@ -631,7 +610,6 @@ void render_config(tar_config_layer layer, const std::string& layerName, FBuffer
 
 	g_mesh_screen_quad->Draw();
 
-	//render_to_png(g_renderWidth, g_renderHeight, layerName.c_str());
 #pragma endregion
 }
 
