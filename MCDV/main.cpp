@@ -1,38 +1,4 @@
-#include "globals.h"
-#include "vmf_new.hpp"
-
-#ifdef entry_point_testing
-
-#include <glad\glad.h>
-#include <GLFW\glfw3.h>
-
-#include <glm\glm.hpp>
-#include <glm\gtc\matrix_transform.hpp>
-#include <glm\gtc\type_ptr.hpp>
-
-#include <iostream>
-#include <vector>
-
-#include "GBuffer.hpp"
-#include "Shader.hpp"
-#include "Mesh.hpp"
-#include "Texture.hpp"
-#include "GradientMap.hpp"
-#include "SSAOKernel.hpp"
-#include "tar_config.hpp"
-#include "dds.hpp"
-
-#include "cxxopts.hpp"
-
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#define STBI_MSC_SECURE_CRT
-#include "stb_image_write.h"
-
-#define TAR_MAX_LAYERS 5
-#define TAR_AO_SAMPLES 256
-
-// figure out why this makes it work
-#undef main
+#include "main.h"
 
 std::string g_game_path = "D:/SteamLibrary/steamapps/common/Counter-Strike Global Offensive/csgo";
 std::string g_mapfile_path = "sample_stuff/de_tavr_test";
@@ -43,11 +9,6 @@ std::string g_folder_resources;
 
 bool		g_onlyMasks = false;
 bool		g_Masks		= false;
-
-void render_config(tar_config_layer layer, const std::string& layerName, FBuffer* drawTarget = NULL);
-
-//glm::mat4 g_mat4_viewm;
-//glm::mat4 g_mat4_projm;
 
 Shader* g_shader_gBuffer;
 Shader* g_shader_iBuffer;
@@ -78,11 +39,45 @@ uint32_t g_renderWidth = 1024;
 uint32_t g_renderHeight = 1024;
 uint32_t g_msaa_mul = 1;
 
-void render_to_png(int x, int y, const char* filepath);
-void save_to_dds(int x, int y, const char* filepath, IMG imgmode = IMG::MODE_DXT1);
+
+int main(int argc, const char** argv) {
+	try {
+		return app(argc, argv);
+	}
+	catch (cxxopts::OptionException& e) {
+		std::cerr << "Parse error: " << e.what() << "\n";
+	}
+
+	return 1;
+}
+
+
+void render_to_png(int x, int y, const char* filepath) {
+	void* data = malloc(4 * x * y);
+
+	glReadPixels(0, 0, x, y, GL_RGBA, GL_UNSIGNED_BYTE, data);
+
+	stbi_flip_vertically_on_write(true);
+	stbi_write_png(filepath, x, y, 4, data, x * 4);
+
+	free(data);
+}
+
+void save_to_dds(int x, int y, const char* filepath, IMG imgmode)
+{
+	void* data = malloc(6 * x * y);
+
+	glReadPixels(0, 0, x, y, GL_RGBA, GL_UNSIGNED_BYTE, data);
+
+	dds_write((uint8_t*)data, filepath, x, y, imgmode);
+
+	free(data);
+}
 
 int app(int argc, const char** argv) {
+
 #ifndef _DEBUG
+
 #pragma region cxxopts
 	cxxopts::Options options("AutoRadar", "Auto radar");
 	options.add_options()
@@ -396,8 +391,6 @@ int app(int argc, const char** argv) {
 	return 0;
 }
 
-#endif
-
 #define __RENDERCLIP
 
 void render_config(tar_config_layer layer, const std::string& layerName, FBuffer* drawTarget) {
@@ -612,41 +605,6 @@ void render_config(tar_config_layer layer, const std::string& layerName, FBuffer
 
 #pragma endregion
 }
-
-int main(int argc, const char** argv) {
-	try {
-		return app(argc, argv);
-	}
-	catch (cxxopts::OptionException& e) {
-		std::cerr << "Parse error: " << e.what() << "\n";
-	}
-
-	return 1;
-}
-
-
-void render_to_png(int x, int y, const char* filepath){
-	void* data = malloc(4 * x * y);
-
-	glReadPixels(0, 0, x, y, GL_RGBA, GL_UNSIGNED_BYTE, data);
-
-	stbi_flip_vertically_on_write(true);
-	stbi_write_png(filepath, x, y, 4, data, x * 4);
-
-	free(data);
-}
-
-void save_to_dds(int x, int y, const char* filepath, IMG imgmode)
-{
-	void* data = malloc(6 * x * y);
-
-	glReadPixels(0, 0, x, y, GL_RGBA, GL_UNSIGNED_BYTE, data);
-
-	dds_write((uint8_t*)data, filepath, x, y, imgmode);
-
-	free(data);
-}
-
 
 
 /*

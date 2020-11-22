@@ -164,6 +164,9 @@
     <ClInclude Include="tar_config.hpp">
       <Filter>Header Files\valve</Filter>
     </ClInclude>
+    <ClInclude Include="main.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="glad.c">

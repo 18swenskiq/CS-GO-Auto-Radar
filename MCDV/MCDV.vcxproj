@@ -146,6 +146,7 @@
     <ClInclude Include="IRenderable.hpp" />
     <ClInclude Include="lumps_geometry.hpp" />
     <ClInclude Include="lumps_visibility.hpp" />
+    <ClInclude Include="main.h" />
     <ClInclude Include="Mesh.hpp" />
     <ClInclude Include="GameObject.hpp" />
     <ClInclude Include="nav.hpp" />
