@@ -13,9 +13,6 @@ bool		g_Masks		= false;
 vmf* g_vmf_file;
 tar_config* g_tar_config;
 
-//#define GLBUILD
-#define DXBUILD
-
 
 #ifdef DXBUILD
 DXShaderCombo* dx_shader_gBuffer;
@@ -424,7 +421,7 @@ int app(int argc, const char** argv) {
 
 		#ifdef GLBUILD
 		node_radar.Values.insert({ "scale", std::to_string(g_tar_config->m_render_ortho_scale / g_renderWidth) });
-		#else
+		#else`
 		node_radar.Values.insert({ "scale", std::to_string(g_tar_config->m_render_ortho_scale / dx_renderWidth) });
 		#endif
 

@@ -17,19 +17,34 @@
 #include <glm\gtc\matrix_transform.hpp>
 #include <glm\gtc\type_ptr.hpp>
 
-//engine
+//engine (directx)
+#ifdef DXBUILD
+#include "Util.h"
+#include "plane.h"
+#include "DXMesh.h"
+#include "Shader.hpp"
+#include "IRenderable.hpp"
+#include "interpolation.h"
+#endif
+
+//engine (opengl)
+#ifdef GLBUILD
 #include "Util.h"
 #include "plane.h"
 #include "Mesh.hpp"
 #include "Shader.hpp"
 #include "IRenderable.hpp"
 #include "interpolation.h"
+#endif
 
 // other
 #include <limits>
 
 // Source sdk
 #include "vfilesys.hpp"
+
+// Define whether we want DX or GL
+#include "buildmode.h"
 
 // UINT16 buffer bit definitions ================
 // Byte 0
@@ -438,8 +453,13 @@ public:
 			}
 			i_condition++;
 		}
-
+		#ifdef DXBUILD
+		// Might be fucky with pointers
+		this->m_mesh = new DXMesh(dxr, meshData, DXMeshMode::POS_XYZ_NORMAL_XYZ);
+		#endif
+		#ifdef GLBUILD
 		this->m_mesh = new Mesh(meshData, MeshMode::POS_XYZ_NORMAL_XYZ);
+		#endif
 	}
 };
 
@@ -629,8 +649,13 @@ public:
 				verts.push_back(-s->m_plane.normal.y);
 			}
 		}
+#ifdef DXBUILD
+		this->m_mesh = new DXMesh(dxr, verts, DXMeshMode::POS_XYZ_NORMAL_XYZ);
+#endif
 
+#ifdef GLBUILD
 		this->m_mesh = new Mesh(verts, MeshMode::POS_XYZ_NORMAL_XYZ);
+#endif
 	}
 };
 
@@ -717,7 +742,13 @@ public:
 	float m_render_h_max = 10000.0f;
 	float m_render_h_min = -10000.0f;
 	
+#ifdef DXBUILD
+	static std::map<std::string, DXMesh*> s_model_dict;
+#endif
+
+#ifdef GLBUILD
 	static std::map<std::string, Mesh*> s_model_dict;
+#endif
 
 	void LinkVisgroupFlagTranslations(std::map<std::string, TAR_MIBUFFER_FLAGS> map) {
 		for (auto && translation : map) {
@@ -801,7 +832,12 @@ public:
 				}
 
 				// TODO: Make a DX mesh somehow
+				#ifdef GLBUILD
 				vmf::s_model_dict.insert({ modelName, new Mesh(meshData, MeshMode::POS_XYZ_NORMAL_XYZ) }); // Add to our list
+				#endif
+				#ifdef DXBUILD
+				vmf::s_model_dict.insert({ modelName, new DXMesh(dxr, meshData, DXMeshMode::POS_XYZ_NORMAL_XYZ) }); // Add to our list
+				#endif
 				break;
 			}
 		}
@@ -968,5 +1004,13 @@ public:
 };
 
 vfilesys* vmf::s_fileSystem = NULL;
+#ifdef DXBUILD
+std::map<std::string, DXMesh*> vmf::s_model_dict;
+#endif
+
+#ifdef GLBUILD
 std::map<std::string, Mesh*> vmf::s_model_dict;
+#endif
+
+
 std::map<std::string, material*> material::m_index;

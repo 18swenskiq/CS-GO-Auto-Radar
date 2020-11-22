@@ -134,6 +134,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="buildmode.h" />
     <ClInclude Include="Camera.hpp" />
     <ClInclude Include="Console.hpp" />
     <ClInclude Include="convexPolytope.h" />
@@ -141,6 +142,7 @@
     <ClInclude Include="dds.hpp" />
     <ClInclude Include="dxrendering.h" />
     <ClInclude Include="DXShaderCombo.h" />
+    <ClInclude Include="DXVertexBuffer.h" />
     <ClInclude Include="FrameBuffer.hpp" />
     <ClInclude Include="fuzzy_select.h" />
     <ClInclude Include="gamelump.hpp" />
@@ -152,6 +154,7 @@
     <ClInclude Include="lumps_geometry.hpp" />
     <ClInclude Include="lumps_visibility.hpp" />
     <ClInclude Include="main.h" />
+    <ClInclude Include="DXMesh.h" />
     <ClInclude Include="Mesh.hpp" />
     <ClInclude Include="GameObject.hpp" />
     <ClInclude Include="nav.hpp" />

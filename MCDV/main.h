@@ -1,5 +1,7 @@
 #pragma once
 
+#include "buildmode.h"
+
 #include "vmf_new.hpp"
 
 #ifdef GLBUILD

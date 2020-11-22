@@ -16,7 +16,8 @@ public:
 	void PrintVersion() noexcept;
 	Microsoft::WRL::ComPtr<ID3D11VertexShader> LoadVertexShader(const std::wstring& path);
 	Microsoft::WRL::ComPtr<ID3D11PixelShader> LoadPixelShader(const std::wstring& path);
-private:
+// Was private, not sure if will cause any issues
+public:
 	Microsoft::WRL::ComPtr<ID3D11Device> pDevice;
 	//Microsoft::WRL::ComPtr<IDXGISwapChain> pSwap;
 	Microsoft::WRL::ComPtr<ID3D11DeviceContext> pContext;

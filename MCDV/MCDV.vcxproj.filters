@@ -39,6 +39,12 @@
     <Filter Include="Header Files\util">
       <UniqueIdentifier>{d74bb335-8fb5-4eb2-b1c1-4436cdc881cc}</UniqueIdentifier>
     </Filter>
+    <Filter Include="DirectX">
+      <UniqueIdentifier>{8b3c98a2-2206-421c-a73a-aac1740760da}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="DirectX\Header Files">
+      <UniqueIdentifier>{96ff50f9-7002-4605-bd17-da3ceca8be36}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="interpolation.h">
@@ -168,6 +174,15 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="DXShaderCombo.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DXMesh.h">
+      <Filter>DirectX\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DXVertexBuffer.h">
+      <Filter>DirectX\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="buildmode.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
