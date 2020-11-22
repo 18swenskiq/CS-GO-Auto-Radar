@@ -47,26 +47,6 @@ DXRendering::DXRendering()
 		&pContext
 	);
 
-	//D3D11CreateDeviceAndSwapChain(
-	//	nullptr,
-	//	D3D_DRIVER_TYPE_HARDWARE,	// Does this really need to be GPU accelerated?
-	//	nullptr,
-	//	swapCreateFlags,
-	//	nullptr,
-	//	0,
-	//	D3D11_SDK_VERSION,
-	//	&sd,
-	//	&pSwap,
-	//	&pDevice,
-	//	nullptr,
-	//	&pContext
-	//);
-
-	// Probably don't need a backbuffer for this, will figure out what I'm doing more later, hopefully
-	//wrl::ComPtr<ID3D11Resource> pBackBuffer;
-	//pSwap->GetBuffer(0, __uuidof(ID3D11Resource), &pBackBuffer);
-	//pDevice->CreateRenderTargetView(pBackBuffer.Get(), nullptr, &pTarget);
-
 	// Depth
 	D3D11_DEPTH_STENCIL_DESC dsDesc = {};
 	dsDesc.DepthEnable = TRUE;
@@ -123,7 +103,7 @@ void DXRendering::ClearBuffer(float red, float green, float blue) noexcept
 void DXRendering::PrintVersion() noexcept
 {
 	// TODO: Set up required version?
-	printf("DirectX 11");
+	printf("DirectX 11\n");
 }
 
 // Not sure if we actually need to return these?
