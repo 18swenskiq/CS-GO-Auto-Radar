@@ -391,28 +391,10 @@ int app(int argc, const char** argv) {
 	return 0;
 }
 
-#define __RENDERCLIP
-
 void render_config(tar_config_layer layer, const std::string& layerName, FBuffer* drawTarget) {
 	// G BUFFER GENERATION ======================================================================================
 #pragma region buffer_gen_geo
 
-#ifdef RENDERCLIP
-	glm::mat4 l_mat4_projm = glm::ortho(
-		g_tar_config->m_view_origin.x,										// -X
-		g_tar_config->m_view_origin.x + g_tar_config->m_render_ortho_scale,	// +X
-		g_tar_config->m_view_origin.y - g_tar_config->m_render_ortho_scale,	// -Y
-		g_tar_config->m_view_origin.y,										// +Y
-		0.0f, //g_tar_config->m_map_bounds.NWU.y,									// NEARZ
-		glm::abs(layer.layer_max - layer.layer_min));// g_tar_config->m_map_bounds.SEL.y);									// FARZ
-
-	glm::mat4 l_mat4_viewm = glm::lookAt(
-		glm::vec3(0, -layer.layer_max, 0), 
-		glm::vec3(0.0f, -layer.layer_max -1.0f, 0.0f),
-		glm::vec3(0, 0, 1));
-
-	g_vmf_file->SetMinMax(10000, -10000);
-#else
 	glm::mat4 l_mat4_projm = glm::ortho(
 		g_tar_config->m_view_origin.x,										// -X
 		g_tar_config->m_view_origin.x + g_tar_config->m_render_ortho_scale,	// +X
@@ -430,7 +412,6 @@ void render_config(tar_config_layer layer, const std::string& layerName, FBuffer
 	std::cout << "^" << layer.layer_max << "\n";
 
 	g_vmf_file->SetMinMax(layer.layer_min, layer.layer_max);
-#endif
 
 	g_gbuffer->Bind();
 
@@ -460,7 +441,7 @@ void render_config(tar_config_layer layer, const std::string& layerName, FBuffer
 	g_vmf_file->DrawWorld(g_shader_gBuffer);
 	g_vmf_file->DrawEntities(g_shader_gBuffer);
 
-	//// Draw cover with cover flag set
+	// Draw cover with cover flag set
 
 	GBuffer::Unbind();
 
