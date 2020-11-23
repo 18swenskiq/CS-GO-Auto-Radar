@@ -15,6 +15,7 @@
 #ifdef DXBUILD
 #include <d3d11.h>
 #include <DirectXMath.h>
+#include "DXMathExtensions.h"
 #endif
 
 
@@ -224,12 +225,20 @@ public:
 
 class dispinfo : public IRenderable{
 public:
-	unsigned int power;
+	
+	#ifdef DXBUILD
+	DirectX::XMFLOAT3 startposition;
+	std::vector<std::vector<DirectX::XMFLOAT3>> normals;
+	#endif
+
+	#ifdef GLBUILD
 	glm::vec3 startposition;
-
 	std::vector<std::vector<glm::vec3>> normals;
-	std::vector<std::vector<float>> distances;
+	#endif
 
+
+	unsigned int power;
+	std::vector<std::vector<float>> distances;
 	side* m_source_side = NULL;
 
 	dispinfo(kv::DataBlock* dataSrc, side* src_side) {
@@ -244,7 +253,12 @@ public:
 		int i_target = glm::pow(2, this->power) + 1;
 
 		for (int x = 0; x < i_target; x++) {
+			#ifdef DXBUILD
+			this->normals.push_back(std::vector<DirectX::XMFLOAT3>());
+			#endif
+			#ifdef GLBUILD
 			this->normals.push_back(std::vector<glm::vec3>());
+			#endif
 			this->distances.push_back(std::vector<float>());
 
 			// Read normals
@@ -253,12 +267,12 @@ public:
 				list.push_back(::atof(v.c_str()));
 
 			for (int xx = 0; xx < i_target; xx++) {
-				this->normals[x].push_back(
-					glm::vec3(
-						list[xx * 3 + 0],
-						list[xx * 3 + 1],
-						list[xx * 3 + 2])
-				);
+				#ifdef DXBUILD
+				this->normals[x].push_back(DirectX::XMFLOAT3(list[xx * 3 + 0], list[xx * 3 + 1], list[xx * 3 + 2]));
+				#endif
+				#ifdef GLBUILD
+				this->normals[x].push_back(glm::vec3(list[xx * 3 + 0], list[xx * 3 + 1], list[xx * 3 + 2]));
+				#endif
 			}
 
 			// Read distances
@@ -412,10 +426,12 @@ public:
 					if ((B != NULL) && (C != NULL)) {
 
 						#ifdef DXBUILD
-						DirectX::XMFLOAT3 v0 = *A - *C;
-						DirectX::XMFLOAT3 v1 = *B - *C;
-						DirectX::XMFLOAT3 n = DirectX::XMVector3Cross(DirectX::XMLoadFloat3(&v0), DirectX::XMLoadFloat3(&v1));
-						cNorm += DirectX::XMVector3Normalize(n);
+
+						// Subtract A - C
+						DirectX::XMFLOAT3 v0 = DXME::SubtractFloat3(*A, *C);
+						DirectX::XMFLOAT3 v1 = DXME::SubtractFloat3(*B, *C);
+						DirectX::XMFLOAT3 n = DXME::CrossFloat3(v0, v1);
+						cNorm = DXME::AddFloat3(cNorm, DXME::NormalizeFloat3(n));
 						#endif
 
 						#ifdef GLBUILD
@@ -427,7 +443,7 @@ public:
 					}
 				}
 				#ifdef DXBUILD
-				finalNormals.push_back(DirectX::XMVector3Normalize(cNorm));
+				finalNormals.push_back(DXME::NormalizeFloat3(cNorm));
 				#endif
 
 				#ifdef GLBUILD
