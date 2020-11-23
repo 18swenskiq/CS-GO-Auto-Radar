@@ -85,9 +85,11 @@ std::map<unsigned int, TAR_MIBUFFER_FLAGS> g_visgroup_flag_translations;
 bool use_verbose = true;
 std::string prefix = "";
 
+#ifdef GLBUILD
 inline glm::vec3 get_normal(const glm::vec3& A, const glm::vec3& B, const glm::vec3& C) {
 	return glm::normalize(glm::cross(A - C, B - C));
 }
+#endif
 
 constexpr
 unsigned int hash(const char* str, int h = 0)
@@ -141,7 +143,12 @@ namespace vmf_parse {
 	}
 
 	//Parse Vector 3 with square barackets. Thanks again, valve
+	#ifdef DXBUILD
+	bool Vector3fS(std::string str, DirectX::XMFLOAT3* vec)
+	#endif
+	#ifdef GLBUILD
 	bool Vector3fS(std::string str, glm::vec3* vec)
+	#endif
 	{
 		str = sutil::removeChar(str, '[');
 		str = sutil::removeChar(str, ']');
@@ -158,7 +165,12 @@ namespace vmf_parse {
 		}
 
 		if (pelems.size() == 3) {
+			#ifdef DXBUILD
+			*vec = DirectX::XMFLOAT3(pelems[0], pelems[1], pelems[2]);
+#			endif
+			#ifdef GLBUILD
 			*vec = glm::vec3(pelems[0], pelems[1], pelems[2]);
+			#endif
 			return true;
 		}
 
@@ -214,7 +226,14 @@ public:
 	material* m_texture;
 	Plane m_plane;
 	dispinfo* m_dispinfo = NULL;
+
+	#ifdef DXBUILD
+	std::vector<DirectX::XMFLOAT3> m_vertices;
+	#endif
+	#ifdef GLBUILD
 	std::vector<glm::vec3> m_vertices;
+	#endif
+
 
 	static side* create(kv::DataBlock* dataSrc);
 
@@ -361,12 +380,12 @@ public:
 				float dy = (float)row / (float)(points - 1);
 
 				#ifdef DXBUILD
-				DirectX::XMFLOAT3 LWR = DirectX::XMVectorLerp(DirectX::XMLoadFloat3(*SW), *SE, dx);
-				DirectX::XMFLOAT3 UPR = DirectX::XMVectorLerp(*NW, *NE, dx);
-				DirectX::XMFLOAT3 P = DirectX::XMVectorLerp(LWR, UPR, dy);
+				DirectX::XMFLOAT3 LWR = DXME::LerpFloat(*SW, *SE, dx);
+				DirectX::XMFLOAT3 UPR = DXME::LerpFloat(*NW, *NE, dx);
+				DirectX::XMFLOAT3 P = DXME::LerpFloat(LWR, UPR, dy);
 
-				DirectX::XMFLOAT3 offset = this->normals[col][row] * this->distances[col][row];
-				P = P + offset;
+				DirectX::XMFLOAT3 offset = DXME::MultiplyFloat3(this->normals[col][row], this->distances[col][row]);
+				P = DXME::AddFloat3(P, offset);
 				#endif
 
 				#ifdef GLBUILD
@@ -458,13 +477,20 @@ public:
 				// Gather point pointers
 				// hehe :(
 
-#ifdef DXBUILD
-				DirectX::XMVECTOR* SW = &finalPoints[((row + 0) * points) + (col + 0)];
-#endif
+				#ifdef DXBUILD
+				DirectX::XMFLOAT3* SW    = &finalPoints   [((row + 0) * points) + (col + 0)];
+				DirectX::XMFLOAT3* SW_N  = &finalNormals  [((row + 0) * points) + (col + 0)];
+				DirectX::XMFLOAT3* SE    = &finalPoints   [((row + 0) * points) + (col + 1)];
+				DirectX::XMFLOAT3* SE_N  = &finalNormals  [((row + 0) * points) + (col + 1)];
+				DirectX::XMFLOAT3* NW    = &finalPoints   [((row + 1) * points) + (col + 0)];
+				DirectX::XMFLOAT3* NW_N  = &finalNormals  [((row + 1) * points) + (col + 0)];
+				DirectX::XMFLOAT3* NE	 = &finalPoints   [((row + 1) * points) + (col + 1)];
+				DirectX::XMFLOAT3* NE_N  = &finalNormals  [((row + 1) * points) + (col + 1)];
+				#endif
 
 
 
-#ifdef GLBUILD
+				#ifdef GLBUILD
 				glm::vec3* SW	=	&finalPoints	[((row + 0) * points) + (col + 0)];
 				glm::vec3* SW_N =	&finalNormals	[((row + 0) * points) + (col + 0)];
 				glm::vec3* SE	=	&finalPoints	[((row + 0) * points) + (col + 1)];
@@ -473,12 +499,17 @@ public:
 				glm::vec3* NW_N =	&finalNormals	[((row + 1) * points) + (col + 0)];
 				glm::vec3* NE	=	&finalPoints	[((row + 1) * points) + (col + 1)];
 				glm::vec3* NE_N =	&finalNormals	[((row + 1) * points) + (col + 1)];
-#endif
+				#endif
 				
 
 				// Insert triangles.
 				if (i_condition++ % 2 == 0) {//Condition 0
+					#ifdef DXBUILD
+					DirectX::XMFLOAT3 n1 = DXME::GetNormal(*SW, *NW, *NE);
+					#endif
+					#ifdef GLBUILD
 					glm::vec3 n1 = get_normal(*SW, *NW, *NE);
+					#endif
 					meshData.push_back(-NE->x);
 					meshData.push_back(NE->z);
 					meshData.push_back(NE->y);
@@ -500,7 +531,12 @@ public:
 					meshData.push_back(n1.z);
 					meshData.push_back(n1.y);
 
+					#ifdef DXBUILD
+					DirectX::XMFLOAT3 n2 = DXME::GetNormal(*SW, *NE, *SE);
+					#endif
+					#ifdef GLBUILD
 					glm::vec3 n2 = get_normal(*SW, *NE, *SE);
+					#endif
 					meshData.push_back(-SE->x);
 					meshData.push_back(SE->z);
 					meshData.push_back(SE->y);
@@ -523,7 +559,13 @@ public:
 					meshData.push_back(n2.y);
 				}
 				else { //Condition 1
+					#ifdef DXBUILD
+					DirectX::XMFLOAT3 n1 = DXME::GetNormal(*SW, *NW, *SE);
+					#endif
+
+					#ifdef GLBUILD
 					glm::vec3 n1 = get_normal(*SW, *NW, *SE);
+					#endif
 					meshData.push_back(-SE->x);
 					meshData.push_back(SE->z);
 					meshData.push_back(SE->y);
@@ -545,8 +587,13 @@ public:
 					meshData.push_back(n1.z);
 					meshData.push_back(n1.y);
 
+					#ifdef DXBUILD
+					DirectX::XMFLOAT3 n2 = DXME::GetNormal(*NW, *NE, *SE);
+					#endif
 
+					#ifdef GLBUILD
 					glm::vec3 n2 = get_normal(*NW, *NE, *SE);
+					#endif
 					meshData.push_back(-SE->x);
 					meshData.push_back(SE->z);
 					meshData.push_back(SE->y);
@@ -600,9 +647,16 @@ class vmf;
 
 class editorvalues {
 public:
-	std::vector<unsigned int> m_visgroups;
-	glm::vec3 m_editorcolor;
+	
+	#ifdef DXBUILD
+	DirectX::XMFLOAT3 m_editorcolor;
+	#endif
 
+	#ifdef GLBUILD
+	glm::vec3 m_editorcolor;
+	#endif
+
+	std::vector<unsigned int> m_visgroups;
 	TAR_MIBUFFER_FLAGS m_miflags;
 
 	editorvalues(){}
@@ -636,7 +690,12 @@ public:
 		}
 
 		// Process polytope problem. (still questionable why this is a thing)
+		#ifdef DXBUILD
+		std::vector<DirectX::XMFLOAT3> intersecting;
+		#endif
+		#ifdef GLBUILD
 		std::vector<glm::vec3> intersecting;
+		#endif
 
 		float x, _x, y, _y, z, _z;
 		x = _y = _z = 99999.0f;// std::numeric_limits<float>::max();
@@ -650,7 +709,12 @@ public:
 
 					// Calculate intersection of 3 planes
 					// will return false if unable to solve (planes are parralel)
+					#ifdef DXBUILD
+					DirectX::XMFLOAT3 p(0, 0, 0);
+					#endif
+					#ifdef GLBUILD
 					glm::vec3 p(0, 0, 0);
+					#endif
 					if (!Plane::FinalThreePlaneIntersection(
 						this->m_sides[i]->m_plane,
 						this->m_sides[j]->m_plane,
@@ -734,9 +798,18 @@ public:
 			if (!s->m_texture->draw) continue;
 
 			for (int j = 0; j < s->m_vertices.size() - 2; j++) {
+
+				#ifdef DXBUILD
+				DirectX::XMFLOAT3* c = &s->m_vertices[0];
+				DirectX::XMFLOAT3* b = &s->m_vertices[j + 1];
+				DirectX::XMFLOAT3* a = &s->m_vertices[j + 2];
+				#endif
+
+				#ifdef GLBUILD
 				glm::vec3* c = &s->m_vertices[0];
 				glm::vec3* b = &s->m_vertices[j + 1];
 				glm::vec3* a = &s->m_vertices[j + 2];
+				#endif
 
 				verts.push_back(-a->x);
 				verts.push_back(a->z);
@@ -915,7 +988,7 @@ public:
 		return v;
 	}
 
-	void InitModelDict() {
+	void InitModelDict(DXRendering dxr) {
 		for (auto && i : this->m_entities) {
 			switch (hash(i.m_classname.c_str())) {
 			case hash("prop_static"):
@@ -950,7 +1023,7 @@ public:
 				vmf::s_model_dict.insert({ modelName, new Mesh(meshData, MeshMode::POS_XYZ_NORMAL_XYZ) }); // Add to our list
 				#endif
 				#ifdef DXBUILD
-				vmf::s_model_dict.insert({ modelName, new DXMesh(dxr, meshData, DXMeshMode::POS_XYZ_NORMAL_XYZ) }); // Add to our list
+				vmf::s_model_dict.insert({ modelName, new DXMesh(dxr, meshData) }); // Add to our list
 				#endif
 				break;
 			}

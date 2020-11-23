@@ -26,9 +26,9 @@ DXRendering::DXRendering()
 	sd.Flags = 0;
 
 	UINT swapCreateFlags = 0u;
-#ifdef _DEBUG
+	#ifdef _DEBUG
 	swapCreateFlags |= D3D11_CREATE_DEVICE_DEBUG;
-#endif
+	#endif
 
 	// TODO: Add error handling
 
