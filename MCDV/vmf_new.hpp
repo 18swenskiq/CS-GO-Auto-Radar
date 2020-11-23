@@ -616,13 +616,6 @@ public:
 			if (g_visgroup_flag_translations.count(vgroupid))
 				this->m_miflags |= g_visgroup_flag_translations[vgroupid];
 		}
-
-#ifdef VMF_READ_SOLID_COLORS
-		if (vmf_parse::Vector3f(dataSrc->Values["color"], &this->m_editorcolor))
-			this->m_editorcolor = this->m_editorcolor / 255.0f;
-		else
-			this->m_editorcolor = glm::vec3(1, 0, 0);
-#endif
 	}
 };
 
