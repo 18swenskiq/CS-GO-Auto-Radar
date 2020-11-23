@@ -191,6 +191,9 @@
     <ClInclude Include="DXMathExtensions.h">
       <Filter>DirectX\Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="DXPlane.h">
+      <Filter>DirectX\Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="GLFWUtil.hpp">

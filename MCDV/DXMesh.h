@@ -12,7 +12,7 @@ public:
 	std::vector<float> vertices;
 	int elementCount;
 
-	DXMesh(DXRendering dxr, std::vector<float> vertices)
+	DXMesh::DXMesh(DXRendering& dxr, std::vector<float> vertices)
 	{
 		if (vertices.size() <= 0)
 		{

@@ -32,7 +32,7 @@
 //engine (directx)
 #ifdef DXBUILD
 #include "Util.h"
-#include "plane.h"
+#include "DXPlane.h"
 #include "DXMesh.h"
 #include "Shader.hpp"
 #include "IRenderable.hpp"
@@ -118,7 +118,12 @@ void debug(First arg, const Strings&... rest) {
 
 namespace vmf_parse {
 	//Pass Vector3
+	#ifdef DXBUILD
+	bool Vector3f(std::string str, DirectX::XMFLOAT3* vec)
+	#endif
+	#ifdef GLBUILD
 	bool Vector3f(std::string str, glm::vec3* vec)
+	#endif
 	{
 		str = sutil::removeChar(str, '(');
 		str = sutil::removeChar(str, ')');
@@ -134,8 +139,13 @@ namespace vmf_parse {
 			pelems.push_back(e);
 		}
 
-		if (pelems.size() == 3) {
+		if (pelems.size() == 3) {`
+			#ifdef DXBUILD
+			*vec = DirectX::XMFLOAT3(pelems[0], pelems[1], pelems[2]);
+			#endif
+			#ifdef GLBUILD
 			*vec = glm::vec3(pelems[0], pelems[1], pelems[2]);
+			#endif
 			return true;
 		}
 
@@ -178,20 +188,34 @@ namespace vmf_parse {
 	}
 
 	//Parse plane from standard 3 point notation (ax, ay, az) (bx, by, bz) ...
+	#ifdef DXBUILD
+	bool plane(std::string str, DXPlane* plane)
+	#endif
+	#ifdef GLBUILD
 	bool plane(std::string str, Plane* plane)
+	#endif
 	{
 		std::vector<std::string> points = split(str, '(');
 
 		if (points.size() != 4) { return false; }
 
+		#ifdef DXBUILD
+		DirectX::XMFLOAT3 A, B, C;
+		#endif		
+
+		#ifdef GLBUILD
 		glm::vec3 A, B, C;
+		#endif	
 
 		if (!(Vector3f(points[1], &A) && Vector3f(points[2], &B) && Vector3f(points[3], &C))) {
 			return false;
 		}
-
+		#ifdef DXBUILD
+		*plane = DXPlane(A, B, C);
+		#endif
+		#ifdef GLBUILD
 		*plane = Plane(A, B, C);
-
+		#endif
 		return true;
 	}
 }
@@ -224,7 +248,12 @@ class side {
 public:
 	int m_ID;
 	material* m_texture;
+	#ifdef DXBUILD
+	DXPlane m_plane;
+	#endif	
+	#ifdef GLBUILD
 	Plane m_plane;
+	#endif
 	dispinfo* m_dispinfo = NULL;
 
 	#ifdef DXBUILD
@@ -623,7 +652,7 @@ public:
 
 		#ifdef DXBUILD
 		// Might be fucky with pointers
-		this->m_mesh = new DXMesh(dxr, meshData, DXMeshMode::POS_XYZ_NORMAL_XYZ);
+		this->m_mesh = new DXMesh(dxr, meshData);
 		#endif
 		#ifdef GLBUILD
 		this->m_mesh = new Mesh(meshData, MeshMode::POS_XYZ_NORMAL_XYZ);
@@ -677,8 +706,15 @@ class solid : public IRenderable {
 public:
 	std::vector<side*> m_sides;
 	editorvalues m_editorvalues;
+	#ifdef DXBUILD
+	DirectX::XMFLOAT3 NWU;
+	DirectX::XMFLOAT3 SEL;
+	#endif
+
+	#ifdef GLBUILD
 	glm::vec3 NWU;
 	glm::vec3 SEL;
+	#endif
 
 	solid(kv::DataBlock* dataSrc) {
 		// Read editor values
@@ -711,23 +747,29 @@ public:
 					// will return false if unable to solve (planes are parralel)
 					#ifdef DXBUILD
 					DirectX::XMFLOAT3 p(0, 0, 0);
+					if (!DXPlane::FinalThreePlaneIntersection(this->m_sides[i]->m_plane, this->m_sides[j]->m_plane, this->m_sides[k]->m_plane, &p)) continue;
 					#endif
 					#ifdef GLBUILD
 					glm::vec3 p(0, 0, 0);
+					if (!Plane::FinalThreePlaneIntersection(this->m_sides[i]->m_plane, this->m_sides[j]->m_plane, this->m_sides[k]->m_plane, &p)) continue;
 					#endif
-					if (!Plane::FinalThreePlaneIntersection(
-						this->m_sides[i]->m_plane,
-						this->m_sides[j]->m_plane,
-						this->m_sides[k]->m_plane,
-						&p)) continue;
 
 					// Check if we are part of the solid using simple polarity checks
 					bool inbounds = true;
 					for (auto && m : this->m_sides) {
+						#ifdef DXBUILD
+						if (DXPlane::EvalPointPolarity(m->m_plane, p) < -0.01f) {
+							inbounds = false;
+							break;
+						}
+						#endif
+
+						#ifdef GLBUILD
 						if (Plane::EvalPointPolarity(m->m_plane, p) < -0.01f) {
 							inbounds = false;
 							break;
 						}
+						#endif
 					} if (!inbounds) continue;
 
 					// Check if there is already a very similar vertex, and skip it
@@ -758,12 +800,25 @@ public:
 
 		for (auto && side : this->m_sides) {
 			// Sort out deez rascals
+			#ifdef DXBUILD
+			DXPlane::InPlaceOrderCoplanarClockWise(side->m_plane, &side->m_vertices);
+			#endif
+
+			#ifdef GLBUILD
 			Plane::InPlaceOrderCoplanarClockWise(side->m_plane, &side->m_vertices);
+			#endif
 		}
 
 		// Append bounds data
+		#ifdef DXBUILD
+		this->NWU = DirectX::XMFLOAT3(-x, z, y);
+		this->SEL = DirectX::XMFLOAT3(-_x, _z, _y);
+		#endif
+
+		#ifdef GLBUILD
 		this->NWU = glm::vec3(-x, z, y);
 		this->SEL = glm::vec3(-_x, _z, _y);
+		#endif		
 	}
 
 	/* Check if this solid contains any displacement infos. */
@@ -837,7 +892,7 @@ public:
 			}
 		}
 #ifdef DXBUILD
-		this->m_mesh = new DXMesh(dxr, verts, DXMeshMode::POS_XYZ_NORMAL_XYZ);
+		this->m_mesh = new DXMesh(dxr, verts);
 #endif
 
 #ifdef GLBUILD
@@ -853,7 +908,12 @@ public:
 	std::map<std::string, std::string> m_keyvalues;
 	editorvalues m_editorvalues;
 	std::vector<solid> m_internal_solids;
+	#ifdef DXBUILD
+	DirectX::XMFLOAT3 m_origin;
+	#endif	
+	#ifdef GLBUILD
 	glm::vec3 m_origin;
+	#endif
 
 	entity (kv::DataBlock* dataSrc) {
 		
@@ -867,8 +927,15 @@ public:
 		this->m_editorvalues = editorvalues(dataSrc->_GetFirstByName("editor"));
 		
 		if (dataSrc->_GetFirstByName("solid") == NULL) {
+			#ifdef DXBUILD
+			vmf_parse::Vector3f(dataSrc->Values["origin"], &this->m_origin);
+			this->m_origin = DirectX::XMFLOAT3(-this->m_origin.x, this->m_origin.z, this->m_origin.y);
+			#endif		
+
+			#ifdef GLBUILD
 			vmf_parse::Vector3f(dataSrc->Values["origin"], &this->m_origin);
 			this->m_origin = glm::vec3(-this->m_origin.x, this->m_origin.z, this->m_origin.y);
+			#endif
 		}
 		else {
 			for (auto && s : dataSrc->_GetAllByName("solid")) {
@@ -876,6 +943,20 @@ public:
 			}
 
 			// Calculate origin
+			#ifdef DXBUILD
+			DirectX::XMFLOAT3 NWU = this->m_internal_solids[0].NWU;
+			DirectX::XMFLOAT3 SEL = this->m_internal_solids[0].SEL;
+			for (auto && i : this->m_internal_solids) {
+				NWU.z = std::max(NWU.z, i.NWU.z);
+				NWU.y = std::max(NWU.y, i.NWU.y);
+				NWU.x = std::max(NWU.x, i.NWU.x);
+				SEL.z = std::min(SEL.z, i.SEL.z);
+				SEL.y = std::min(SEL.y, i.SEL.y);
+				SEL.x = std::min(SEL.x, i.SEL.x);
+			}
+			#endif
+
+			#ifdef GLBUILD
 			glm::vec3 NWU = this->m_internal_solids[0].NWU;
 			glm::vec3 SEL = this->m_internal_solids[0].SEL;
 			for (auto && i : this->m_internal_solids) {
@@ -886,8 +967,9 @@ public:
 				SEL.y = glm::min(SEL.y, i.SEL.y);
 				SEL.x = glm::min(SEL.x, i.SEL.x);
 			}
+			#endif	
 
-			this->m_origin = (NWU + SEL) * 0.5f;
+			this->m_origin = DXME::MultiplyFloat3((DXME::AddFloat3(NWU, SEL)), 0.5f);
 		}
 	}
 };

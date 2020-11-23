@@ -46,6 +46,15 @@ public:
 		retval.z = a.z * b;
 		return retval;
 	}
+	static DX::XMFLOAT3 DivideFloat3(DX::XMFLOAT3 a, float b)
+	{
+		DX::XMFLOAT3 retval;
+
+		retval.x = a.x / b;
+		retval.y = a.y / b;
+		retval.z = a.z / b;
+		return retval;
+	}
 	static DX::XMFLOAT3 CrossFloat3(DX::XMFLOAT3 a, DX::XMFLOAT3 b)
 	{
 		DX::XMVECTOR a_V = DX::XMLoadFloat3(&a);
@@ -55,6 +64,16 @@ public:
 		DX::XMFLOAT3 retval;
 		DX::XMStoreFloat3(&retval, c_V);
 		return retval;
+	}
+	static float DotFloat3(DX::XMFLOAT3 a, DX::XMFLOAT3 b)
+	{
+		DX::XMVECTOR a_V = DX::XMLoadFloat3(&a);
+		DX::XMVECTOR b_V = DX::XMLoadFloat3(&b);
+		DX::XMVECTOR c_V = DX::XMVector3Dot(a_V, b_V);
+
+		DX::XMFLOAT3 retval;
+		DX::XMStoreFloat3(&retval, c_V);
+		return retval.x;
 	}
 	static DX::XMFLOAT3 NormalizeFloat3(DX::XMFLOAT3 a)
 	{
