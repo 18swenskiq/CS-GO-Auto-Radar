@@ -14,7 +14,6 @@
 
 namespace kv
 {
-	//const std::regex reg_kv("(\"([^=\"]*)\")|([^=\\s]+)");
 	const std::regex reg_kv(R"vv("(.*?)"|([^\s]+))vv");
 
 	template<typename T>
@@ -66,22 +65,7 @@ namespace kv
 					return;
 				}
 
-#ifndef _USE_REGEX
-				// Regex is so fucking slow in debug mode its unreal
-				// Rather have it mess up than take 10 hours
-
-				std::vector<std::string> s1 = split(line, '"');
-				std::vector<std::string> strings;
-
-				if (s1.size() >= 3)
-				{
-					strings.push_back(s1[1]);
-					strings.push_back(s1[3]);
-				}
-#endif 
-#ifdef _USE_REGEX
 				std::vector<std::string> strings = sutil::regexmulti(line, reg_kv);
-#endif
 
 				for (int i = 0; i < strings.size(); i++) {
 					strings[i] = sutil::removeChar(strings[i], '"');

@@ -65,11 +65,6 @@ public:
 
 		free(data);
 	}
-
-	/*void bindOnSlot(int slot = 0) {
-		glActiveTexture(GL_TEXTURE0 + slot);
-		glBindTexture(GL_TEXTURE_2D, this->texture_id);
-	}*/
 };
 
 class WGradientTexture : public Texture{

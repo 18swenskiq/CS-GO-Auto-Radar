@@ -24,10 +24,6 @@ public:
 };
 
 
-
-bool USE_DEBUG2 = false;
-
-
 Texture::Texture(std::string filepath, bool clamp)
 {
 	stbi_set_flip_vertically_on_load(true);
@@ -62,22 +58,10 @@ Texture::Texture(std::string filepath, bool clamp)
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 		stbi_image_free(data);
 
-		if (USE_DEBUG2)
-		{
-			std::cout << "Texture loaded, info:" << std::endl;
-			std::cout << filepath << std::endl;
-			std::cout << "width: " << width << std::endl;
-			std::cout << "height: " << height << std::endl;
-		}
-		else
-		{
-			std::cout << "Loading texture: " << filepath << std::endl;
-		}
+		std::cout << "Loading texture: " << filepath << std::endl;
 	}
 	else
 	{
