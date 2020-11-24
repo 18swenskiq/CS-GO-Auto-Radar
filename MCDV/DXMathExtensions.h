@@ -98,7 +98,21 @@ public:
 	{
 		DX::XMFLOAT3 crossresult = CrossFloat3(SubtractFloat3(a, c), SubtractFloat3(b, c));
 		return NormalizeFloat3(crossresult);
+	}
+	static float GetLength(DX::XMFLOAT3 a)
+	{
+		DX::XMVECTOR a_V = DX::XMLoadFloat3(&a);
+		DX::XMVECTOR b_V = DX::XMVector3Length(a_V);
+		DX::XMFLOAT3 c_V;
+		DX::XMStoreFloat3(&c_V, b_V);
+		return c_V.x;
+	}
+	static float GetDistance(DX::XMFLOAT3 a, DX::XMFLOAT3 b)
+	{
+		DX::XMFLOAT3 a_V = SubtractFloat3(a, b);
 
+		float dresult = DotFloat3(a_V, a_V);
 
+		return sqrtf(dresult);
 	}
 };

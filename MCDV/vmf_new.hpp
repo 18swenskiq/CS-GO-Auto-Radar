@@ -34,7 +34,7 @@
 #include "Util.h"
 #include "DXPlane.h"
 #include "DXMesh.h"
-#include "Shader.hpp"
+#include "DXShaderCombo.h"
 #include "IRenderable.hpp"
 #include "interpolation.h"
 #endif
@@ -139,7 +139,7 @@ namespace vmf_parse {
 			pelems.push_back(e);
 		}
 
-		if (pelems.size() == 3) {`
+		if (pelems.size() == 3) {
 			#ifdef DXBUILD
 			*vec = DirectX::XMFLOAT3(pelems[0], pelems[1], pelems[2]);
 			#endif
@@ -329,7 +329,22 @@ public:
 		}
 	}
 
+	// Internal draw method
+	#ifdef DXBUILD
+	void IRenderable::_Draw(DXShaderCombo* shader, DXRendering& dxr, std::vector<DirectX::XMMATRIX> transform_stack = {}) {
+		this->m_mesh->Draw(dxr);
+	}
+
+	// Compute GL Mesh
+	void IRenderable::SetupDrawable(DXRendering& dxr) {
+		if (this->m_source_side->m_vertices.size() != 4) {
+			debug("Displacement info matched to face with {", this->m_source_side->m_vertices.size(), "} vertices!!!");
+			return;
+		}
+	#endif
+
 	// internal draw method
+	#ifdef GLBUILD
 	void IRenderable::_Draw(Shader* shader, std::vector<glm::mat4> transform_stack = {}) { 
 		this->m_mesh->Draw();
 	}
@@ -340,8 +355,9 @@ public:
 			debug("Displacement info matched to face with {", this->m_source_side->m_vertices.size(), "} vertices!!!");
 			return;
 		}
+	#endif
 
-#ifdef DXBUILD
+		#ifdef DXBUILD
 		// Match 'starting point'
 		std::map<float, DirectX::XMFLOAT3*> distancesToStart;
 		for (auto && p : this->m_source_side->m_vertices)
@@ -362,9 +378,9 @@ public:
 
 		int points = pow(2, this->power) + 1; // was GLM::Pow, will break anything?
 
-#endif
+		#endif
 
-#ifdef GLBUILD
+		#ifdef GLBUILD
 		// Match 'starting point'
 		std::map<float, glm::vec3*> distancesToStart;
 		for (auto && p : this->m_source_side->m_vertices)
@@ -387,7 +403,7 @@ public:
 
 												   // Initialize list for floats
 
-#endif
+		#endif
 		std::vector<float> meshData;
 
 		#ifdef DXBUILD
@@ -709,6 +725,7 @@ public:
 	#ifdef DXBUILD
 	DirectX::XMFLOAT3 NWU;
 	DirectX::XMFLOAT3 SEL;
+	DXRendering& dxr;
 	#endif
 
 	#ifdef GLBUILD
@@ -716,9 +733,12 @@ public:
 	glm::vec3 SEL;
 	#endif
 
-	solid(kv::DataBlock* dataSrc) {
+	solid(kv::DataBlock* dataSrc, DXRendering& dxr) 
+		: dxr(dxr)
+	{
 		// Read editor values
 		this->m_editorvalues = editorvalues(dataSrc->_GetFirstByName("editor"));
+		
 
 		// Read solids
 		for (auto && s : dataSrc->_GetAllByName("side")) {
@@ -775,8 +795,16 @@ public:
 					// Check if there is already a very similar vertex, and skip it
 					bool similar = false;
 					for (auto && v : intersecting) 
+						#ifdef DXBUILD
+						if(DXME::GetDistance(v, p) < 0.5f)
+						{
+							similar = true;
+							break;
+						#endif
+						#ifdef GLBUILD
 						if (glm::distance(v, p) < 0.5f) {
 							similar = true; break;
+						#endif
 					}
 					if (similar) continue;
 
@@ -830,6 +858,28 @@ public:
 		return false;
 	}
 
+	#ifdef DXBUILD
+	void IRenderable::_Draw(DXShaderCombo* shader, DXRendering& dxr, std::vector<DirectX::XMMATRIX> transform_stack = {})
+	{
+		bool dispDrawn = false;
+		for (auto&& s : this->m_sides)
+		{
+			if (s->m_dispinfo != NULL)
+			{
+				s->m_dispinfo->Draw(shader, dxr);
+				dispDrawn = true;
+			}
+		}
+
+		if (!dispDrawn)
+		{
+			this->m_mesh->Draw(dxr);
+		}
+	}
+
+	#endif
+
+	#ifdef GLBUILD
 	void IRenderable::_Draw(Shader* shader, std::vector<glm::mat4> transform_stack = {}) {
 		bool dispDrawn = false;
 		for (auto && s : this->m_sides) {
@@ -844,8 +894,16 @@ public:
 			this->m_mesh->Draw();
 		}
 	}
+	#endif
 
-	void IRenderable::SetupDrawable() {
+	
+	#ifdef DXBUILD
+	void IRenderable::SetupDrawable(DXRendering& dxr)
+	#endif
+	#ifdef GLBUILD
+	void IRenderable::SetupDrawable()
+	#endif
+	{
 		std::vector<float> verts;
 		for (auto && s : this->m_sides) {
 			if (s->m_dispinfo != NULL) continue;
@@ -915,7 +973,7 @@ public:
 	glm::vec3 m_origin;
 	#endif
 
-	entity (kv::DataBlock* dataSrc) {
+	entity (kv::DataBlock* dataSrc, DXRendering& dxr) {
 		
 
 		if ((dataSrc->_GetFirstByName("solid") == NULL) && (dataSrc->Values.count("origin") == 0))
@@ -939,7 +997,7 @@ public:
 		}
 		else {
 			for (auto && s : dataSrc->_GetAllByName("solid")) {
-				this->m_internal_solids.push_back(solid(s));
+				this->m_internal_solids.push_back(solid(s, dxr));
 			}
 
 			// Calculate origin
@@ -1027,7 +1085,7 @@ public:
 		}
 	}
 
-	static vmf* from_file(const std::string& path, std::map<std::string, TAR_MIBUFFER_FLAGS> translations = {}) {
+	static vmf* from_file(const std::string& path, DXRendering& dxr, std::map<std::string, TAR_MIBUFFER_FLAGS> translations = {}) {
 		vmf* v = new vmf();
 		prefix = "vmf [" + path + "] ";
 		use_verbose = true;
@@ -1052,14 +1110,14 @@ public:
 		debug("Processing solids");
 		// Solids
 		for (auto && kv_solid : file_kv.headNode._GetFirstByName("world")->_GetAllByName("solid")) {
-			v->m_solids.push_back(solid(kv_solid));
+			v->m_solids.push_back(solid(kv_solid, dxr));
 		}
 
 		debug("Processing entities");
 		// Entities
 		for (auto && kv_entity : file_kv.headNode._GetAllByName("entity")) {
 			try {
-				entity ent = entity(kv_entity);
+				entity ent = entity(kv_entity, dxr);
 				v->m_entities.push_back(ent);
 			} catch (std::exception e) {
 				debug("374 ENTITY::EXCEPTION ( ", e.what(), ") ");
@@ -1070,7 +1128,7 @@ public:
 		return v;
 	}
 
-	void InitModelDict(DXRendering dxr) {
+	void InitModelDict(DXRendering& dxr) {
 		for (auto && i : this->m_entities) {
 			switch (hash(i.m_classname.c_str())) {
 			case hash("prop_static"):
@@ -1128,6 +1186,36 @@ public:
 		this->m_render_h_max = max;
 	}
 
+#ifdef DXBUILD
+	void DrawWorld(DXShaderCombo* shader, DXRendering& dxr, std::vector<DirectX::XMMATRIX> transform_stack = {}, unsigned int infoFlags = 0x00)
+	{
+		DirectX::XMMATRIX model = DirectX::XMMATRIX();
+		shader->SetMatrixModel(dxr, model);
+		shader->SetUnsignedInfo(dxr, infoFlags);
+
+		// Draw solids
+		for (auto&& solid : this->m_solids)
+		{
+			if (solid.NWU.y < this->m_render_h_max || solid.NWU.y > this->m_render_h_min) continue;
+
+			if (check_in_whitelist(&solid.m_editorvalues.m_visgroups, this->m_whitelist_visgroups))
+			{
+				shader->SetUnsignedInfo(dxr, infoFlags);
+				auto tempfloat = DirectX::XMFLOAT2(solid.NWU.x + solid.SEL.x, solid.NWU.z + solid.SEL.z);
+				DirectX::XMFLOAT2 origin = DirectX::XMFLOAT2(tempfloat.x / 2.0f, tempfloat.y / 2.0f);
+				shader->SetVec2Origin(dxr, origin);
+				solid.Draw(shader, dxr);
+			}
+		}
+
+		model = DirectX::XMMATRIX();
+		shader->SetMatrixModel(dxr, model);
+		// Draw
+	}
+#endif
+
+
+#ifdef GLBUILD
 	void DrawWorld(Shader* shader, std::vector<glm::mat4> transform_stack = {}, unsigned int infoFlags = 0x00) {
 		glm::mat4 model = glm::mat4();
 		shader->setMatrix("model", model);
@@ -1149,7 +1237,70 @@ public:
 		shader->setMatrix("model", model);
 		// Draw 
 	}
+#endif
 
+#ifdef DXBUILD
+	void DrawEntities(DXShaderCombo* shader, DXRendering& dxr, std::vector<DirectX::XMMATRIX> transform_stack = {}, unsigned int infoFlags = 0x00)
+	{
+		DirectX::XMMATRIX model = DirectX::XMMATRIX();
+		shader->SetMatrixModel(dxr, model);
+		shader->SetUnsignedInfo(dxr, infoFlags);
+
+		// Draw props
+		for (auto&& ent : this->m_entities)
+		{
+			// Visgroup pre-check
+			if (check_in_whitelist(&ent.m_editorvalues.m_visgroups, this->m_whitelist_visgroups))
+			{
+				if (this->m_whitelist_classnames.count(ent.m_classname))
+				{
+					if (ent.m_classname == "prop_static" || ent.m_classname == "prop_dynamic" || ent.m_classname == "prop_physics")
+					{
+						if (ent.m_origin.y > this->m_render_h_min || ent.m_origin.y < this->m_render_h_max) continue;
+
+						// I think model is just the transformation matrix?
+						model = DirectX::XMMATRIX();
+						model = DirectX::XMMatrixTranslationFromVector(DX::XMLoadFloat3(&ent.m_origin));
+						DirectX::XMFLOAT3 rot;
+						vmf_parse::Vector3f(kv::tryGetStringValue(ent.m_keyvalues, "angles", "0 0 0"), &rot);
+
+						// Hoping this works
+						model = DirectX::XMMatrixRotationRollPitchYaw(1, 1, 1);
+						
+
+						float scalingvector = (float)::atof(kv::tryGetStringValue(ent.m_keyvalues, "uniformscale", "1").c_str());
+						model = DirectX::XMMatrixScaling(scalingvector, scalingvector, scalingvector);
+						// Figure out how to access these later
+						shader->SetMatrixModel(dxr, model);
+						shader->SetUnsignedInfo(dxr, infoFlags);
+						shader->SetVec2Origin(dxr, DirectX::XMFLOAT2(ent.m_origin.x, ent.m_origin.z));
+
+						if (vmf::s_model_dict.count(kv::tryGetStringValue(ent.m_keyvalues, "model", "error.mdl")))
+							vmf::s_model_dict[kv::tryGetStringValue(ent.m_keyvalues, "model", "error.mdl")]->Draw(dxr);
+					}
+					else {
+						model = DX::XMMATRIX();
+						shader->SetMatrixModel(dxr, model);
+						shader->SetUnsignedInfo(dxr, infoFlags);
+
+						for (auto&& s : ent.m_internal_solids)
+						{
+							if (s.NWU.y > this->m_render_h_min || s.NWU.y < this->m_render_h_max) continue;
+							shader->SetVec2Origin(dxr, DirectX::XMFLOAT2(ent.m_origin.x, ent.m_origin.z));
+							s.Draw(shader, dxr);
+						}
+					}
+				}
+			}
+		}
+		// Resets
+		model = DX::XMMATRIX();
+		shader->SetMatrixModel(dxr, model);
+		shader->SetUnsignedInfo(dxr, infoFlags);
+	}
+#endif
+
+	#ifdef GLBUILD
 	void DrawEntities(Shader* shader, std::vector<glm::mat4> transform_stack = {}, unsigned int infoFlags = 0x00) {
 		glm::mat4 model = glm::mat4();
 		shader->setMatrix("model", model);
@@ -1160,9 +1311,7 @@ public:
 			// Visgroup pre-check
 			if (check_in_whitelist(&ent.m_editorvalues.m_visgroups, this->m_whitelist_visgroups)) {
 				if (this->m_whitelist_classnames.count(ent.m_classname)) {
-					if (ent.m_classname == "prop_static" ||
-						ent.m_classname == "prop_dynamic" ||
-						ent.m_classname == "prop_physics" ) {
+					if (ent.m_classname == "prop_static" || ent.m_classname == "prop_dynamic" || ent.m_classname == "prop_physics" ) {
 						if (ent.m_origin.y > this->m_render_h_min || ent.m_origin.y < this->m_render_h_max) continue;
 
 						model = glm::mat4();
@@ -1200,7 +1349,7 @@ public:
 		shader->setMatrix("model", model);
 		shader->setUnsigned("Info", infoFlags);
 	}
-
+	#endif
 	BoundingBox getVisgroupBounds(const std::string& visgroup) {
 		BoundingBox bounds;
 		if (!this->m_visgroups.count(visgroup)) return bounds;

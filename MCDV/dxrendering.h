@@ -16,6 +16,7 @@ public:
 	void PrintVersion() noexcept;
 	Microsoft::WRL::ComPtr<ID3D11VertexShader> LoadVertexShader(const std::wstring& path);
 	Microsoft::WRL::ComPtr<ID3D11PixelShader> LoadPixelShader(const std::wstring& path);
+	void DrawIndexed();
 // Was private, not sure if will cause any issues
 public:
 	Microsoft::WRL::ComPtr<ID3D11Device> pDevice;

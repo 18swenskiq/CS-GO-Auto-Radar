@@ -5,9 +5,15 @@
 #include <map>
 #include <set>
 
+#ifdef DXBUILD
+#include <DirectXMath.h>
+#endif
+
+#ifdef GLBUILD
 #include <glm\glm.hpp>
 #include <glm\gtc\matrix_transform.hpp>
 #include <glm\gtc\type_ptr.hpp>
+#endif
 
 #include "Texture.hpp"
 #include "GradientMap.hpp"
@@ -40,7 +46,12 @@ public:
 	std::vector<tar_config_layer> layers;
 
 	// Camera settings
+	#ifdef DXBUILD
+	DirectX::XMFLOAT2 m_view_origin;
+	#endif
+	#ifdef GLBUILD
 	glm::vec2		m_view_origin;
+	#endif
 	float			m_render_ortho_scale;
 
 	BoundingBox		m_map_bounds;
@@ -65,6 +76,17 @@ public:
 	bool			m_write_txt = true;
 	bool			m_write_png = false;
 
+	#ifdef DXBUILD
+	// Color settings
+	DirectX::XMFLOAT4		m_color_cover;
+	DirectX::XMFLOAT4		m_color_cover2;
+	DirectX::XMFLOAT4		m_color_outline;
+	DirectX::XMFLOAT4		m_color_ao;
+	DirectX::XMFLOAT4		m_color_buyzone;
+	DirectX::XMFLOAT4		m_color_objective;
+	#endif
+
+	#ifdef GLBUILD
 	// Color settings
 	glm::vec4		m_color_cover;
 	glm::vec4		m_color_cover2;
@@ -72,6 +94,7 @@ public:
 	glm::vec4		m_color_ao;
 	glm::vec4		m_color_buyzone;
 	glm::vec4		m_color_objective;
+	#endif
 
 	// Visgroups
 	std::string		m_visgroup_layout;
@@ -176,11 +199,21 @@ public:
 		std::cout << -this->m_map_bounds.NWU.x << "," << this->m_map_bounds.NWU.y << "," << this->m_map_bounds.NWU.z << "\n";
 		std::cout << -this->m_map_bounds.SEL.x << "," << this->m_map_bounds.SEL.y << "," << this->m_map_bounds.SEL.z << "\n";
 
+		#ifdef DXBUILD
+		for (auto&& min : v->get_entities_by_classname("tar_min"))
+			this->m_map_bounds.SEL.y = std::max(min->m_origin.y, this->m_map_bounds.SEL.y);
+
+		for (auto&& max : v->get_entities_by_classname("tar_max"))
+			this->m_map_bounds.NWU.y = std::min(max->m_origin.y, this->m_map_bounds.NWU.y);
+		#endif
+
+		#ifdef GLBUILD
 		for (auto && min : v->get_entities_by_classname("tar_min"))
 			this->m_map_bounds.SEL.y = glm::max(min->m_origin.y, this->m_map_bounds.SEL.y);
 
 		for(auto && max : v->get_entities_by_classname("tar_max"))
 			this->m_map_bounds.NWU.y = glm::min(max->m_origin.y, this->m_map_bounds.NWU.y);
+		#endif
 
 		float padding = 128.0f;
 
@@ -193,13 +226,25 @@ public:
 		float dist_x = x_bounds_max - x_bounds_min;
 		float dist_y = y_bounds_max - y_bounds_min;
 
+		#ifdef DXBUILD
+		float mx_dist = std::max(dist_x, dist_y);
+		#endif
+		#ifdef GLBUILD
 		float mx_dist = glm::max(dist_x, dist_y);
+		#endif
 
 		float justify_x = (mx_dist - dist_x) * 0.5f;
 		float justify_y = (mx_dist - dist_y) * 0.5f;
 		
+		#ifdef DXBUILD
+		this->m_render_ortho_scale = round((mx_dist / 1024.0f) / 0.01f) * 0.01f * 1024.0f;
+		this->m_view_origin = DirectX::XMFLOAT2(x_bounds_min - justify_x, y_bounds_max + justify_y);
+		#endif
+
+		#ifdef GLBUILD
 		this->m_render_ortho_scale =	glm::round((mx_dist / 1024.0f) / 0.01f) * 0.01f * 1024.0f;
 		this->m_view_origin =			glm::vec2(x_bounds_min - justify_x, y_bounds_max + justify_y);
+		#endif
 
 		// Get map splits
 		std::vector<entity*> splitters = v->get_entities_by_classname("tar_map_divider");

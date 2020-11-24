@@ -192,11 +192,9 @@ int app(int argc, const char** argv) {
 	// -----------Various filesystem things-----------
 	vfilesys* filesys = new vfilesys(g_game_path + "/gameinfo.txt");
 	vmf::LinkVFileSystem(filesys);
-	g_vmf_file = vmf::from_file(g_mapfile_path + ".vmf");
-	g_vmf_file->InitModelDict();
+	g_vmf_file = vmf::from_file(g_mapfile_path + ".vmf", *dxr);
+	g_vmf_file->InitModelDict(*dxr);
 	g_tar_config = new tar_config(g_vmf_file);
-
-
 
 
 

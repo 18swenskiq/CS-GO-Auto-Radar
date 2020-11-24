@@ -123,3 +123,8 @@ wrl::ComPtr<ID3D11PixelShader> DXRendering::LoadPixelShader(const std::wstring& 
 	pDevice->CreatePixelShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &pPixelShader);
 	return pPixelShader;
 }
+
+void DXRendering::DrawIndexed()
+{
+	pContext->DrawIndexed(1, 0u, 0u);
+}

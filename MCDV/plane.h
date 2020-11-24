@@ -10,7 +10,6 @@
 #include <vector>
 
 #include <math.h>
-
 class Plane {
 public:
 	glm::vec3 normal;
@@ -55,6 +54,20 @@ public:
 		*p = (-(p1.offset * glm::cross(p2.normal, p3.normal)) -
 			(p2.offset * glm::cross(p3.normal, p1.normal)) -
 			(p3.offset * glm::cross(p1.normal, p2.normal))) / det;
+
+		// a = p1.offset
+		// b = glm::cross(p2.normal, p3.normal)
+		// c = p2.offset
+		// d = glm::cross(p3.normal, p1.normal)
+		// e = p3.offset
+		// f = glm::cross(p1.normal, p2.normal)
+		// g = det
+
+
+		//*p = (  -(a * b) - (c * d) - (e * f)  ) / g
+
+
+
 		return true;
 	}
 

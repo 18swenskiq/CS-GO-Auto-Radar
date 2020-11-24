@@ -30,4 +30,9 @@ public:
 		// like state settings (a.k.a material attribute).
 	}
 
+	void DXMesh::Draw(DXRendering& dxr)
+	{
+		dxr.DrawIndexed();
+	}
+
 };

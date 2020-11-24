@@ -167,12 +167,6 @@
     <ClInclude Include="main.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="dxrendering.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="DXShaderCombo.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="DXMesh.h">
       <Filter>DirectX\Header Files</Filter>
     </ClInclude>
@@ -192,6 +186,12 @@
       <Filter>DirectX\Header Files</Filter>
     </ClInclude>
     <ClInclude Include="DXPlane.h">
+      <Filter>DirectX\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DXShaderCombo.h">
+      <Filter>DirectX\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="dxrendering.h">
       <Filter>DirectX\Header Files</Filter>
     </ClInclude>
   </ItemGroup>
