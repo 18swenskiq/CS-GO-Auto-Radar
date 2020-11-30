@@ -1,3 +1,5 @@
+NOTE: Since Terri deleted the original repo, I have uploaded it here
+
 # CS:GO Auto Radar
 Automatically make a radar with every compile of a map you do:
 
